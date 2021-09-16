@@ -1,3 +1,5 @@
+// based on https://github.com/azu/kvs/tree/master/packages/indexeddb
+
 const READONLY = "readonly";
 const READWRITE = "readwrite";
 
@@ -9,6 +11,10 @@ const debug = {
     }
     console.log(...args);
   },
+};
+
+export const debugEnabled = (enabled: boolean) => {
+  debug.enabled = enabled;
 };
 
 export const openDB = (
