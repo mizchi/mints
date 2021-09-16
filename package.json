@@ -1,0 +1,20 @@
+{
+  "name": "@mizchi/idb-ops",
+  "version": "0.0.1",
+  "main": "dist/idb-ops.js",
+  "types": "types/index.d.ts",
+  "scripts": {
+    "dev": "vite",
+    "build": "LIB=1 vite build && yarn tsc",
+    "test": "tsc -p . --noEmit --emitDeclarationOnly false"
+  },
+  "devDependencies": {
+    "typescript": "^4.3.2",
+    "vite": "^2.4.2"
+  },
+  "files": [
+    "src",
+    "types",
+    "dist"
+  ]
+}
