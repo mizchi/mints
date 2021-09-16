@@ -1,6 +1,6 @@
 # @mizchi/idb-ops
 
-simple idb wrapper focused on batch updating.
+simple and lightweight idb wrapper focused on bulk update.
 
 ```bash
 $ npm install @mizchi/idb-ops --save
