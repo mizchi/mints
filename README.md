@@ -3,9 +3,9 @@
 simple parser generator based on regexp groups.
 
 ```bash
-$ npm install @mizchi/idb-ops --save
+$ npm install @mizchi/flat-pargen --save
 # or
-$ yarn add @mizchi/idb-ops
+$ yarn add @mizchi/flat-pargen
 ```
 
 ## How to use

@@ -23,6 +23,15 @@ test("seq", () => {
   assert.deepStrictEqual(parsed, "a");
 });
 
+test("seq-nested", () => {
+  const parse = compile(
+    // @ts-ignore
+    $.seq([$.param("a", $.seq([$.param("b", $.expr("\\w"))]))])
+  );
+  const parsed = parse("c");
+  assert.deepStrictEqual(parsed, { a: { b: "c" } });
+});
+
 test("seq with name", () => {
   const parse = compile($.seq([$.param("a", $.expr("a"))]));
   const parsed = parse("a");
