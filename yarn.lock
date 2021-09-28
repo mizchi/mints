@@ -2,6 +2,11 @@
 # yarn lockfile v1
 
 
+"@mizchi/testio@^0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@mizchi/testio/-/testio-0.0.3.tgz#3d66106bd7b45368972584cc7fee2dc18d10f483"
+  integrity sha512-LBpU3K8Y7CIZX+ULllkR5gpmmOgz4rw2uZSgRrckBYYd3iLQ1EANUcZW3YIdbe+apMBJCJBulG08H3hSOnsikA==
+
 "@types/node@^16.9.1":
   version "16.9.1"
   resolved "https://registry.yarnpkg.com/@types/node/-/node-16.9.1.tgz#0611b37db4246c937feef529ddcc018cf8e35708"

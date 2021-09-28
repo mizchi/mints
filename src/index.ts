@@ -1,283 +1,211 @@
-// based on https://github.com/azu/kvs/tree/master/packages/indexeddb
+enum Kind {
+  SEQ = 1,
+  REPEAT,
+  EXPR,
+  OR,
+}
 
-const READONLY = "readonly";
-const READWRITE = "readwrite";
-
-const debug = {
-  enabled: false,
-  log(...args: any[]) {
-    if (!debug.enabled) {
-      return;
-    }
-    console.log(...args);
-  },
+type Parser<In = any, Out = any> = (input: In) => Out;
+type NodeBase<In = any, Out = any> = {
+  reshape: Parser<In, Out>;
+  key: string | void;
 };
 
-export const debugEnabled = (enabled: boolean) => {
-  debug.enabled = enabled;
+export type Node<In = any, Out = any> =
+  | Seq<In, Out>
+  | Expr<Out>
+  | Or<In, Out>
+  | Repeat<In, Out>;
+
+export type Seq<In = any, Out = any> = NodeBase<In, Out> & {
+  kind: Kind.SEQ;
+  children: Node<In, Out>[];
 };
 
-export const openDB = (
-  name: string,
-  version: number,
-  tableNames: string[],
-  onUpgrade: (
-    oldVersion: number,
-    newVersion: number,
-    database: IDBDatabase
-  ) => any
-): Promise<IDBDatabase> => {
-  return new Promise((resolve, reject) => {
-    const openRequest = indexedDB.open(name, version);
-    openRequest.onupgradeneeded = (event) => {
-      const oldVersion = event.oldVersion;
-      const newVersion = event.newVersion ?? version;
-      const database = openRequest.result;
-      // migrate from schema
-      for (const tableName of tableNames) {
-        try {
-          database.createObjectStore(tableName);
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      // for drop instance
-      // https://github.com/w3c/IndexedDB/issues/78
-      // https://www.w3.org/TR/IndexedDB/#introduction
-      database.onversionchange = () => database.close();
-
-      // @ts-ignore
-      event.target.transaction.oncomplete = () => {
-        Promise.resolve(onUpgrade(oldVersion, newVersion, database)).then(
-          () => {
-            return resolve(database);
-          }
-        );
-      };
-    };
-    openRequest.onblocked = () => reject(openRequest.error);
-    openRequest.onerror = () => reject(openRequest.error);
-    openRequest.onsuccess = () => resolve(openRequest.result);
-  });
+export type Repeat<In = any, Out = any> = NodeBase<In, Out> & {
+  kind: Kind.REPEAT;
+  pattern: Node<In, Out>;
 };
 
-export const dropInstance = (
-  database: IDBDatabase,
-  databaseName: string
-): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    database.close();
-    const request = indexedDB.deleteDatabase(databaseName);
-    request.onupgradeneeded = (event) => {
-      event.preventDefault();
-      resolve();
-    };
-    request.onblocked = () => {
-      debug.log("dropInstance:blocked", request);
-      reject(request.error);
-    };
-    request.onerror = function () {
-      debug.log("dropInstance:error", request);
-      reject(request.error);
-    };
-    request.onsuccess = function () {
-      resolve();
-    };
-  });
+export type Or<In = any, Out = any> = NodeBase<In, Out> & {
+  kind: Kind.OR;
+  patterns: Array<Seq | Expr>;
 };
 
-export const get = <V>(
-  database: IDBDatabase,
-  tableName: string,
-  key: string
-): Promise<V | void> => {
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(tableName, READONLY);
-    const objectStore = transaction.objectStore(tableName);
-    const request = objectStore.get(String(key));
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
+export type Expr<Out = any> = NodeBase<string, Out> & {
+  kind: Kind.EXPR;
+  expr: string;
 };
 
-export const has = async (
-  database: IDBDatabase,
-  tableName: string,
-  key: string
-): Promise<boolean> => {
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(tableName, READONLY);
-    const objectStore = transaction.objectStore(tableName);
-    const request = objectStore.count(String(key));
-    request.onsuccess = () => {
-      resolve(request.result !== 0);
-    };
-    request.onerror = () => {
-      reject(request.error);
-    };
-  });
-};
+const concat = <T>(items: T[], fn: (t: T) => string) =>
+  items.reduce((acc: string, item: T) => acc + fn(item), "");
 
-export const set = async <V>(
-  database: IDBDatabase,
-  tableName: string,
-  key: string,
-  value: V | undefined
-): Promise<void> => {
-  // If the value is undefined, delete the key
-  // This behavior aim to align localStorage implementation
-  if (value === undefined) {
-    await deleteItem(database, tableName, key);
-    return;
-  }
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(tableName, "readwrite");
-    const objectStore = transaction.objectStore(tableName);
-    const request = objectStore.put(value, String(key));
-    transaction.oncomplete = () => {
-      resolve();
-    };
-    transaction.onabort = () => {
-      reject(request.error ? request.error : transaction.error);
-    };
-    transaction.onerror = () => {
-      reject(request.error ? request.error : transaction.error);
-    };
-  });
-};
+const defaultReshape: Parser<any, any> = <T>(i: T): T => i;
 
-function handleError(cb: Function) {
-  return (e: any) => {
-    // prevent global error throw https://bugzilla.mozilla.org/show_bug.cgi?id=872873
-    if (typeof e.preventDefault === "function") e.preventDefault();
-    cb(e.target.error);
+function createSeq(children: Expr[], reshape: Parser = defaultReshape): Seq {
+  return {
+    kind: Kind.SEQ,
+    children,
+    reshape,
+    key: undefined,
   };
 }
 
-type Command =
-  | [tableName: string, command: "set", key: string, value: string]
-  | [tableName: string, command: "delete", key: string];
-
-export const bulkMutate = async (
-  database: IDBDatabase,
-  ops: Array<Command>
-): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const tableNames = [
-      ...new Set(ops.map(([tableName]) => tableName)).values(),
-    ];
-    const tx = database.transaction(tableNames, READWRITE);
-    const stores = tableNames.reduce((acc, tableName) => {
-      const objectStore = tx.objectStore(tableName);
-      return { ...acc, [tableName]: objectStore };
-    }, {} as { [key: string]: IDBObjectStore });
-    tx.oncomplete = () => resolve();
-    tx.onabort = handleError(reject);
-    tx.onerror = handleError(reject);
-    for (const op of ops) {
-      const [tableName, command, key, value] = op;
-      if (command === "set") {
-        const req = stores[tableName].put(value, String(key));
-        req.onerror = console.error;
-      }
-      if (command === "delete") {
-        const req = stores[tableName].delete(String(key));
-        req.onerror = console.error;
-      }
-    }
-    tx.commit();
-  });
-};
-
-export const deleteItem = async (
-  database: IDBDatabase,
-  tableName: string,
-  key: string
-): Promise<void> => {
-  return new Promise<void>((resolve, reject) => {
-    const transaction = database.transaction(tableName, READWRITE);
-    const objectStore = transaction.objectStore(tableName);
-    const request = objectStore.delete(String(key));
-    transaction.oncomplete = () => {
-      resolve();
-    };
-    transaction.onabort = () => {
-      reject(request.error ? request.error : transaction.error);
-    };
-    transaction.onerror = () => {
-      reject(request.error ? request.error : transaction.error);
-    };
-  });
-};
-
-export const clear = async (
-  database: IDBDatabase,
-  tableName: string
-): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    const transaction = database.transaction(tableName, "readwrite");
-    const objectStore = transaction.objectStore(tableName);
-    const request = objectStore.clear();
-    transaction.oncomplete = () => {
-      resolve();
-    };
-    transaction.onabort = () => {
-      reject(request.error ? request.error : transaction.error);
-    };
-    transaction.onerror = () => {
-      reject(request.error ? request.error : transaction.error);
-    };
-  });
-};
-
-const iterator = <V>(
-  database: IDBDatabase,
-  tableName: string
-): AsyncIterator<[string, V]> => {
-  const handleCursor = <T>(
-    request: IDBRequest<T | null>
-  ): Promise<{ done: boolean; value?: T }> => {
-    return new Promise((resolve, reject) => {
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor) {
-          return resolve({
-            done: true,
-          });
-        }
-        return resolve({
-          done: false,
-          value: cursor,
-        });
-      };
-      request.onerror = () => {
-        reject(request.error);
-      };
-    });
-  };
-  const tx = database.transaction(tableName, READONLY);
-  const store = tx.objectStore(tableName);
-  const req = store.openCursor();
+function createOr(
+  patterns: Array<Seq | Expr>,
+  reshape: Parser = defaultReshape
+): Or {
   return {
-    async next() {
-      const { done, value } = await handleCursor(req);
-      if (!done) {
-        const storageKey = value?.key as string;
-        const storageValue = value?.value as V;
-        value?.continue();
-        return { done: false, value: [storageKey, storageValue] };
-      }
-      return { done: true, value: undefined };
-    },
+    kind: Kind.OR,
+    patterns,
+    key: undefined,
+    reshape,
   };
+}
+
+function createRepeat(
+  pattern: Node,
+  reshape: Parser<any, any> = defaultReshape
+): Repeat {
+  return {
+    kind: Kind.REPEAT,
+    pattern,
+    reshape,
+    key: undefined,
+  };
+}
+
+function createExpr(
+  expr: string,
+  reshape: Parser<any, any> = defaultReshape
+): Expr {
+  return {
+    kind: Kind.EXPR,
+    expr,
+    reshape,
+    key: undefined,
+  };
+}
+
+export const $ = {
+  expr: createExpr,
+  repeat: createRepeat,
+  or: createOr,
+  seq: createSeq,
+  param<T extends Node>(key: string, node: T): T {
+    return { ...node, key };
+  },
+  join(...expr: string[]): Expr {
+    return createExpr(expr.join(""));
+  },
 };
 
-export const iter = (database: IDBDatabase, tableName: string) => ({
-  [Symbol.asyncIterator]() {
-    return iterator(database, tableName);
-  },
-});
+// serialize
+function serializeToFlatRegex(node: Node): string {
+  switch (node.kind) {
+    case Kind.EXPR: {
+      return node.expr;
+    }
+    case Kind.OR: {
+      const patterns = node.patterns.map(serializeToFlatRegex);
+      return "(" + patterns.join("|") + ")";
+    }
+    case Kind.REPEAT: {
+      const pattern = serializeToFlatRegex(node.pattern);
+      return `(${pattern}){0,}`;
+    }
+    case Kind.SEQ: {
+      return concat(node.children, serializeToFlatRegex);
+    }
+    default: {
+      throw new Error("WIP expr and parser");
+    }
+  }
+}
+
+function serializeToGroupRegex(seq: Seq): string {
+  return seq.children.reduce((acc, child) => {
+    const flat = serializeToFlatRegex(child);
+    if (child.key) {
+      return `${acc}(?<${child.key}>${flat})`;
+    }
+    return `${acc}${flat}`;
+  }, "");
+}
+
+export function compile(node: Node): Parser<string, any> {
+  const reshape = node.reshape;
+  switch (node.kind) {
+    case Kind.EXPR: {
+      const re = new RegExp(`^${serializeToFlatRegex(node)}`);
+      return (input: string) => {
+        const m = re.exec(input);
+        if (m == null) return;
+        return reshape(input);
+      };
+    }
+    case Kind.OR: {
+      const compiledPatterns = node.patterns.map((p) => {
+        return {
+          parse: compile(p),
+          re: new RegExp(`^${serializeToFlatRegex(p)}`),
+        };
+      });
+      return (input: string) => {
+        for (const next of compiledPatterns) {
+          const m = next.re.exec(input);
+          if (m == null) continue;
+          const result = next.parse(input);
+          if (result) {
+            return reshape(result);
+          }
+        }
+        return null;
+      };
+    }
+    case Kind.SEQ: {
+      const re = new RegExp(`^${serializeToGroupRegex(node)}`);
+      const composedParser = node.children.reduce(
+        (parent: Parser<any, any>, next: Node) => {
+          if (next.key == null) return parent;
+          const childParser = compile(next);
+          return (result: any) =>
+            parent({
+              ...result,
+              [next.key!]: childParser(result[next.key!]),
+            });
+        },
+        (result: any) => result
+      );
+      return (input: string = "") => {
+        const m = input.match(re);
+        if (m == null) return;
+        const full = m[0];
+        if (m.groups) {
+          return reshape(composedParser(m.groups));
+        }
+        return reshape(composedParser(full));
+      };
+    }
+    case Kind.REPEAT: {
+      const re = new RegExp(`^${serializeToFlatRegex(node.pattern)}`);
+      const parser = compile(node.pattern);
+      return (input: string) => {
+        const xs: string[] = [];
+        while (input.length > 0) {
+          const m = input.match(re);
+          if (m == null) break;
+          const full = m[0];
+          xs.push(full);
+          input = input.slice(full.length);
+        }
+        return node.reshape(xs.map(parser) as any);
+      };
+    }
+    default: {
+      throw new Error("WIP expr and parser");
+    }
+  }
+}
+
+// test
