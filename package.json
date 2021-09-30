@@ -1,18 +1,18 @@
 {
-  "name": "@mizchi/flat-pargen",
+  "name": "@mizchi/pargen",
   "module": "dist/index.js",
   "main": "dist/index.cjs",
-  "type": "module",
   "version": "0.0.1",
   "types": "types/index.d.ts",
   "scripts": {
     "dev": "vite",
     "build": "LIB=1 vite build && yarn tsc",
-    "test": "tsc -p . --noEmit --emitDeclarationOnly false"
+    "test": "tsc -p . --noEmit --emitDeclarationOnly false && env NODE_ENV=test esbuild-node src/index.ts"
   },
   "devDependencies": {
     "@mizchi/testio": "^0.0.3",
     "@types/node": "^16.9.1",
+    "esbuild-node": "^0.4.0",
     "typescript": "^4.3.2",
     "vite": "^2.4.2"
   },

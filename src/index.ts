@@ -507,7 +507,6 @@ if (process.env.NODE_ENV === "test") {
   test("json expression", () => {
     const { compile, builder: $ } = createContext();
     const _ = $.def("_", "\\s*");
-    // const ident = $.def("ident", "\\w+");
     const stringLiteral = $.def("stringLiteral", `"[^"]"`);
     const numberLiteral = $.def("numberLiteral", `[0-9]|[1-9][0-9]*`);
     const booleanLiteral = $.def("booleanLiteral", `true|false`);

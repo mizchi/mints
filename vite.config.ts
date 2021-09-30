@@ -1,8 +1,11 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  define: {
+    "process.env.NODE_ENV": JSON.stringify("production"),
+  },
   build: {
-    target: "es2019",
+    target: "esnext",
     lib: process.env.LIB && {
       entry: "src/index",
       formats: ["es", "cjs"],
