@@ -1,44 +1,5 @@
-enum Kind {
-  SEQ = 1,
-  REPEAT,
-  EXPR,
-  OR,
-}
-
-type Parser<In = any, Out = any> = (input: In) => Out;
-type NodeBase<In = any, Out = any> = {
-  reshape: Parser<In, Out>;
-  key: string | void;
-};
-
-export type Node<In = any, Out = any> =
-  | Seq<In, Out>
-  | Expr<Out>
-  | Or<In, Out>
-  | Repeat<In, Out>;
-
-export type Seq<In = any, Out = any> = NodeBase<In, Out> & {
-  kind: Kind.SEQ;
-  children: Node<In, Out>[];
-};
-
-export type Repeat<In = any, Out = any> = NodeBase<In, Out> & {
-  kind: Kind.REPEAT;
-  pattern: Node<In, Out>;
-};
-
-export type Or<In = any, Out = any> = NodeBase<In, Out> & {
-  kind: Kind.OR;
-  patterns: Array<Seq | Expr>;
-};
-
-export type Expr<Out = any> = NodeBase<string, Out> & {
-  kind: Kind.EXPR;
-  expr: string;
-};
-
-const concat = <T>(items: T[], fn: (t: T) => string) =>
-  items.reduce((acc: string, item: T) => acc + fn(item), "");
+import { Parser, Expr, Seq, Kind, Or, Repeat, Node } from "./types";
+import { compileToRegexp } from "./compile_to_regexp";
 
 const defaultReshape: Parser<any, any> = <T>(i: T): T => i;
 
@@ -100,32 +61,9 @@ export const $ = {
   },
 };
 
-// serialize
-function serializeToFlatRegex(node: Node): string {
-  switch (node.kind) {
-    case Kind.EXPR: {
-      return node.expr;
-    }
-    case Kind.OR: {
-      const patterns = node.patterns.map(serializeToFlatRegex);
-      return "(" + patterns.join("|") + ")";
-    }
-    case Kind.REPEAT: {
-      const pattern = serializeToFlatRegex(node.pattern);
-      return `(${pattern}){0,}`;
-    }
-    case Kind.SEQ: {
-      return concat(node.children, serializeToFlatRegex);
-    }
-    default: {
-      throw new Error("WIP expr and parser");
-    }
-  }
-}
-
 function serializeToGroupRegex(seq: Seq): string {
   return seq.children.reduce((acc, child) => {
-    const flat = serializeToFlatRegex(child);
+    const flat = compileToRegexp(child);
     if (child.key) {
       return `${acc}(?<${child.key}>${flat})`;
     }
@@ -137,7 +75,7 @@ export function compile(node: Node): Parser<string, any> {
   const reshape = node.reshape;
   switch (node.kind) {
     case Kind.EXPR: {
-      const re = new RegExp(`^${serializeToFlatRegex(node)}`);
+      const re = new RegExp(`^${compileToRegexp(node)}`);
       return (input: string) => {
         const m = re.exec(input);
         if (m == null) return;
@@ -148,7 +86,7 @@ export function compile(node: Node): Parser<string, any> {
       const compiledPatterns = node.patterns.map((p) => {
         return {
           parse: compile(p),
-          re: new RegExp(`^${serializeToFlatRegex(p)}`),
+          re: new RegExp(`^${compileToRegexp(p)}`),
         };
       });
       return (input: string) => {
@@ -188,7 +126,7 @@ export function compile(node: Node): Parser<string, any> {
       };
     }
     case Kind.REPEAT: {
-      const re = new RegExp(`^${serializeToFlatRegex(node.pattern)}`);
+      const re = new RegExp(`^${compileToRegexp(node.pattern)}`);
       const parser = compile(node.pattern);
       return (input: string) => {
         const xs: string[] = [];
@@ -207,5 +145,3 @@ export function compile(node: Node): Parser<string, any> {
     }
   }
 }
-
-// test

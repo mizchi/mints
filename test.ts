@@ -2,7 +2,7 @@
 import { test, run } from "@mizchi/testio/dist/testio.cjs";
 import assert from "assert";
 
-import { compile, $ } from "./src/index";
+import { compile, $, Repeat } from "./src/index";
 
 test("expr", () => {
   const parse = compile($.expr("a"));
