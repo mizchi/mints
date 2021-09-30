@@ -506,7 +506,7 @@ if (process.env.NODE_ENV === "test") {
   test("json expression", () => {
     const { compile, builder: $ } = createContext();
     const _ = $.def("_", "\\s*");
-    const ident = $.def("ident", "\\w+");
+    // const ident = $.def("ident", "\\w+");
     const stringLiteral = $.def("stringLiteral", `"[^"]"`);
     const numberLiteral = $.def("numberLiteral", `[0-9]|[1-9][0-9]*`);
     const booleanLiteral = $.def("booleanLiteral", `true|false`);
@@ -556,7 +556,7 @@ if (process.env.NODE_ENV === "test") {
       $.seq([
         _,
         // key: value
-        $.param("key", ident),
+        $.param("key", stringLiteral),
         _,
         "\\:",
         _,
@@ -620,63 +620,62 @@ if (process.env.NODE_ENV === "test") {
     // test as literal
     const parseExpression = compile(anyLiteral);
     assert.deepStrictEqual(
-      parseExpression(`{  a : "1", b: "2", c : true, d: null }`).result,
+      parseExpression(`{  "a" : "1", "b": "2", "c" : true, "d": null }`).result,
       {
         type: "object",
         values: [
           {
-            key: "a",
+            key: '"a"',
             value: '"1"',
           },
           {
-            key: "b",
+            key: '"b"',
             value: '"2"',
           },
           {
-            key: "c",
+            key: '"c"',
             value: "true",
           },
           {
-            key: "d",
+            key: '"d"',
             value: "null",
           },
         ],
       }
     );
-
     // const now = Date.now();
-    const jsonText = `{  a: { b: "2" }, c: {}, d: [1], e: [{} ] }`;
+    const jsonText = `{  "a": { "b": "2" }, "c": {}, "d": [1], "e": [{} ] }`;
     assert.deepStrictEqual(parseExpression(jsonText).result, {
       type: "object",
       values: [
         {
-          key: "a",
+          key: '"a"',
           value: {
             type: "object",
             values: [
               {
-                key: "b",
+                key: '"b"',
                 value: '"2"',
               },
             ],
           },
         },
         {
-          key: "c",
+          key: '"c"',
           value: {
             type: "object",
             values: [],
           },
         },
         {
-          key: "d",
+          key: '"d"',
           value: {
             type: "array",
             values: ["1"],
           },
         },
         {
-          key: "e",
+          key: '"e"',
           value: {
             type: "array",
             values: [{ type: "object", values: [] }],
