@@ -1,10 +1,12 @@
+import { buildTokenMap, readPairedBlock, TokenMap } from "./utils";
 export enum Kind {
   SEQ = 1,
   REPEAT,
   EXPR,
   OR,
-  SYMBOL,
-  RECURSION,
+  REF,
+  EOF,
+  PAIR,
 }
 
 const defaultReshape: Parser<any, any> = <T>(i: T): T => i;
@@ -14,17 +16,33 @@ type NodeBase = {
   reshape: Parser;
   key: string | void;
   nullable: boolean;
+  skip: boolean;
+};
+const nodeBaseDefault: Omit<NodeBase, "id" | "reshape"> = {
+  key: undefined,
+  nullable: false,
+  skip: false,
 };
 
-export type Node = Seq | Expr | Or | Repeat | Symbol;
+export type Node = Seq | Expr | Or | Repeat | Ref | Eof | Pair;
+
+export type Eof = NodeBase & {
+  kind: Kind.EOF;
+};
+
+export type Pair = NodeBase & {
+  kind: Kind.PAIR;
+  open: string;
+  close: string;
+};
 
 export type Seq = NodeBase & {
   kind: Kind.SEQ;
   children: Node[];
 };
 
-export type Symbol = NodeBase & {
-  kind: Kind.SYMBOL;
+export type Ref = NodeBase & {
+  kind: Kind.REF;
   ref: string;
 };
 
@@ -35,7 +53,7 @@ export type Repeat = NodeBase & {
 
 export type Or = NodeBase & {
   kind: Kind.OR;
-  patterns: Array<Seq | Expr | Symbol>;
+  patterns: Array<Seq | Expr | Ref>;
 };
 
 export type Expr = NodeBase & {
@@ -86,6 +104,12 @@ type ParseErrorBase = {
 
 type ParseError =
   | (ParseErrorBase & {
+      errorType: "Pair:Unmatch";
+    })
+  | (ParseErrorBase & {
+      errorType: "Eof:Unmatch";
+    })
+  | (ParseErrorBase & {
       errorType: "Expr:Unmatch";
       detail?: string;
     })
@@ -104,9 +128,9 @@ type ParseError =
 type ParseResult = ParseSuccess | ParseError;
 
 type ParseOption = {
-  matchAll: boolean;
   cache: SeqCacheApi;
   pos: number;
+  tokenMap: TokenMap<string>;
 };
 
 type RecParser = (input: string, opts: ParseOption) => ParseResult;
@@ -117,10 +141,14 @@ export type Parser<In = any, Out = any> = (
     cursor?: number;
     matchAll?: boolean;
     cache?: SeqCacheApi;
+    tokenMap: TokenMap<string>;
   }
 ) => Out;
 
 type SymbolMap = { [key: string]: RecParser | void };
+
+export type Builder = ReturnType<typeof createContext>["builder"];
+
 export function createContext() {
   const symbolMap: SymbolMap = {};
   const toNode = (node: NodeOrExprString): Node =>
@@ -129,14 +157,18 @@ export function createContext() {
   const genId = () => (cnt++).toString();
   const exprCache: { [key: string]: Expr } = {};
 
-  function compile(node: Node): Parser {
+  function compile(
+    node: Node,
+    { pairs = [] }: { pairs?: string[] } = {}
+  ): Parser {
     const parse = compileRec(node, { symbolMap, root: node.id });
-
     return (input: string, opts: Partial<ParseOption> = {}) => {
+      const cache = createCache();
+      const tokenMap = buildTokenMap(input, pairs);
       return parse(input, {
-        cache: createCache(),
-        matchAll: false,
+        cache: cache,
         pos: 0,
+        tokenMap,
         ...opts,
       });
     };
@@ -146,29 +178,41 @@ export function createContext() {
     refId: string | void,
     node: NodeOrExprString,
     reshape: Parser = defaultReshape
-  ): Symbol {
+  ): Ref {
     const id = refId || genId();
     symbolMap[id] = () => {
       throw new Error("Override me");
     };
     const parser = compile(toNode(node));
-    symbolMap[id] = parser;
+    symbolMap[id] = parser as any;
     return createRef(id, reshape);
   }
 
-  function createRef(refId: string, reshape: Parser = defaultReshape): Symbol {
+  function createRef(refId: string, reshape: Parser = defaultReshape): Ref {
     return {
+      ...nodeBaseDefault,
       id: "symbol:" + genId(),
-      kind: Kind.SYMBOL,
+      kind: Kind.REF,
       ref: refId,
       reshape,
-      key: undefined,
-      nullable: false,
-    };
+    } as Ref;
+  }
+  function createPair(
+    pair: [open: string, close: string],
+    reshape: Parser = defaultReshape
+  ): Pair {
+    return {
+      ...nodeBaseDefault,
+      id: "symbol:" + genId(),
+      kind: Kind.PAIR,
+      open: pair[0],
+      close: pair[1],
+      reshape,
+    } as Pair;
   }
 
   function createSeq(
-    children: NodeOrExprString[],
+    children: Array<NodeOrExprString | [key: string, ex: NodeOrExprString]>,
     reshape: Parser = defaultReshape
   ): Seq {
     // compose expr
@@ -179,42 +223,50 @@ export function createContext() {
         currentExprs.push(child);
       } else if (
         // plane expr
+        !Array.isArray(child) &&
+        !child.skip &&
         child.kind === Kind.EXPR &&
         child.reshape === defaultReshape &&
         child.key == null
       ) {
         currentExprs.push(child.expr);
       } else {
+        // compose queued expr list to one expr
         if (currentExprs.length > 0) {
           nodes.push(createExpr(currentExprs.join("")));
           currentExprs = [];
         }
-        nodes.push(child);
+        if (Array.isArray(child)) {
+          // shorthand: [key, expr]
+          const [key, ex] = child;
+          nodes.push(param(key, toNode(ex)));
+        } else {
+          // raw expr
+          nodes.push(child);
+        }
       }
     });
     nodes.push(createExpr(currentExprs.join("")));
     return {
+      ...nodeBaseDefault,
+      reshape,
       id: "seq:" + genId(),
       kind: Kind.SEQ,
       children: nodes,
-      reshape,
-      key: undefined,
-      nullable: false,
-    };
+    } as Seq;
   }
 
   function createOr(
-    patterns: Array<Seq | Expr | Symbol | Or | string>,
+    patterns: Array<Seq | Expr | Ref | Or | string>,
     reshape: Parser = defaultReshape
   ): Or {
     return {
+      ...nodeBaseDefault,
       kind: Kind.OR,
-      patterns: patterns.map(toNode) as Array<Seq | Expr | Symbol>,
-      key: undefined,
+      patterns: patterns.map(toNode) as Array<Seq | Expr | Ref>,
       reshape,
       id: "or:" + genId(),
-      nullable: false,
-    };
+    } as Or;
   }
 
   function createRepeat(
@@ -222,12 +274,11 @@ export function createContext() {
     reshape: Parser<any, any> = defaultReshape
   ): Repeat {
     return {
+      ...nodeBaseDefault,
       id: "repeat:" + genId(),
       kind: Kind.REPEAT,
       pattern: toNode(pattern),
       reshape,
-      key: undefined,
-      nullable: false,
     };
   }
 
@@ -239,13 +290,21 @@ export function createContext() {
       return exprCache[expr];
     }
     return (exprCache[expr] = {
+      ...nodeBaseDefault,
       id: `expr:${expr}`,
       kind: Kind.EXPR,
       expr,
       reshape,
-      key: undefined,
-      nullable: false,
     });
+  }
+
+  function createEof(): Eof {
+    return {
+      ...nodeBaseDefault,
+      id: "EOF",
+      kind: Kind.EOF,
+      reshape: defaultReshape,
+    };
   }
 
   const builder = {
@@ -255,29 +314,50 @@ export function createContext() {
     repeat: createRepeat,
     or: createOr,
     seq: createSeq,
+    pair: createPair,
     nullable<T extends Node>(node: T | string): T {
       return { ...(toNode(node) as T), nullable: true };
     },
-    param<T extends Node>(key: string, node: T | string): T {
-      return { ...(toNode(node) as T), key };
+    param,
+    skip<T extends Node>(node: T | string): T {
+      return { ...(toNode(node) as T), skip: true };
     },
     join(...expr: string[]): Expr {
       return createExpr(expr.join(""));
     },
+    eof: createEof,
   };
 
   return { symbolMap, builder, compile };
+
+  function param<T extends Node>(key: string, node: T | string): T {
+    return { ...(toNode(node) as T), key };
+  }
 }
+
+const findPatternAt = (
+  input: string,
+  regex: string,
+  pos: number
+): string | null => {
+  const re = new RegExp(`(?<=.{${pos}})${regex}`, "m");
+  const match = re.exec(input);
+  const notMatch = match == null || match.index !== pos;
+
+  console.log(`[find:${!notMatch}]  ${regex}  `, "~>" + input.slice(pos));
+  if (notMatch) return null;
+  return match[0];
+};
 
 export function compileRec(
   node: Node,
   opts: { symbolMap: SymbolMap; root: Node["id"] }
 ): RecParser {
-  console.log("[compiling...]", node.id);
+  // console.log("[compiling...]", node.id);
   // const existsParentCache = !!cache;
   const reshape = node.reshape;
   switch (node.kind) {
-    case Kind.SYMBOL: {
+    case Kind.REF: {
       return (input, parseOpts) => {
         const resolved = opts.symbolMap[node.ref];
         if (!resolved) {
@@ -286,33 +366,73 @@ export function compileRec(
         return resolved(input, parseOpts);
       };
     }
+    case Kind.PAIR: {
+      return (input: string, ctx) => {
+        const pairedEnd = readPairedBlock(ctx.tokenMap, ctx.pos, input.length, [
+          node.open,
+          node.close,
+        ]);
+        if (pairedEnd) {
+          return {
+            result: input.slice(ctx.pos, pairedEnd),
+            len: 0,
+            pos: ctx.pos,
+          } as ParseResult;
+        }
+        return {
+          error: true,
+          pos: ctx.pos,
+          errorType: "Eof:Unmatch",
+        } as ParseError;
+      };
+    }
+
+    case Kind.EOF: {
+      return (input: string, ctx) => {
+        const ended = Array.from(input).length === ctx.pos;
+        if (ended) {
+          return {
+            result: "",
+            len: 0,
+            pos: ctx.pos,
+          } as ParseResult;
+        }
+        return {
+          error: true,
+          pos: ctx.pos,
+          errorType: "Eof:Unmatch",
+        } as ParseError;
+      };
+    }
+
     case Kind.EXPR: {
-      const re = new RegExp(`^${node.expr}`, "m");
-      return (input: string, { cache, pos }) => {
-        const cached = cache.get(node.id, pos);
+      // const re = new RegExp(`^${node.expr}`, "m");
+      return (input: string, ctx) => {
+        const cached = ctx.cache.get(node.id, ctx.pos);
         if (cached) return cached;
-        const m = re.exec(input);
-        if (m == null) {
+        // const re = new RegExp(`(?<=.{${pos}})${node.expr}`, "m");
+        const matched = findPatternAt(input, node.expr, ctx.pos);
+        if (matched == null) {
           if (node.nullable) {
             return {
               result: null,
               len: 0,
-              pos: pos,
+              pos: ctx.pos,
             };
           }
           return {
             error: true,
-            pos: pos,
+            pos: ctx.pos,
             errorType: "Expr:Unmatch",
-            detail: `"${input}" does not fill: ${node.expr}`,
+            detail: `"${input.slice(ctx.pos)}" does not fill: ${node.expr}`,
           };
         }
-        const target = m[0];
-        const ret = {
-          result: reshape(target),
-          len: target.length,
+        // const target = matched;
+        const ret: ParseResult = {
+          result: reshape(matched),
+          len: Array.from(matched).length,
         };
-        cache.add(node.id, pos, ret);
+        ctx.cache.add(node.id, ctx.pos, ret);
         return ret;
       };
     }
@@ -323,20 +443,20 @@ export function compileRec(
           node: p,
         };
       });
-      return (input: string, { cache, matchAll, pos }) => {
+      return (input: string, ctx) => {
         const errors: ParseError[] = [];
         for (const next of compiledPatterns) {
-          let parsed = cache.get(next.node.id, pos) as ParseResult;
+          let parsed = ctx.cache.get(next.node.id, ctx.pos) as ParseResult;
           if (parsed == null) {
-            parsed = next.parse(input, { cache, matchAll, pos });
-            cache.add(next.node.id, pos, parsed);
+            parsed = next.parse(input, ctx);
+            ctx.cache.add(next.node.id, ctx.pos, parsed);
           }
           if (parsed.error === true) {
             if (node.nullable) {
               return {
                 result: null,
                 len: 0,
-                pos: pos,
+                pos: ctx.pos,
               };
             }
             errors.push(parsed);
@@ -347,9 +467,9 @@ export function compileRec(
         // console.log("[or:parse:fail]", input);
         return {
           error: true,
-          pos: pos,
+          pos: ctx.pos,
           errorType: "Or:UnmatchAll",
-          detail: `"${input}" does not match any pattern`,
+          detail: `"${input.slice(ctx.pos)}" does not match any pattern`,
           children: errors,
         } as ParseError;
       };
@@ -358,17 +478,20 @@ export function compileRec(
       const parser = compileRec(node.pattern, opts);
       return (input: string, opts) => {
         const xs: string[] = [];
-        let len = 0;
-        while (input.length > 0) {
-          const match = parser(input, { ...opts, pos: opts.pos + len });
+        let cursor = opts.pos;
+        while (cursor < input.length) {
+          const match = parser(input, { ...opts, pos: cursor });
           if (match.error === true) break;
+          // stop infinite loop
+          if (match.len === 0) {
+            throw new Error(`Zero offset repeat is not allowed`);
+          }
           xs.push(match.result);
-          len += match.len;
-          input = input.slice(match.len);
+          cursor += match.len;
         }
         return {
           result: xs.map(reshape as any),
-          len: len,
+          len: cursor - opts.pos,
           pos: opts.pos,
         };
       };
@@ -378,23 +501,27 @@ export function compileRec(
         const parse = compileRec(c, opts);
         return { parse, node: c };
       });
-      return (input: string = "", opts) => {
-        const originalInput = input.slice();
+      return (input: string = "", ctx) => {
         const result: any = {};
-        // let pos = opts.pos;
-        let len = 0;
+        let cursor = ctx.pos;
         let isObject = false;
+        let eaten = "";
         for (const parser of parsers) {
-          const match = (opts.cache.get(parser.node.id, opts.pos + len) ??
+          const match = (ctx.cache.get(parser.node.id, cursor) ??
             parser.parse(input, {
-              ...opts,
-              pos: opts.pos + len,
+              ...ctx,
+              pos: cursor,
             })) as ParseResult;
+
           if (match.error !== true) {
-            input = input.slice(match.len);
-            opts.cache.add(parser.node.id, opts.pos + len, match);
-            len += match.len;
-            if (parser.node.key) {
+            if (!parser.node.skip && match.len > 0) {
+              const text = input.slice(cursor, cursor + match.len);
+              console.log("eaten", text);
+              eaten += text;
+            }
+            ctx.cache.add(parser.node.id, cursor, match);
+            cursor += match.len;
+            if (parser.node.key && !parser.node.skip) {
               const reshaped = match.result;
               result[parser.node.key] = reshaped;
               isObject = true;
@@ -403,21 +530,17 @@ export function compileRec(
             return {
               error: true,
               errorType: "Seq:Stop",
-              pos: opts.pos,
+              pos: cursor,
               child: match,
             };
           }
         }
-        if (opts.matchAll) {
-          return {
-            error: true,
-            errorType: "Seq:NotMatchAll",
-            pos: opts.pos + len,
-            detail: "Does not match all input",
-          };
-        }
-        const ret = isObject ? result : originalInput.slice(0, len);
-        return { result: node.reshape(ret), len: len, pos: opts.pos };
+        const ret = isObject ? result : eaten;
+        return {
+          result: node.reshape(ret),
+          len: cursor - ctx.pos,
+          pos: ctx.pos,
+        };
       };
     }
     default: {
@@ -430,8 +553,101 @@ export function compileRec(
 import { test, run, cancelAll } from "@mizchi/testio/dist/testio.cjs";
 import assert from "assert";
 
-if (process.env.NODE_ENV === "test") {
-  test("named", () => {
+if (process.env.NODE_ENV === "test" && require.main === module) {
+  // @ts-ignore
+  const eq = (...args: any[]) => assert.deepStrictEqual(...(args as any));
+  test("expr", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.seq(["a"]));
+    eq(parser("a").result, "a");
+  });
+
+  test("expr", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.seq(["\\s*", "a"]));
+    eq(parser("a").result, "a");
+    eq(parser(" a").result, " a");
+    eq(parser("  y").error, true);
+  });
+
+  test("nested-expr", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.seq(["a", $.seq(["b", "c"])]));
+    eq(parser("abc").result, "abc");
+    eq(parser("adb").error, true);
+  });
+
+  test("seq-shorthand", () => {
+    const { compile, builder: $ } = createContext();
+    const seq = $.seq([
+      ["a", "x"],
+      ["b", "y"],
+    ]);
+    const parser = compile(seq);
+    assert.deepStrictEqual(parser("xy"), {
+      result: { a: "x", b: "y" },
+      len: 2,
+      pos: 0,
+    });
+  });
+
+  test("seq", () => {
+    const { compile, builder: $ } = createContext();
+
+    const seq = $.seq([$.param("a", "x"), $.param("b", "y")]);
+    const parser = compile(seq);
+    assert.deepStrictEqual(parser("xy"), {
+      result: { a: "x", b: "y" },
+      len: 2,
+      pos: 0,
+    });
+    assert.deepStrictEqual(parser("xyz"), {
+      result: { a: "x", b: "y" },
+      len: 2,
+      pos: 0,
+    });
+    assert.deepStrictEqual(parser("xz"), {
+      error: true,
+      errorType: "Seq:Stop",
+      pos: 1,
+      child: {
+        pos: 1,
+        detail: '"z" does not fill: y',
+        error: true,
+        errorType: "Expr:Unmatch",
+      },
+    });
+    assert.deepStrictEqual(parser(" xy"), {
+      error: true,
+      errorType: "Seq:Stop",
+      pos: 0,
+      child: {
+        error: true,
+        pos: 0,
+        errorType: "Expr:Unmatch",
+        detail: '" xy" does not fill: x',
+      },
+    });
+  });
+
+  test("seq-skip", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.seq(["a", $.skip("\\s*"), "b"]));
+    eq(parser("a   b").result, "ab");
+  });
+
+  test("seq-eof", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.seq(["a", $.eof()]));
+    console.log("parse", parser("a"));
+    eq(parser("a").result, "a");
+    eq(parser("a ").error, true);
+
+    const parser2 = compile($.seq([$.eof()]));
+    eq(parser2("").result, "");
+  });
+
+  test("seq-with-param", () => {
     const { compile, builder: $ } = createContext();
     const seq = $.seq([$.param("a", "a")]);
     const parser = compile(seq);
@@ -467,268 +683,16 @@ if (process.env.NODE_ENV === "test") {
     });
   });
 
-  test("reuse recursive with suffix", () => {
-    const { compile, builder: $ } = createContext();
-    const paren = $.def(
-      "paren",
-      $.seq([
-        "\\(",
-        $.or([
-          // nested: ((1))
-          $.ref("paren"),
-          // (1),
-          "1",
-        ]),
-        "\\)",
-      ])
-    );
-    const parser = compile(paren);
-    // console.log("compile success");
-    assert.deepStrictEqual(parser("(1)_"), { result: "(1)", len: 3, pos: 0 });
-    assert.deepStrictEqual(parser("((1))"), {
-      result: "((1))",
-      len: 5,
-      pos: 0,
-    });
-    assert.deepStrictEqual(parser("(((1)))"), {
-      result: "(((1)))",
-      len: 7,
-      pos: 0,
-    });
-    assert.deepStrictEqual(parser("((((1))))"), {
-      result: "((((1))))",
-      len: 9,
-      pos: 0,
-    });
-    assert.deepStrictEqual(parser("((1)", { matchAll: true }).error, true);
-    assert.deepStrictEqual(parser("((1)))", { matchAll: true }).error, true);
-  });
-
-  test("json expression", () => {
-    const { compile, builder: $ } = createContext();
-    const _ = $.def("_", "\\s*");
-    const stringLiteral = $.def("stringLiteral", `"[^"]"`);
-    const numberLiteral = $.def("numberLiteral", `[0-9]|[1-9][0-9]*`);
-    const booleanLiteral = $.def("booleanLiteral", `true|false`);
-    const nullLiteral = $.def("nullLiteral", `null`);
-    const arrayLiteral = $.def(
-      "arrayLiteral",
-      $.or([
-        $.seq(
-          [
-            "\\[",
-            _,
-            $.param("head", $.ref("anyLiteral")),
-            _,
-            $.param(
-              "tail",
-              $.repeat(
-                $.seq([
-                  // , item
-                  _,
-                  ",",
-                  _,
-                  $.param("item", $.ref("anyLiteral")),
-                ]),
-                (input) => {
-                  // throw input;
-                  return input.item;
-                }
-              )
-            ),
-            _,
-            "\\]",
-          ],
-          ({ head, tail }) => {
-            return {
-              type: "array",
-              values: [head, ...tail],
-            };
-          }
-        ),
-        $.seq(["\\[", _, "\\]"], () => ({ type: "array", values: [] })),
-      ])
-    );
-
-    // key: val
-    const objectKeyPair = $.def(
-      "keypair",
-      $.seq([
-        _,
-        // key: value
-        $.param("key", stringLiteral),
-        _,
-        "\\:",
-        _,
-        $.param("value", $.ref("anyLiteral")),
-      ])
-    );
-    // ref by key
-    const objectLiteral = $.def(
-      "objectLiteral",
-      $.or([
-        $.seq(
-          [
-            "\\{",
-            _,
-            $.param("head", objectKeyPair),
-            $.param(
-              "tail",
-              $.repeat(
-                $.seq([_, ",", $.param("item", objectKeyPair)]),
-                (input) => input.item
-              )
-            ),
-            _,
-            "\\}",
-          ],
-          (input) => {
-            return {
-              type: "object",
-              values: [input.head, ...input.tail],
-            };
-          }
-        ),
-        $.seq(["\\{", _, "\\}"], () => ({ type: "object", values: [] })),
-      ])
-    );
-
-    const anyLiteral = $.def(
-      "anyLiteral",
-      $.or([
-        objectLiteral,
-        arrayLiteral,
-        stringLiteral,
-        numberLiteral,
-        booleanLiteral,
-        nullLiteral,
-      ])
-    );
-
-    // test array
-    const parseArray = compile(arrayLiteral);
-    assert.deepStrictEqual(parseArray("[1]").result, {
-      type: "array",
-      values: ["1"],
-    });
-
-    assert.deepStrictEqual(parseArray("[1,2, {}]").result, {
-      type: "array",
-      values: ["1", "2", { type: "object", values: [] }],
-    });
-
-    // test as literal
-    const parseExpression = compile(anyLiteral);
-    assert.deepStrictEqual(
-      parseExpression(`{  "a" : "1", "b": "2", "c" : true, "d": null }`).result,
-      {
-        type: "object",
-        values: [
-          {
-            key: '"a"',
-            value: '"1"',
-          },
-          {
-            key: '"b"',
-            value: '"2"',
-          },
-          {
-            key: '"c"',
-            value: "true",
-          },
-          {
-            key: '"d"',
-            value: "null",
-          },
-        ],
-      }
-    );
-    // const now = Date.now();
-    const jsonText = `{  "a": { "b": "2" }, "c": {}, "d": [1], "e": [{} ] }`;
-    assert.deepStrictEqual(parseExpression(jsonText).result, {
-      type: "object",
-      values: [
-        {
-          key: '"a"',
-          value: {
-            type: "object",
-            values: [
-              {
-                key: '"b"',
-                value: '"2"',
-              },
-            ],
-          },
-        },
-        {
-          key: '"c"',
-          value: {
-            type: "object",
-            values: [],
-          },
-        },
-        {
-          key: '"d"',
-          value: {
-            type: "array",
-            values: ["1"],
-          },
-        },
-        {
-          key: '"e"',
-          value: {
-            type: "array",
-            values: [{ type: "object", values: [] }],
-          },
-        },
-      ],
-    });
-  });
-
-  test("seq", () => {
-    const { compile, builder: $ } = createContext();
-
-    const seq = $.seq([$.param("a", "x"), $.param("b", "y")]);
-    const parser = compile(seq);
-    assert.deepStrictEqual(parser("xy"), {
-      result: { a: "x", b: "y" },
-      len: 2,
-      pos: 0,
-    });
-    assert.deepStrictEqual(parser("xyz"), {
-      result: { a: "x", b: "y" },
-      len: 2,
-      pos: 0,
-    });
-    assert.deepStrictEqual(parser("xz"), {
-      error: true,
-      errorType: "Seq:Stop",
-      pos: 0,
-      child: {
-        pos: 1,
-        detail: '"z" does not fill: y',
-        error: true,
-        errorType: "Expr:Unmatch",
-      },
-    });
-    assert.deepStrictEqual(parser(" xy"), {
-      error: true,
-      errorType: "Seq:Stop",
-      pos: 0,
-      child: {
-        error: true,
-        pos: 0,
-        errorType: "Expr:Unmatch",
-        detail: '" xy" does not fill: x',
-      },
-    });
-  });
-
   // cancelAll();
 
   test("repeat", () => {
     const { compile, builder: $ } = createContext();
-    const seq = $.repeat($.seq([$.param("a", "x"), $.param("b", "y")]));
+    const seq = $.repeat(
+      $.seq([
+        ["a", "x"],
+        ["b", "y"],
+      ])
+    );
     const parser = compile(seq);
     assert.deepStrictEqual(parser("xy"), {
       result: [{ a: "x", b: "y" }],
@@ -764,7 +728,12 @@ if (process.env.NODE_ENV === "test") {
 
   test("repeat", () => {
     const { compile, builder: $ } = createContext();
-    const seq = $.repeat($.seq([$.param("a", "x"), $.param("b", "y")]));
+    const seq = $.repeat(
+      $.seq([
+        ["a", "x"],
+        ["b", "y"],
+      ])
+    );
     const parser = compile(seq);
     assert.deepStrictEqual(parser("xy"), {
       result: [{ a: "x", b: "y" }],
@@ -787,10 +756,39 @@ if (process.env.NODE_ENV === "test") {
     assert.deepStrictEqual(parser("xzxy"), { result: [], pos: 0, len: 0 });
   });
 
+  test("repeat:with-padding", () => {
+    const { compile, builder: $ } = createContext();
+    const seq = $.seq([
+      "_+",
+      $.param(
+        "xylist",
+        $.repeat(
+          $.seq([
+            ["a", "x"],
+            ["b", "y"],
+          ])
+        )
+      ),
+      "_+",
+    ]);
+    const parser = compile(seq);
+
+    assert.deepStrictEqual(parser("__xyxy_"), {
+      result: {
+        xylist: [
+          { a: "x", b: "y" },
+          { a: "x", b: "y" },
+        ],
+      },
+      pos: 0,
+      len: 7,
+    });
+  });
+
   test("or", () => {
     const { compile, builder: $ } = createContext();
 
-    const seq = $.or([$.expr("x"), $.expr("y")]);
+    const seq = $.or(["x", "y"]);
     const parser = compile(seq);
     assert.deepStrictEqual(parser("x"), {
       result: "x",
@@ -824,10 +822,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("or:with-cache", () => {
     const { compile, builder: $ } = createContext();
-    const seq = $.or([
-      $.seq([$.expr("x"), $.expr("y"), $.expr("z")]),
-      $.seq([$.expr("x"), $.expr("y"), $.expr("a")]),
-    ]);
+    const seq = $.or([$.seq(["x", "y", "z"]), $.seq(["x", "y", "a"])]);
     const parser = compile(seq);
     assert.deepStrictEqual(parser("xya"), {
       result: "xya",
@@ -865,6 +860,53 @@ if (process.env.NODE_ENV === "test") {
         },
       ],
     });
+  });
+
+  test("reuse recursive with suffix", () => {
+    const { compile, builder: $ } = createContext();
+    const paren = $.def(
+      "paren",
+      $.seq([
+        "\\(",
+        $.or([
+          // nested: ((1))
+          $.ref("paren"),
+          // (1),
+          "1",
+        ]),
+        "\\)",
+      ])
+    );
+    const parser = compile(paren);
+    // console.log("compile success");
+    assert.deepStrictEqual(parser("(1)_"), { result: "(1)", len: 3, pos: 0 });
+    assert.deepStrictEqual(parser("((1))"), {
+      result: "((1))",
+      len: 5,
+      pos: 0,
+    });
+    assert.deepStrictEqual(parser("(((1)))"), {
+      result: "(((1)))",
+      len: 7,
+      pos: 0,
+    });
+    assert.deepStrictEqual(parser("((((1))))"), {
+      result: "((((1))))",
+      len: 9,
+      pos: 0,
+    });
+    assert.deepStrictEqual(parser("((1)").error, true);
+  });
+
+  test("pair", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.pair(["<", ">"]), { pairs: ["<", ">"] });
+    eq(parser("<>").result, "<>");
+    eq(parser("<<>>").result, "<<>>");
+    eq(parser("<<>").error, true);
+    eq(parser("<<a>").error, true);
+    eq(parser(">").error, true);
+    eq(parser("").error, true);
   });
 
   run({ stopOnFail: true, stub: true });

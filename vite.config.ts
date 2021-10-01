@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 
 export default defineConfig({
   define: {
+    "require.main": JSON.stringify(undefined),
     "process.env.NODE_ENV": JSON.stringify("production"),
   },
   build: {

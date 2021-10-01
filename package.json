@@ -7,12 +7,14 @@
   "scripts": {
     "dev": "vite",
     "build": "LIB=1 vite build && yarn tsc",
-    "test": "tsc -p . --noEmit --emitDeclarationOnly false && env NODE_ENV=test esbuild-node src/index.ts"
+    "typecheck": "tsc -p . --noEmit --emitDeclarationOnly false",
+    "test": "NODE_ENV=test node -r esbuild-register src/index.ts"
   },
   "devDependencies": {
     "@mizchi/testio": "^0.0.3",
     "@types/node": "^16.9.1",
-    "esbuild-node": "^0.4.0",
+    "esbuild": "^0.13.3",
+    "esbuild-register": "^3.0.0",
     "typescript": "^4.3.2",
     "vite": "^2.4.2"
   },
