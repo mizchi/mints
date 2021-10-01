@@ -1,7 +1,5 @@
 import { createContext } from "./index";
 
-// @ts-ignore
-import { test, run } from "@mizchi/testio/dist/testio.cjs";
 import assert from "assert";
 
 import type { Builder } from "./index";
@@ -129,8 +127,8 @@ export function defineLiteral($: Builder) {
   };
 }
 
-// test array
-
+// @ts-ignore
+import { test, run } from "@mizchi/testio/dist/testio.cjs";
 if (process.env.NODE_ENV === "test" && require.main === module) {
   const { compile, builder: $ } = createContext();
 

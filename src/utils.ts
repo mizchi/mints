@@ -2,6 +2,18 @@
 
 export type TokenMap<T extends string> = Record<T, Array<number>>;
 
+export const findPatternAt = (
+  input: string,
+  regex: string,
+  pos: number
+): string | null => {
+  const re = new RegExp(`(?<=.{${pos}})${regex}`, "m");
+  const match = re.exec(input);
+  const notMatch = match == null || match.index !== pos;
+  if (notMatch) return null;
+  return match[0];
+};
+
 export function buildTokenMap<T extends string>(
   text: string,
   readChars: Array<T>
@@ -74,6 +86,14 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
     const hit2 = readPairedBlock(map, 2, text.length, ["{", "}"]);
     eq(text.slice(2, hit2 as number), "{ { a } }");
+  });
+
+  test("findPatternAt", () => {
+    eq(findPatternAt("a", "a", 0), "a");
+    eq(findPatternAt("abc", "\\w+", 0), "abc");
+    eq(findPatternAt("a\nb", "a\\nb", 0), "a\nb");
+    eq(findPatternAt("a\nb", "\\nb", 1), "\nb");
+    eq(findPatternAt("a\nb", "\\sb", 1), "\nb");
   });
   run({ stopOnFail: true, stub: true });
 }

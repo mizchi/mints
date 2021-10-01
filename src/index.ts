@@ -1,4 +1,9 @@
-import { buildTokenMap, readPairedBlock, TokenMap } from "./utils";
+import {
+  buildTokenMap,
+  findPatternAt,
+  readPairedBlock,
+  TokenMap,
+} from "./utils";
 export enum Kind {
   SEQ = 1,
   REPEAT,
@@ -7,6 +12,7 @@ export enum Kind {
   REF,
   EOF,
   PAIR,
+  NOT,
 }
 
 const defaultReshape: Parser<any, any> = <T>(i: T): T => i;
@@ -24,7 +30,7 @@ const nodeBaseDefault: Omit<NodeBase, "id" | "reshape"> = {
   skip: false,
 };
 
-export type Node = Seq | Expr | Or | Repeat | Ref | Eof | Pair;
+export type Node = Seq | Expr | Or | Repeat | Ref | Eof | Pair | Not;
 
 export type Eof = NodeBase & {
   kind: Kind.EOF;
@@ -34,6 +40,11 @@ export type Pair = NodeBase & {
   kind: Kind.PAIR;
   open: string;
   close: string;
+};
+
+export type Not = NodeBase & {
+  kind: Kind.NOT;
+  child: Node;
 };
 
 export type Seq = NodeBase & {
@@ -103,6 +114,9 @@ type ParseErrorBase = {
 };
 
 type ParseError =
+  | (ParseErrorBase & {
+      errorType: "Not:IncorrectMatch";
+    })
   | (ParseErrorBase & {
       errorType: "Pair:Unmatch";
     })
@@ -175,25 +189,31 @@ export function createContext() {
   }
 
   function defineSymbol(
-    refId: string | void,
+    refId: string | number | void,
     node: NodeOrExprString,
     reshape: Parser = defaultReshape
   ): Ref {
     const id = refId || genId();
+    if (symbolMap[id]) {
+      throw new Error(`Symbol:${id} is already defined`);
+    }
     symbolMap[id] = () => {
       throw new Error("Override me");
     };
     const parser = compile(toNode(node));
     symbolMap[id] = parser as any;
-    return createRef(id, reshape);
+    return createRef(id.toString(), reshape);
   }
 
-  function createRef(refId: string, reshape: Parser = defaultReshape): Ref {
+  function createRef(
+    refId: string | number,
+    reshape: Parser = defaultReshape
+  ): Ref {
     return {
       ...nodeBaseDefault,
       id: "symbol:" + genId(),
       kind: Kind.REF,
-      ref: refId,
+      ref: refId.toString(),
       reshape,
     } as Ref;
   }
@@ -256,8 +276,22 @@ export function createContext() {
     } as Seq;
   }
 
+  function createNot(
+    child: NodeOrExprString,
+    reshape: Parser = defaultReshape
+  ): Not {
+    const childNode = toNode(child);
+    return {
+      ...nodeBaseDefault,
+      kind: Kind.NOT,
+      child: childNode,
+      reshape,
+      id: "not:" + childNode.id,
+    } as Not;
+  }
+
   function createOr(
-    patterns: Array<Seq | Expr | Ref | Or | string>,
+    patterns: Array<Seq | Expr | Ref | Or | Eof | string>,
     reshape: Parser = defaultReshape
   ): Or {
     return {
@@ -315,6 +349,7 @@ export function createContext() {
     or: createOr,
     seq: createSeq,
     pair: createPair,
+    not: createNot,
     nullable<T extends Node>(node: T | string): T {
       return { ...(toNode(node) as T), nullable: true };
     },
@@ -335,20 +370,6 @@ export function createContext() {
   }
 }
 
-const findPatternAt = (
-  input: string,
-  regex: string,
-  pos: number
-): string | null => {
-  const re = new RegExp(`(?<=.{${pos}})${regex}`, "m");
-  const match = re.exec(input);
-  const notMatch = match == null || match.index !== pos;
-
-  console.log(`[find:${!notMatch}]  ${regex}  `, "~>" + input.slice(pos));
-  if (notMatch) return null;
-  return match[0];
-};
-
 export function compileRec(
   node: Node,
   opts: { symbolMap: SymbolMap; root: Node["id"] }
@@ -357,13 +378,39 @@ export function compileRec(
   // const existsParentCache = !!cache;
   const reshape = node.reshape;
   switch (node.kind) {
+    case Kind.NOT: {
+      const childParser = compileRec(node.child, opts);
+      return (input, ctx) => {
+        const result = childParser(input, ctx);
+        // invert result
+        if (result.error === true) {
+          return {
+            result: "",
+            len: 0,
+            pos: ctx.pos,
+          } as ParseResult;
+        }
+        return {
+          error: true,
+          errorType: "Not:IncorrectMatch",
+          len: 0,
+          pos: ctx.pos,
+        } as ParseError;
+      };
+    }
+
     case Kind.REF: {
-      return (input, parseOpts) => {
+      return (input, ctx) => {
         const resolved = opts.symbolMap[node.ref];
         if (!resolved) {
           throw new Error(`symbol not found: ${node.ref}`);
         }
-        return resolved(input, parseOpts);
+        const cached = ctx.cache.get(node.id, ctx.pos);
+        if (cached) return cached;
+
+        const result = resolved(input, ctx);
+        ctx.cache.add(node.id, ctx.pos, result);
+        return result;
       };
     }
     case Kind.PAIR: {
@@ -516,7 +563,6 @@ export function compileRec(
           if (match.error !== true) {
             if (!parser.node.skip && match.len > 0) {
               const text = input.slice(cursor, cursor + match.len);
-              console.log("eaten", text);
               eaten += text;
             }
             ctx.cache.add(parser.node.id, cursor, match);
@@ -556,6 +602,16 @@ import assert from "assert";
 if (process.env.NODE_ENV === "test" && require.main === module) {
   // @ts-ignore
   const eq = (...args: any[]) => assert.deepStrictEqual(...(args as any));
+
+  test("whitespace", () => {
+    const { compile, builder: $ } = createContext();
+    eq(compile($.expr("\\s+"))(" ").result, " ");
+    eq(compile($.expr("(\\s+)?"))("").result, "");
+    eq(compile($.expr("(\\s+)?"))("  ").result, "  ");
+    eq(compile($.expr("(\\s+)?"))(" \n ").result, " \n ");
+    eq(compile($.expr("(\\s+)?"))(" \t ").result, " \t ");
+  });
+
   test("expr", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.seq(["a"]));
@@ -575,6 +631,15 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const parser = compile($.seq(["a", $.seq(["b", "c"])]));
     eq(parser("abc").result, "abc");
     eq(parser("adb").error, true);
+  });
+
+  test("not", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.seq([$.not("a"), "\\w", $.not("b"), "\\w"]));
+    eq(parser("ba").result, "ba");
+    eq(parser("ab").error, true);
+    eq(parser("aa").error, true);
+    eq(parser("bb").error, true);
   });
 
   test("seq-shorthand", () => {
@@ -683,8 +748,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
   });
 
-  // cancelAll();
-
   test("repeat", () => {
     const { compile, builder: $ } = createContext();
     const seq = $.repeat(
@@ -713,6 +776,24 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       len: 2,
     });
     assert.deepStrictEqual(parser("xzxy"), { result: [], pos: 0, len: 0 });
+  });
+
+  test("repeat:str", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.repeat($.seq(["a", "b", $.eof()])));
+    assert.deepStrictEqual(parser("ab"), {
+      result: ["ab"],
+      pos: 0,
+      len: 2,
+    });
+    const parser2 = compile(
+      $.seq([$.repeat($.seq(["a", "b", $.eof()])), "\\s*"])
+    );
+    assert.deepStrictEqual(parser2("ab"), {
+      result: "ab",
+      pos: 0,
+      len: 2,
+    });
   });
 
   test("seq:multiline", () => {
