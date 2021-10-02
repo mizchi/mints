@@ -4,6 +4,7 @@ export enum NodeTypes {
   ParenExpression,
   LefthandSideExpression,
   CallExpression,
+  MemberAccessExpression,
 }
 export const _ = "([\\s\\n]+)?";
 export const __ = "\\s+";

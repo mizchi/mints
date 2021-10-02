@@ -32,17 +32,25 @@ export function defineExpressions(
 
   const PrimaryExpression = $.def(
     "primary",
-    $.or(["this", identifier, Literal.anyLiteral, parenExpression])
+    $.or([
+      "this",
+      identifier,
+      Literal.anyLiteral,
+      parenExpression,
+      $.ref(NodeTypes.CallExpression),
+    ])
   );
   const memberAccessExpression = $.def(
-    "memberAccessExpression",
+    NodeTypes.MemberAccessExpression,
     $.seq([
       PrimaryExpression,
       $.repeat(
         $.or([
           // t[1]
+          // $.seq(["\\[", $.ref(NodeTypes.MemberAccessExpression), "\\]"]),
           $.seq(["\\[", $.ref(NodeTypes.AnyExpression), "\\]"]),
-          // t.a
+
+          // t.a, t?.a
           $.seq(["(\\.|\\?\\.)", identifier]),
         ])
       ),
@@ -170,6 +178,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     assertSame(parse, [
       "a()",
       "a.b()",
+      "a[1]()",
       // TODO
       "a.b().c()",
     ]);

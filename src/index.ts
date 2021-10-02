@@ -161,9 +161,31 @@ export type Parser<In = any, Out = any> = (
 
 type SymbolMap = { [key: string]: RecParser | void };
 
-export type Builder = ReturnType<typeof createContext>["builder"];
+// export type Builder = ReturnType<typeof createContext>["builder"];
 
-export function createContext() {
+export type Builder<ID = string | number> = {
+  def(refId: ID | void, node: NodeOrExprString, reshape?: Parser): Ref;
+  ref(refId: string | number, reshape?: Parser): Ref;
+  expr(expr: string, reshape?: Parser): Expr;
+  repeat(pattern: NodeOrExprString, reshape?: Parser): Repeat;
+  or: (
+    patterns: Array<Seq | Expr | Ref | Or | Eof | string>,
+    reshape?: Parser
+  ) => Or;
+  seq(
+    children: Array<NodeOrExprString | [key: string, ex: NodeOrExprString]>,
+    reshape?: Parser
+  ): Seq;
+  pair(pair: [open: string, close: string], reshape?: Parser): Pair;
+  not(child: NodeOrExprString, reshape?: Parser): Not;
+  nullable<T extends Node>(node: T | string): T;
+  param<T extends Node>(key: string, node: T | string, reshape?: Parser): T;
+  skip<T extends Node>(node: T | string): T;
+  join(...expr: string[]): Expr;
+  eof(): Eof;
+};
+
+export function createContext<ID extends string | number = string | number>() {
   const symbolMap: SymbolMap = {};
   const toNode = (node: NodeOrExprString): Node =>
     typeof node === "string" ? createExpr(node) : node;
@@ -341,7 +363,7 @@ export function createContext() {
     };
   }
 
-  const builder = {
+  const builder: Builder<ID> = {
     def: defineSymbol,
     ref: createRef,
     expr: createExpr,
