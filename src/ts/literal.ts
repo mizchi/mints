@@ -62,18 +62,15 @@ export const arrayLiteral = $.def(
 );
 
 // key: val
-const objectKeyPair = $.def(
-  undefined,
-  $.seq([
-    _,
-    // key: value
-    $.param("key", $.or([stringLiteral, SYMBOL])),
-    _,
-    "\\:",
-    _,
-    $.param("value", $.ref(NodeTypes.AnyLiteral)),
-  ])
-);
+const objectKeyPair = $.seq([
+  _,
+  // key: value
+  $.param("key", $.or([stringLiteral, SYMBOL])),
+  _,
+  "\\:",
+  _,
+  $.param("value", $.ref(NodeTypes.AnyLiteral)),
+]);
 
 // ref by key
 export const objectLiteral = $.def(

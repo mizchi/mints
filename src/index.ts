@@ -97,7 +97,10 @@ type PackratCache = {
   get(id: Node["id"], pos: number): ParseResult | void;
 };
 
-type NodeOrTokenString = Node | string;
+type InputNodeExpr<RefId extends number | string = number> =
+  | Node
+  | string
+  | RefId;
 
 type ParseSuccess = {
   error: false;
@@ -157,27 +160,32 @@ export type Parser<In = any, Out = any> = (
 
 type RootParser = (input: string, ctx?: ParseContext) => ParseResult;
 
-type SymbolMap = { [key: string]: RecParser | void };
-
-export type Builder<ID = string | number> = {
-  def(refId: ID | void, node: NodeOrTokenString, reshape?: Parser): Ref;
+export type Builder<ID = number> = {
+  def(refId: ID, node: InputNodeExpr, reshape?: Parser): ID;
   ref(refId: ID, reshape?: Parser): Ref;
   tok(expr: string, reshape?: Parser): Token;
   repeat(
-    pattern: NodeOrTokenString,
+    pattern: InputNodeExpr,
     minmax?: [min: number | void, max?: number | void],
     reshape?: Parser
   ): Repeat;
+  repeat_seq(
+    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
+
+    minmax?: [min: number | void, max?: number | void],
+    reshape?: Parser
+  ): Repeat;
+
   or: (
-    patterns: Array<Seq | Token | Ref | Or | Eof | string>,
+    patterns: Array<Seq | Token | Ref | Or | Eof | string | ID>,
     reshape?: Parser
   ) => Or;
   seq(
-    children: Array<NodeOrTokenString | [key: string, ex: NodeOrTokenString]>,
+    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
     reshape?: Parser
   ): Seq;
   pair(pair: [open: string, close: string], reshape?: Parser): Pair;
-  not(child: NodeOrTokenString, reshape?: Parser): Not;
+  not(child: InputNodeExpr, reshape?: Parser): Not;
   opt<T extends Node>(node: T | string): T;
   param<T extends Node>(key: string, node: T | string, reshape?: Parser): T;
   skip<T extends Node>(node: T | string): T;
@@ -204,19 +212,50 @@ function createPackratCache(): PackratCache {
   };
 }
 
-export function createContext<ID extends string | number = string | number>() {
+type SymbolMap = { [key: string]: RecParser | void };
+// type RefMap<ID extends number> = Record<ID, string>;
+
+export function createContext<
+  ID extends number = number,
+  RefMap extends {} = {}
+>({
+  composeTokens = true,
+  refs = {} as RefMap,
+}: {
+  composeTokens?: boolean;
+  refs?: RefMap;
+} = {}) {
   const symbolMap: SymbolMap = {};
-  const toNode = (node: NodeOrTokenString): Node =>
-    typeof node === "string" ? createToken(node) : node;
+  const refSet = new Set(Object.values(refs)) as Set<ID>;
+  const toNode = (input: InputNodeExpr): Node => {
+    if (typeof input === "object") {
+      return input;
+    }
+    if (typeof input === "number") {
+      if (!refSet.has(input as ID)) {
+        throw new Error(
+          `[pargen:convert-expr-to-node] Ref ${
+            (refs as any)[input]
+          }:${input} not found`
+        );
+      }
+      return createRef(input);
+    }
+    return typeof input === "string" ? createToken(input) : input;
+  };
   let cnt = 0;
   const genId = () => (cnt++).toString();
   const exprCache: { [key: string]: Token } = {};
 
   function compile(
-    node: Node,
+    node: Node | ID,
     { pairs = [] }: { pairs?: string[] } = {}
   ): RootParser {
-    const parse = compileRec(node, { symbolMap, root: node.id });
+    const realNode = toNode(node);
+    const parse = compileRec(realNode, {
+      symbolMap: symbolMap,
+      root: realNode.id,
+    });
     return (input: string, ctx: Partial<ParseContext> = {}) => {
       const cache = createPackratCache();
       const tokenMap = buildTokenMap(input, pairs);
@@ -229,12 +268,8 @@ export function createContext<ID extends string | number = string | number>() {
     };
   }
 
-  function defineSymbol(
-    refId: string | number | void,
-    node: NodeOrTokenString,
-    reshape?: Parser
-  ): Ref {
-    const id = refId || genId();
+  function defineSymbol(refId: ID, node: InputNodeExpr, reshape?: Parser): ID {
+    const id = refId;
     if (symbolMap[id]) {
       throw new Error(`Symbol:${id} is already defined`);
     }
@@ -243,7 +278,8 @@ export function createContext<ID extends string | number = string | number>() {
     };
     const parser = compile(toNode(node));
     symbolMap[id] = parser as any;
-    return createRef(id.toString(), reshape);
+    // return createRef(id.toString(), reshape);
+    return id as any;
   }
 
   function createRef(refId: string | number, reshape?: Parser): Ref {
@@ -270,41 +306,54 @@ export function createContext<ID extends string | number = string | number>() {
   }
 
   function createSeq(
-    children: Array<NodeOrTokenString | [key: string, ex: NodeOrTokenString]>,
+    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
     reshape?: Parser
   ): Seq {
-    // compose expr
-    const nodes: Node[] = [];
-    let currentExprs: string[] = [];
-    children.forEach((child) => {
-      if (typeof child === "string") {
-        currentExprs.push(child);
-      } else if (
-        // plane expr
-        !Array.isArray(child) &&
-        !child.skip &&
-        child.kind === NodeKind.TOKEN &&
-        child.reshape === defaultReshape &&
-        child.key == null
-      ) {
-        currentExprs.push(child.expr);
-      } else {
-        // compose queued expr list to one expr
-        if (currentExprs.length > 0) {
-          nodes.push(createToken(currentExprs.join("")));
-          currentExprs = [];
-        }
-        if (Array.isArray(child)) {
-          // shorthand: [key, expr]
-          const [key, ex] = child;
-          nodes.push(param(key, toNode(ex)));
+    let nodes: Node[] = [];
+
+    if (composeTokens) {
+      // compose token
+      let currentTokens: string[] = [];
+      children.forEach((child) => {
+        if (typeof child === "string") {
+          currentTokens.push(child);
+        } else if (
+          // plane expr
+          typeof child !== "number" &&
+          !Array.isArray(child) &&
+          !child.skip &&
+          child.kind === NodeKind.TOKEN &&
+          child.reshape === defaultReshape &&
+          child.key == null
+        ) {
+          currentTokens.push(child.expr);
         } else {
-          // raw expr
-          nodes.push(child);
+          // compose queued expr list to one expr
+          if (currentTokens.length > 0) {
+            nodes.push(createToken(currentTokens.join("")));
+            currentTokens = [];
+          }
+          if (Array.isArray(child)) {
+            const [key, ex] = child;
+            nodes.push(param(key, toNode(ex)));
+          } else {
+            // raw expr
+            nodes.push(toNode(child));
+          }
         }
-      }
-    });
-    nodes.push(createToken(currentExprs.join("")));
+      });
+      nodes.push(createToken(currentTokens.join("")));
+    } else {
+      // do not compose for debug
+      nodes = children.map((child): Node => {
+        if (Array.isArray(child)) {
+          const [key, ex] = child;
+          return param(key, toNode(ex));
+        } else {
+          return toNode(child);
+        }
+      });
+    }
     return {
       ...nodeBaseDefault,
       reshape,
@@ -314,7 +363,7 @@ export function createContext<ID extends string | number = string | number>() {
     } as Seq;
   }
 
-  function createNot(child: NodeOrTokenString, reshape?: Parser): Not {
+  function createNot(child: InputNodeExpr, reshape?: Parser): Not {
     const childNode = toNode(child);
     return {
       ...nodeBaseDefault,
@@ -326,7 +375,7 @@ export function createContext<ID extends string | number = string | number>() {
   }
 
   function createOr(
-    patterns: Array<Seq | Token | Ref | Or | Eof | string>,
+    patterns: Array<Seq | Token | Ref | Or | Eof | string | ID>,
     reshape?: Parser
   ): Or {
     return {
@@ -339,7 +388,7 @@ export function createContext<ID extends string | number = string | number>() {
   }
 
   function createRepeat(
-    pattern: NodeOrTokenString,
+    pattern: InputNodeExpr,
     minmax?: [min: number | void, max?: number | void],
     reshape?: Parser<any, any>
   ): Repeat {
@@ -382,6 +431,9 @@ export function createContext<ID extends string | number = string | number>() {
     ref: createRef,
     tok: createToken,
     repeat: createRepeat,
+    repeat_seq(input, minmax, reshape) {
+      return createRepeat(createSeq(input), minmax, reshape);
+    },
     or: createOr,
     seq: createSeq,
     pair: createPair,
@@ -399,7 +451,7 @@ export function createContext<ID extends string | number = string | number>() {
     eof: createEof,
   };
 
-  return { symbolMap, builder, compile };
+  return { symbolMap: symbolMap, builder, compile };
 
   function param<T extends Node>(key: string, node: T | string): T {
     return { ...(toNode(node) as T), key };
@@ -446,6 +498,7 @@ export function compileRec(
   node: Node,
   opts: { symbolMap: SymbolMap; root: Node["id"] }
 ): RecParser {
+  // console.log("compileRec", node);
   const reshape = node.reshape ?? defaultReshape;
   switch (node.kind) {
     case NodeKind.NOT: {
@@ -781,9 +834,13 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("reuse symbol", () => {
-    const { compile, builder: $ } = createContext();
-    const __ = $.def("__", "\\s+");
-    const seq = $.seq(["a", __, "b", __, "c"]);
+    enum T {
+      _ = 1,
+    }
+    const { compile, builder: $ } = createContext({ refs: T as any });
+    const __ = $.def(T._, "\\s+");
+    // use result or enum
+    const seq = $.seq(["a", T._, "b", __, "c"]);
     const parser = compile(seq);
     is(parser("a b c"), {
       result: "a b c",
@@ -1051,21 +1108,26 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("reuse recursive with suffix", () => {
-    const { compile, builder: $ } = createContext();
+    enum E {
+      Paren,
+    }
+    const { compile, builder: $ } = createContext({
+      refs: E,
+    });
     const paren = $.def(
-      "paren",
+      E.Paren,
       $.seq([
         "\\(",
         $.or([
           // nested: ((1))
-          $.ref("paren"),
+          $.ref(E.Paren),
           // (1),
           "1",
         ]),
         "\\)",
       ])
     );
-    const parser = compile(paren);
+    const parser = compile($.ref(paren));
     // console.log("compile success");
     is(parser("(1)_"), { result: "(1)", len: 3, pos: 0 });
     is(parser("((1))"), {

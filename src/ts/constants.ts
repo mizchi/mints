@@ -16,6 +16,7 @@ export enum NodeTypes {
   UnaryExpression,
   ExpressionStatement,
   BinaryExpression,
+  PropertyAccessExpression,
 
   // Literal
   AnyLiteral,
@@ -126,4 +127,5 @@ export const RESERVED_WORDS = [
   "null",
   "true",
   "false",
+  "this",
 ];

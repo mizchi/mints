@@ -18,37 +18,31 @@ const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 const lefthandSideExpression = $.def(
   NodeTypes.LefthandSideExpression,
   // TODO: Call expr
-  $.or([parenExpression, $.ref(NodeTypes.CallExpression), identifier])
+  $.or([parenExpression, NodeTypes.CallExpression, identifier])
 );
 
-const PrimaryExpression = $.def(
-  undefined,
-  $.or([
-    "this",
-    identifier,
-    Literal.anyLiteral,
-    parenExpression,
-    $.ref(NodeTypes.CallExpression),
-  ])
-);
+const primary = $.or([
+  "this",
+  identifier,
+  Literal.anyLiteral,
+  parenExpression,
+  $.ref(NodeTypes.CallExpression),
+]);
+
+const property = $.or([identifier]);
+
 const memberAccessExpression = $.def(
   NodeTypes.MemberAccessExpression,
   $.seq([
-    PrimaryExpression,
+    primary,
     $.repeat(
       $.or([
         // t[property]
-        // $.seq(["\\[", $.ref(NodeTypes.MemberAccessExpression), "\\]"]),
         $.seq(["\\[", $.ref(NodeTypes.AnyExpression), "\\]"]),
-        // t.a, t?.a
-        $.seq([
-          "(\\.|\\?\\.)",
-          $.or([
-            // property
-            identifier,
-          ]),
-        ]),
-      ])
+        // t.a
+        $.seq(["(\\.|\\?\\.)", property]),
+      ]),
+      [1]
     ),
     // $.not("\\s*\\("),
   ])
@@ -140,31 +134,24 @@ if (process.env.NODE_ENV === "test") {
     });
   };
 
-  test("identExpr", () => {
+  test("identExpression", () => {
     const parse = compile(identifier);
     assertSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1"]);
     assertError(parse, ["1", "1_", "const"]);
   });
 
-  test("memberExpr", () => {
+  test("memberExpression", () => {
     const parse = compile(memberAccessExpression);
-    assertSame(parse, ["a.b"]);
-    assertSame(parse, ["a.b.c"]);
-    assertSame(parse, ["a[1]"]);
-    // assertError(parse, ["1", "1_", "const"]);
+    assertSame(parse, ["a.b", "a.b.c", "a[1]", "a[1][2]"]);
+    assertError(parse, ["a"]);
   });
 
-  test("callExpr", () => {
-    const parse = compile(callExpression);
-    assertSame(parse, [
-      "a()",
-      // "a.b()",
-      "a[1]()",
-      // TODO
-      // "a.b().c()",
-    ]);
-    // assertError(parse, ["1", "1_", "const"]);
+  test("memberExpression:with-call", () => {
+    const parse = compile(memberAccessExpression);
+    assertSame(parse, ["a().a"]);
+    // assertError(parse, ["a"]);
   });
+
   cancel();
 
   test("unaryExpr", () => {

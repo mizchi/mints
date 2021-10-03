@@ -1,4 +1,7 @@
 import { createContext } from "../index";
-import type { NodeTypes } from "./constants";
-const { compile, builder } = createContext<NodeTypes>();
+import { NodeTypes } from "./constants";
+const { compile, builder } = createContext<NodeTypes>({
+  composeTokens: false,
+  refs: NodeTypes,
+});
 export { compile, builder };
