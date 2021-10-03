@@ -1,3 +1,4 @@
+import { anyExpression } from "./expression";
 // TODO: use symbol
 import "./expression";
 
@@ -11,6 +12,7 @@ export const emptyStatement = $.def(
   NodeTypes.EmptyStatement,
   $.seq(["[\\s\\n;]*"])
 );
+
 export const debuggerStatement = $.def(
   NodeTypes.DebuggerStatement,
   $.seq(["debugger", _, ";"])
@@ -18,7 +20,7 @@ export const debuggerStatement = $.def(
 
 export const expressionStatement = $.def(
   NodeTypes.ExpressionStatement,
-  $.seq([anyLiteral, ";"])
+  $.seq([anyExpression, ";"])
 );
 
 export const anyStatement = $.def(
@@ -51,6 +53,14 @@ if (process.env.NODE_ENV === "test") {
     is(parse("debugger;").result, "debugger;");
   });
 
+  test("expressionStatement", () => {
+    const parse = compile(expressionStatement);
+    is(parse("1;").result, "1;");
+    is(parse("func();").result, "func();");
+    is(parse("a = 1;").result, "a = 1;");
+    is(parse("a.b = 1;").result, "a.b = 1;");
+  });
+
   test("anyStatement", () => {
     const parseEmpty = compile(anyStatement);
     is(parseEmpty(";").result, ";");
@@ -65,7 +75,7 @@ if (process.env.NODE_ENV === "test") {
       parse(`debugger; debugger;   debugger   ;`).result,
       "debugger; debugger;   debugger   ;"
     );
-    is(parse(`debugger; debugger;;`).result, "debugger; debugger;;");
+    is(parse(`debugger; debugger;1;;`).result, "debugger; debugger;1;;");
   });
   run({ stopOnFail: true, stub: true, isMain });
 }

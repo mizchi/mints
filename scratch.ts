@@ -8,3 +8,6 @@ const set = new Set(
 ) as Set<MyEnum>;
 
 console.log(MyEnum, set, set.has(MyEnum.A));
+
+let n = 1;
+n++ as number;

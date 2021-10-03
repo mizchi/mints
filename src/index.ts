@@ -16,6 +16,7 @@ export enum NodeKind {
   EOF,
   PAIR,
   NOT,
+  RECURSION,
 }
 
 export enum ErrorType {
@@ -36,7 +37,16 @@ const nodeBaseDefault: Omit<NodeBase, "id" | "reshape" | "kind"> = {
 
 // ==== types ====
 
-export type Node = Seq | Token | Or | Repeat | Ref | Eof | Pair | Not;
+export type Node =
+  | Seq
+  | Token
+  | Or
+  | Repeat
+  | Ref
+  | Eof
+  | Pair
+  | Not
+  | Recursion;
 type NodeBase = {
   id: string;
   kind: NodeKind;
@@ -46,6 +56,10 @@ type NodeBase = {
   skip?: boolean;
   /* Reshape result */
   reshape?: Parser;
+};
+
+export type Recursion = NodeBase & {
+  kind: NodeKind.RECURSION;
 };
 
 export type Eof = NodeBase & {
@@ -161,9 +175,10 @@ export type Parser<In = any, Out = any> = (
 type RootParser = (input: string, ctx?: ParseContext) => ParseResult;
 
 export type Builder<ID = number> = {
-  def(refId: ID, node: InputNodeExpr, reshape?: Parser): ID;
+  def(refId: ID | symbol, node: InputNodeExpr, reshape?: Parser): ID;
   ref(refId: ID, reshape?: Parser): Ref;
   tok(expr: string, reshape?: Parser): Token;
+  R: Recursion;
   repeat(
     pattern: InputNodeExpr,
     minmax?: [min: number | void, max?: number | void],
@@ -177,7 +192,7 @@ export type Builder<ID = number> = {
   ): Repeat;
 
   or: (
-    patterns: Array<Seq | Token | Ref | Or | Eof | string | ID>,
+    patterns: Array<Seq | Token | Ref | Or | Eof | string | ID | Recursion>,
     reshape?: Parser
   ) => Or;
   seq(
@@ -186,8 +201,8 @@ export type Builder<ID = number> = {
   ): Seq;
   pair(pair: [open: string, close: string], reshape?: Parser): Pair;
   not(child: InputNodeExpr, reshape?: Parser): Not;
-  opt<T extends Node>(node: T | string): T;
-  param<T extends Node>(key: string, node: T | string, reshape?: Parser): T;
+  opt<T extends Node>(node: InputNodeExpr): T;
+  param<T extends Node>(key: string, node: InputNodeExpr, reshape?: Parser): T;
   skip<T extends Node>(node: T | string): T;
   join(...expr: string[]): Token;
   eof(): Eof;
@@ -212,7 +227,9 @@ function createPackratCache(): PackratCache {
   };
 }
 
-type SymbolMap = { [key: string]: RecParser | void };
+// type SymbolMap = { [key: string | Symbol]: RecParser | void };
+type SymbolMap = Record<string | symbol, RecParser | void>;
+
 // type RefMap<ID extends number> = Record<ID, string>;
 
 export function createContext<
@@ -226,7 +243,7 @@ export function createContext<
   refs?: RefMap;
 } = {}) {
   const symbolMap: SymbolMap = {};
-  const refSet = new Set(Object.values(refs)) as Set<ID>;
+  const refSet = new Set(Object.values(refs)) as Set<ID | Symbol>;
   const toNode = (input: InputNodeExpr): Node => {
     if (typeof input === "object") {
       return input;
@@ -249,12 +266,16 @@ export function createContext<
 
   function compile(
     node: Node | ID,
-    { pairs = [] }: { pairs?: string[] } = {}
+    {
+      pairs = [],
+      contextRoot = Symbol(),
+    }: { pairs?: string[]; contextRoot?: symbol | ID } = {}
   ): RootParser {
     const realNode = toNode(node);
     const parse = compileRec(realNode, {
       symbolMap: symbolMap,
       root: realNode.id,
+      contextRoot,
     });
     return (input: string, ctx: Partial<ParseContext> = {}) => {
       const cache = createPackratCache();
@@ -268,16 +289,23 @@ export function createContext<
     };
   }
 
-  function defineSymbol(refId: ID, node: InputNodeExpr, reshape?: Parser): ID {
+  function defineSymbol<T extends ID | Symbol>(
+    refId: T | symbol,
+    node: InputNodeExpr,
+    reshape?: Parser
+  ): T {
     const id = refId;
-    if (symbolMap[id]) {
-      throw new Error(`Symbol:${id} is already defined`);
+    if (typeof id === "symbol") {
+      refSet.add(id);
     }
-    symbolMap[id] = () => {
+    if (symbolMap[id as any]) {
+      throw new Error(`Symbol:${id.toString()} is already defined`);
+    }
+    symbolMap[id as any] = () => {
       throw new Error("Override me");
     };
-    const parser = compile(toNode(node));
-    symbolMap[id] = parser as any;
+    const parser = compile(toNode(node), { contextRoot: id as any });
+    symbolMap[id as any] = parser as any;
     // return createRef(id.toString(), reshape);
     return id as any;
   }
@@ -375,7 +403,7 @@ export function createContext<
   }
 
   function createOr(
-    patterns: Array<Seq | Token | Ref | Or | Eof | string | ID>,
+    patterns: Array<Seq | Token | Ref | Or | Eof | string | ID | Recursion>,
     reshape?: Parser
   ): Or {
     return {
@@ -426,11 +454,17 @@ export function createContext<
     };
   }
 
+  const RECURSION_ID = "RECURSION";
   const builder: Builder<ID> = {
     def: defineSymbol,
     ref: createRef,
     tok: createToken,
     repeat: createRepeat,
+    R: {
+      id: RECURSION_ID,
+      kind: NodeKind.RECURSION,
+      reshape: undefined,
+    },
     repeat_seq(input, minmax, reshape) {
       return createRepeat(createSeq(input), minmax, reshape);
     },
@@ -438,8 +472,8 @@ export function createContext<
     seq: createSeq,
     pair: createPair,
     not: createNot,
-    opt<T extends Node>(node: T | string): T {
-      return { ...(toNode(node) as T), optional: true };
+    opt<T extends Node>(input: InputNodeExpr): T {
+      return { ...(toNode(input) as T), optional: true };
     },
     param,
     skip<T extends Node>(node: T | string): T {
@@ -453,7 +487,7 @@ export function createContext<
 
   return { symbolMap: symbolMap, builder, compile };
 
-  function param<T extends Node>(key: string, node: T | string): T {
+  function param<T extends Node>(key: string, node: InputNodeExpr): T {
     return { ...(toNode(node) as T), key };
   }
 }
@@ -496,9 +530,12 @@ const createParseError = <ET extends ErrorType>(
 
 export function compileRec(
   node: Node,
-  opts: { symbolMap: SymbolMap; root: Node["id"] }
+  opts: {
+    symbolMap: SymbolMap;
+    root: Node["id"];
+    contextRoot: symbol | number;
+  }
 ): RecParser {
-  // console.log("compileRec", node);
   const reshape = node.reshape ?? defaultReshape;
   switch (node.kind) {
     case NodeKind.NOT: {
@@ -529,6 +566,16 @@ export function compileRec(
         );
       };
     }
+    case NodeKind.RECURSION: {
+      // const childParser = compileRec(node.child, opts);
+      return (input, ctx) => {
+        const resolved = opts.symbolMap[opts.contextRoot];
+        return getOrCreateCache(ctx.cache, node.id, ctx.pos, () =>
+          resolved!(input, ctx)
+        );
+      };
+    }
+
     case NodeKind.PAIR: {
       return (input: string, ctx) => {
         return getOrCreateCache(ctx.cache, node.id, ctx.pos, () => {
@@ -1121,6 +1168,48 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
         $.or([
           // nested: ((1))
           $.ref(E.Paren),
+          // (1),
+          "1",
+        ]),
+        "\\)",
+      ])
+    );
+    const parser = compile($.ref(paren));
+    // console.log("compile success");
+    is(parser("(1)_"), { result: "(1)", len: 3, pos: 0 });
+    is(parser("((1))"), {
+      result: "((1))",
+      len: 5,
+      pos: 0,
+    });
+    is(parser("(((1)))"), {
+      result: "(((1)))",
+      len: 7,
+      pos: 0,
+    });
+    is(parser("((((1))))"), {
+      result: "((((1))))",
+      len: 9,
+      pos: 0,
+    });
+    is(parser("((1)").error, true);
+  });
+
+  test("reuse with recursion", () => {
+    // enum E {
+    //   Paren,
+    // }
+    const { compile, builder: $ } = createContext({
+      // refs: E,
+    });
+    const paren = $.def(
+      Symbol("recursion-test"),
+      $.seq([
+        "\\(",
+        $.or([
+          // nested: ((1))
+          $.R,
+          // $.ref(E.Paren),
           // (1),
           "1",
         ]),

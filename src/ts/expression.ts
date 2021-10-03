@@ -8,100 +8,138 @@ const identifier = $.def(
   $.seq([$.not(reserved), "([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)"])
 );
 
-const parenExpression = $.def(
-  NodeTypes.ParenExpression,
-  $.seq(["\\(", _, $.ref(NodeTypes.AnyExpression), _, "\\)"])
-);
+const ThisKeyword = $.tok("this");
 
 const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 
-const lefthandSideExpression = $.def(
-  NodeTypes.LefthandSideExpression,
-  // TODO: Call expr
-  $.or([parenExpression, NodeTypes.CallExpression, identifier])
+const callExpression = $.def(
+  NodeTypes.CallExpression,
+  $.seq([
+    $.or([NodeTypes.MemberAccessExpression, identifier]),
+    _,
+    "\\(",
+    _,
+    "\\)",
+  ])
 );
 
-const primary = $.or([
-  "this",
-  identifier,
-  Literal.anyLiteral,
-  parenExpression,
-  $.ref(NodeTypes.CallExpression),
-]);
+const parenExpression = $.seq(["\\(", _, NodeTypes.UnaryExpression, _, "\\)"]);
+const unaryExpression = $.def(
+  NodeTypes.UnaryExpression,
+  $.seq([
+    // unary prefix
+    // $.opt(
+    //   $.or([
+    //     "\\+\\+",
+    //     "\\-\\-",
+    //     "void\\s",
+    //     "typeof\\s",
+    //     "delete\\s",
+    //     "\\~",
+    //     "\\!",
+    //   ])
+    // ),
+    $.or([
+      // parenExpression,
+      // $.seq(["\\(", _, NodeTypes.UnaryExpression, _, "\\)"]),
+      $.seq(["\\(", _, NodeTypes.UnaryExpression, _, "\\)"]),
+      NodeTypes.CallExpression,
+      NodeTypes.MemberAccessExpression,
+      identifier,
+      ThisKeyword,
+      Literal.anyLiteral,
+    ]),
+  ])
+);
 
-const property = $.or([identifier]);
-
-const memberAccessExpression = $.def(
+const primary = $.or([parenExpression, identifier]);
+// const property = $.or([identifier]);
+const memberExpression = $.def(
   NodeTypes.MemberAccessExpression,
   $.seq([
     primary,
     $.repeat(
       $.or([
-        // t[property]
-        $.seq(["\\[", $.ref(NodeTypes.AnyExpression), "\\]"]),
-        // t.a
-        $.seq(["(\\.|\\?\\.)", property]),
+        $.seq(["\\.", identifier]),
+        $.seq(["\\[", unaryExpression, "\\]"]),
       ]),
       [1]
     ),
-    // $.not("\\s*\\("),
   ])
 );
 
-const callable = $.or([identifier]);
-const callExpression = $.def(
-  NodeTypes.CallExpression,
-  // TODO: args
-  // $.seq([memberAccessExpression, _, "\\(", _, "\\)"])
-  $.seq([callable, _, "\\(", _, "\\)"])
-);
-
-const unaryExpression = $.def(
-  NodeTypes.UnaryExpression,
-  $.or([
-    // unary prefix
-    $.seq([
-      $.or([
-        // TODO: handle delete{}
-        "delete ",
-        // TODO: handle void(0)
-        "void ",
-        "typeof ",
-        "\\+\\+",
-        "\\-\\-",
-        $.seq(["\\+", $.not("\\=")]),
-        $.seq(["\\-", $.not("\\=")]),
-        "\\~",
-        "\\!",
-      ]),
-      $.ref(NodeTypes.UnaryExpression),
-    ]),
-    // unary postfix
-    // NOTE: before paren expression
-    $.seq([
-      lefthandSideExpression,
-      // $.ref(createNoSubstitutionTemplateLiteral),
-      $.or(["\\+\\+", "\\-\\-"]),
-    ]),
-    parenExpression,
-    // TODO: postfix;
-    // $.seq([$.ref("unaryExpression"), unaryPostfixOperator]),
-    identifier,
-    Literal.anyLiteral,
-  ])
-);
+// const unaryExpression = $.def(
+//   NodeTypes.UnaryExpression,
+//   $.or([
+//     // unary prefix
+//     $.seq([
+//       $.or([
+//         // TODO: handle delete{}
+//         "delete ",
+//         // TODO: handle void(0)
+//         "void ",
+//         "typeof ",
+//         "\\+\\+",
+//         "\\-\\-",
+//         $.seq(["\\+", $.not("\\=")]),
+//         $.seq(["\\-", $.not("\\=")]),
+//         "\\~",
+//         "\\!",
+//       ]),
+//       $.ref(NodeTypes.UnaryExpression),
+//     ]),
+//     // unary postfix
+//     // NOTE: before paren expression
+//     $.seq([
+//       lefthandSideExpression,
+//       // $.ref(createNoSubstitutionTemplateLiteral),
+//       $.or(["\\+\\+", "\\-\\-"]),
+//     ]),
+//     parenExpression,
+//     // TODO: postfix;
+//     // $.seq([$.ref("unaryExpression"), unaryPostfixOperator]),
+//     identifier,
+//     Literal.anyLiteral,
+//   ])
+// );
 
 const binaryExpression = $.def(
   NodeTypes.BinaryExpression,
   $.seq([
     // TODO: impl $.not() operator
     // Literal.anyLiteral,
-    unaryExpression,
+    $.or([
+      unaryExpression,
+      $.seq([
+        // binary!
+        "\\(",
+        _,
+        NodeTypes.BinaryExpression,
+        _,
+        "\\)",
+      ]),
+    ]),
+    // unaryExpression,
     // $.ref(ANY_EXPRESSION),
     $.repeat(
       $.seq(
         //
-        [_, BINARY_OPS, _, unaryExpression]
+        [
+          _,
+          BINARY_OPS,
+          _,
+          $.or([
+            unaryExpression,
+            $.seq([
+              // binary!
+              "\\(",
+              _,
+              NodeTypes.BinaryExpression,
+              _,
+              "\\)",
+            ]),
+          ]),
+        ]
       )
     ),
   ])
@@ -113,7 +151,7 @@ export const anyExpression = $.def(
     parenExpression,
     binaryExpression,
     unaryExpression,
-    memberAccessExpression,
+    memberExpression,
     callExpression,
   ])
 );
@@ -141,31 +179,36 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("memberExpression", () => {
-    const parse = compile(memberAccessExpression);
+    const parse = compile(memberExpression);
     assertSame(parse, ["a.b", "a.b.c", "a[1]", "a[1][2]"]);
     assertError(parse, ["a"]);
   });
 
   test("memberExpression:with-call", () => {
-    const parse = compile(memberAccessExpression);
+    const parse = compile(memberExpression);
     assertSame(parse, ["a().a"]);
     // assertError(parse, ["a"]);
   });
 
   cancel();
 
-  test("unaryExpr", () => {
-    const parse = compile(unaryExpression);
-    assertSame(parse, [
-      "1",
-      "++1",
-      "typeof a",
-      "typeof (a)",
-      "delete 1",
-      "void a",
-      "--a",
-    ]);
-    // assertError(parse, ["1 +", "1 + +", "1 + + 1"]);
+  // test("unaryExpr", () => {
+  //   const parse = compile(unaryExpression);
+  //   assertSame(parse, [
+  //     "1",
+  //     "++1",
+  //     // "typeof a",
+  //     // "typeof (a)",
+  //     "delete 1",
+  //     "void a",
+  //     "--a",
+  //   ]);
+  //   // assertError(parse, ["1 +", "1 + +", "1 + + 1"]);
+  // });
+
+  test("call", () => {
+    const parse = compile(callExpression);
+    is(parse("func()").result, "func()");
   });
 
   test("binaryExpr", () => {
@@ -182,7 +225,6 @@ if (process.env.NODE_ENV === "test") {
       "( 1 + 1) + 1",
       "( 1 + 1) * 1 + 2 / (3 / 4)",
     ]);
-    // assertError(parse, ["1 +", "1 + +", "1 + + 1"]);
   });
 
   test("parenExpr", () => {
@@ -201,7 +243,7 @@ if (process.env.NODE_ENV === "test") {
       "(1 + 1)",
       "1 + 1 + 1",
       "(1 + (1 * 2))",
-      // "((1 + 1) + (1 * 2))",
+      "((1 + 1) + (1 * 2))",
     ]);
     // eq(parse("1 + 1").result, "1 + 1");
     // eq(parse("(1)").result, "(1)");
