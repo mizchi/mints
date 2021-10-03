@@ -1,16 +1,40 @@
+// import { debuggerStatement } from './statements';
 export enum NodeTypes {
-  AnyExpression = 1,
+  NONE = 512,
+  // Statements
+  DebuggerStatement,
+  EmptyStatement,
+  AnyStatement,
+
+  // Expression
+  AnyExpression,
   Identifier,
   ParenExpression,
   LefthandSideExpression,
   CallExpression,
   MemberAccessExpression,
+  UnaryExpression,
+  ExpressionStatement,
+  BinaryExpression,
+
+  // Literal
+  AnyLiteral,
+  StringLiteral,
+  NumberLiteral,
+  BooleanLiteral,
+  NullLiteral,
+  ArrayLiteral,
+  ObjectLiteral,
+
+  // Root
+  Program,
 }
 export const _ = "([\\s\\n]+)?";
 export const __ = "\\s+";
+export const SYMBOL = "([a-zA-Z_$][a-zA-Z0-9_$]*)";
 export const PAIRED_CHARS = ["(", ")", "{", "}", "[", "]", "<", ">"] as const;
 
-export const BinaryOperators = [
+export const OPERATORS = [
   // 3 chars
   "\\>\\>\\>",
   "\\=\\=\\=",

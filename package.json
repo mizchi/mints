@@ -11,12 +11,14 @@
     "test": "NODE_ENV=test node -r esbuild-register src/index.ts"
   },
   "devDependencies": {
-    "@mizchi/testio": "^0.0.3",
+    "@mizchi/test": "^0.1.0",
     "@types/node": "^16.9.1",
     "esbuild": "^0.13.3",
     "esbuild-register": "^3.0.0",
+    "glob": "^7.2.0",
     "typescript": "^4.3.2",
-    "vite": "^2.4.2"
+    "vite": "^2.4.2",
+    "zx": "^4.2.0"
   },
   "files": [
     "src",

@@ -61,8 +61,7 @@ export function readPairedBlock(
   }
 }
 
-// @ts-ignore
-import { test, run } from "@mizchi/testio/dist/testio.cjs";
+import { test, run } from "@mizchi/test";
 import assert from "assert";
 if (process.env.NODE_ENV === "test" && require.main === module) {
   // @ts-ignore

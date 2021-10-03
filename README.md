@@ -22,6 +22,7 @@ dist/index.cjs   3.92 KiB / brotli: 1.59 KiB
 import {createContext} from "@mizchi/pargen";
 
 const { compile, builder: $ } = createContext();
+
 const _ = $.def("_", "\\s*");
 const stringLiteral = $.def("stringLiteral", `"[^"]"`);
 const numberLiteral = $.def("numberLiteral", `[0-9]|[1-9][0-9]*`);
