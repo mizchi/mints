@@ -650,13 +650,13 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(compile($.tok("(\\s+)?"))(" \t ").result, " \t ");
   });
 
-  test("expr", () => {
+  test("token", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.seq(["a"]));
     is(parser("a").result, "a");
   });
 
-  test("expr", () => {
+  test("token2", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.tok("\\s*a"));
     is(parser("a").result, "a");
@@ -664,7 +664,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("  y").error, true);
   });
 
-  test("nested-expr", () => {
+  test("nested-token", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.seq(["a", $.seq(["b", "c"])]));
     is(parser("abc").result, "abc");

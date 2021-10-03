@@ -119,7 +119,8 @@ export const anyLiteral = $.def(
 );
 
 import { test, run, is } from "@mizchi/test";
-if (process.env.NODE_ENV === "test" && require.main === module) {
+const isMain = require.main === module;
+if (process.env.NODE_ENV === "test") {
   // const L = defineLiteral($);
   test("string", () => {
     const parseString = compile(stringLiteral);
@@ -206,5 +207,5 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
   });
 
-  run({ stopOnFail: true, stub: true });
+  run({ stopOnFail: true, stub: true, isMain });
 }

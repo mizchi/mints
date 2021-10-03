@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "LIB=1 vite build && yarn tsc",
     "typecheck": "tsc -p . --noEmit --emitDeclarationOnly false",
-    "test": "NODE_ENV=test node -r esbuild-register src/index.ts"
+    "test": "NODE_ENV=test node -r esbuild-register src/index.ts",
+    "test:ts": "NODE_ENV=test node -r esbuild-register src/ts/index.ts"
   },
   "devDependencies": {
     "@mizchi/test": "^0.1.0",

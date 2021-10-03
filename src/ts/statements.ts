@@ -1,3 +1,6 @@
+// TODO: use symbol
+import "./expression";
+
 import { anyLiteral } from "./literal";
 import { _, __, NodeTypes } from "./constants";
 import { compile, builder as $ } from "./ctx";

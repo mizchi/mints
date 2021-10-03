@@ -2,10 +2,6 @@ import { compile, builder as $ } from "./ctx";
 import * as Literal from "./literal";
 import { OPERATORS, NodeTypes, RESERVED_WORDS, _, __ } from "./constants";
 
-//TODO: EOF
-// export function defineExpressions(Literal: ReturnType<typeof defineLiteral>) {
-// const ANY_EXPRESSION = "anyExpression";
-
 const reserved = "(" + RESERVED_WORDS.join("|") + ")";
 const identifier = $.def(
   NodeTypes.Identifier,
