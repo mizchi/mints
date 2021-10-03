@@ -27,6 +27,10 @@ export enum NodeTypes {
   ArrayLiteral,
   ObjectLiteral,
 
+  // patterns
+  Argument,
+  Arguments,
+
   // Root
   Program,
 }

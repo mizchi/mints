@@ -12,12 +12,78 @@ const ThisKeyword = $.tok("this");
 
 const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 
+// const argumentList = $.def(NodeTypes.Arguments, $.seq([]));
+
+const destructiveAssignment = $.seq([
+  "{",
+  _,
+  $.or([
+    // $.seq([
+    //   identifier,
+    //   ":",
+    //   // todo recursive
+    //   identifier
+    // ]),
+    identifier,
+  ]),
+  _,
+  "}",
+]);
+const arg = $.def(
+  NodeTypes.Argument,
+  $.or([destructiveAssignment, identifier])
+);
+const args = $.def(
+  NodeTypes.Arguments,
+  $.or([
+    // (a,)b
+    $.seq([$.repeat_seq([arg, ","]), arg]),
+    // a,b,
+    $.seq([$.repeat_seq([arg, ","])]),
+    _,
+  ])
+);
+
+// TODO: statment
+const Block = $.seq(["\\{", _, "\\}"]);
+const functionExpression = $.seq([
+  "function",
+  __,
+  "\\(",
+  _,
+  args,
+  _,
+  "\\)",
+  _,
+  Block,
+]);
+
+const callArguments = $.or([
+  // a, b, c
+  $.seq([
+    $.repeat_seq([
+      NodeTypes.UnaryExpression,
+      _,
+      ",",
+      // unaryExpression,
+    ]),
+    // last arg
+    NodeTypes.UnaryExpression,
+  ]),
+  // a, b, c,
+  $.seq([$.repeat_seq([NodeTypes.UnaryExpression, _, ","])]),
+  _,
+]);
+
 const callExpression = $.def(
   NodeTypes.CallExpression,
   $.seq([
     $.or([NodeTypes.MemberAccessExpression, identifier]),
     _,
     "\\(",
+    _,
+    callArguments,
+    // args,
     _,
     "\\)",
   ])
@@ -206,9 +272,24 @@ if (process.env.NODE_ENV === "test") {
   //   // assertError(parse, ["1 +", "1 + +", "1 + + 1"]);
   // });
 
-  test("call", () => {
+  test("functionExpression", () => {
+    const parse = compile(functionExpression);
+    is(parse("function () {}").result, "function () {}");
+    is(parse("function (a,) {}").result, "function (a,) {}");
+    is(parse("function (a,b) {}").result, "function (a,b) {}");
+    is(parse("function ({a}) {}").result, "function ({a}) {}");
+
+    // is(parse("func([])").result, "func([])");
+    // is(parse("func(1,2)").result, "func(1,2)");
+    // is(parse("func(1,2,)").result, "func(1,2,)");
+  });
+
+  test("callExpression", () => {
     const parse = compile(callExpression);
     is(parse("func()").result, "func()");
+    is(parse("func([])").result, "func([])");
+    is(parse("func(1,2)").result, "func(1,2)");
+    is(parse("func(1,2,)").result, "func(1,2,)");
   });
 
   test("binaryExpr", () => {
