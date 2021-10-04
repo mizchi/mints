@@ -19,6 +19,7 @@ export const numberLiteral = $.def(
   NodeTypes.NumberLiteral,
   `([0-9]|[1-9][0-9]*)`
 );
+
 export const booleanLiteral = $.def(NodeTypes.BooleanLiteral, `(true|false)`);
 export const nullLiteral = $.def(NodeTypes.NullLiteral, `null`);
 export const arrayLiteral = $.def(

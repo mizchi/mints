@@ -36,7 +36,6 @@ const nodeBaseDefault: Omit<NodeBase, "id" | "reshape" | "kind"> = {
 };
 
 // ==== types ====
-
 export type Node =
   | Seq
   | Token
@@ -104,9 +103,9 @@ export type Token = NodeBase & {
   expr: string;
 };
 
-type Cache = { [key: `${number}@${string}`]: ParseSuccess };
+type CacheMap = { [key: `${number}@${string}`]: ParseSuccess };
 type PackratCache = {
-  export(): Cache;
+  export(): CacheMap;
   add(id: Node["id"], pos: number, result: any): void;
   get(id: Node["id"], pos: number): ParseResult | void;
 };
@@ -206,14 +205,22 @@ export type Builder<ID = number> = {
   skip<T extends Node>(node: T | string): T;
   join(...expr: string[]): Token;
   eof(): Eof;
+
+  ["!"]: (child: InputNodeExpr) => Not;
+  ["*"](
+    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>
+  ): Repeat;
+  ["+"](
+    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>
+  ): Repeat;
 };
 // impl
 function createPackratCache(): PackratCache {
-  const cache: Cache = {};
+  const cache: CacheMap = {};
   const keygen = (id: Node["id"], pos: number): `${number}@${string}` =>
     `${pos}@${id}`;
   return {
-    export(): Cache {
+    export(): CacheMap {
       return cache;
     },
     add(id: Node["id"], pos: number, result: ParseResult) {
@@ -263,7 +270,6 @@ export function createContext<
   let cnt = 0;
   const genId = () => (cnt++).toString();
   const exprCache: { [key: string]: Token } = {};
-
   function compile(
     node: Node | ID,
     {
@@ -288,7 +294,6 @@ export function createContext<
       });
     };
   }
-
   function defineSymbol<T extends ID | Symbol>(
     refId: T | symbol,
     node: InputNodeExpr,
@@ -306,7 +311,6 @@ export function createContext<
     };
     const parser = compile(toNode(node), { contextRoot: id as any });
     symbolMap[id as any] = parser as any;
-    // return createRef(id.toString(), reshape);
     return id as any;
   }
 
@@ -319,6 +323,7 @@ export function createContext<
       reshape,
     } as Ref;
   }
+
   function createPair(
     pair: [open: string, close: string],
     reshape?: Parser
@@ -483,6 +488,13 @@ export function createContext<
       return createToken(expr.join(""));
     },
     eof: createEof,
+    ["!"]: createNot,
+    ["*"](input: InputNodeExpr[]) {
+      return createRepeat(createSeq(input), [0]);
+    },
+    ["+"](input: InputNodeExpr[]) {
+      return createRepeat(createSeq(input), [1]);
+    },
   };
 
   return { symbolMap: symbolMap, builder, compile };
@@ -709,7 +721,15 @@ export function compileRec(
           let eaten = "";
           for (const parser of parsers) {
             const match = parser.parse(input, { ...ctx, pos: cursor });
-            if (match.error !== true) {
+            if (match.error) {
+              if (parser.node.optional) {
+                continue;
+              } else {
+                return createParseError(ErrorType.Seq_Stop, ctx.pos, {
+                  child: match,
+                });
+              }
+            } else {
               // success
               if (!parser.node.skip && match.len > 0) {
                 const text = input.slice(cursor, cursor + match.len);
@@ -721,10 +741,6 @@ export function compileRec(
                 result[parser.node.key] = reshaped;
                 isObject = true;
               }
-            } else {
-              return createParseError(ErrorType.Seq_Stop, ctx.pos, {
-                child: match,
-              });
             }
           }
           const reshaped = reshape(isObject ? result : eaten);
@@ -739,7 +755,7 @@ export function compileRec(
   }
 }
 
-import { test, run, cancelAll, is, err } from "@mizchi/test";
+import { test, run, is } from "@mizchi/test";
 if (process.env.NODE_ENV === "test" && require.main === module) {
   test("whitespace", () => {
     const { compile, builder: $ } = createContext();
@@ -1195,47 +1211,46 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("((1)").error, true);
   });
 
-  test("reuse with recursion", () => {
-    // enum E {
-    //   Paren,
-    // }
-    const { compile, builder: $ } = createContext({
-      // refs: E,
-    });
-    const paren = $.def(
-      Symbol("recursion-test"),
-      $.seq([
-        "\\(",
-        $.or([
-          // nested: ((1))
-          $.R,
-          // $.ref(E.Paren),
-          // (1),
-          "1",
-        ]),
-        "\\)",
-      ])
-    );
-    const parser = compile($.ref(paren));
-    // console.log("compile success");
-    is(parser("(1)_"), { result: "(1)", len: 3, pos: 0 });
-    is(parser("((1))"), {
-      result: "((1))",
-      len: 5,
-      pos: 0,
-    });
-    is(parser("(((1)))"), {
-      result: "(((1)))",
-      len: 7,
-      pos: 0,
-    });
-    is(parser("((((1))))"), {
-      result: "((((1))))",
-      len: 9,
-      pos: 0,
-    });
-    is(parser("((1)").error, true);
-  });
+  // test("reuse with recursion", () => {
+  //   // enum E {
+  //   //   Paren,
+  //   // }
+  //   const { compile, builder: $ } = createContext({
+  //     // refs: E,
+  //   });
+  //   const paren = $.def(
+  //     Symbol("recursion-test"),
+  //     $.seq([
+  //       "\\(",
+  //       $.or([
+  //         // nested: ((1))
+  //         $.R,
+  //         // $.ref(E.Paren),
+  //         // (1),
+  //         "1",
+  //       ]),
+  //       "\\)",
+  //     ])
+  //   );
+  //   const parser = compile($.ref(paren));
+  //   is(parser("(1)_"), { result: "(1)", len: 3, pos: 0 });
+  //   is(parser("((1))"), {
+  //     result: "((1))",
+  //     len: 5,
+  //     pos: 0,
+  //   });
+  //   is(parser("(((1)))"), {
+  //     result: "(((1)))",
+  //     len: 7,
+  //     pos: 0,
+  //   });
+  //   is(parser("((((1))))"), {
+  //     result: "((((1))))",
+  //     len: 9,
+  //     pos: 0,
+  //   });
+  //   is(parser("((1)").error, true);
+  // });
 
   test("pair", () => {
     const { compile, builder: $ } = createContext();

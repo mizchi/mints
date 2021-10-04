@@ -12,7 +12,10 @@ export enum NodeTypes {
   ParenExpression,
   LefthandSideExpression,
   CallExpression,
-  MemberAccessExpression,
+  UnaryCallExpression,
+  MemberExpression,
+  UnaryMemberExpression,
+
   UnaryExpression,
   ExpressionStatement,
   BinaryExpression,
