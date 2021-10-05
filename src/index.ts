@@ -82,10 +82,9 @@ export function createCompiler<ID extends number>(
   return opts;
 }
 
-export function createContext<
-  ID extends number = number,
-  RefMap extends {} = {}
->(partialOpts: Partial<Compiler<ID>> = {}) {
+export function createContext<ID extends number = number>(
+  partialOpts: Partial<Compiler<ID>> = {}
+) {
   const ctx = createCompiler(partialOpts);
   const builder = createBuilder(ctx);
   return { builder, compile: ctx.compile };

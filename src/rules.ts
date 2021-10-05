@@ -1,9 +1,11 @@
-import { Rule } from "./types";
+import { Rule, Node } from "./types";
 import { readPairedBlock } from "./utils";
 
-export const pairRule: Rule<{ open: string; close: string }> = {
+export type Pair = { open: string; close: string };
+
+export const pairRule: Rule<Pair> = {
   kind: "pair",
-  run(node, compiler) {
+  run(node, _compiler) {
     return (input, ctx) => {
       const pairedEnd = readPairedBlock(ctx.tokenMap, ctx.pos, input.length, [
         node.open,
@@ -11,6 +13,26 @@ export const pairRule: Rule<{ open: string; close: string }> = {
       ]);
       if (pairedEnd) {
         return pairedEnd - ctx.pos;
+      }
+      return;
+    };
+  },
+};
+
+export type Not = { child: Node };
+export const notRule: Rule<Not, [child: Node]> = {
+  kind: "not",
+  builder: (input) => {
+    return {
+      child: input,
+    };
+  },
+  run(node, compiler) {
+    const childParser = compiler.compile(node.child);
+    return (input, ctx) => {
+      const result = childParser(input, ctx);
+      if (result.error === true) {
+        return [result, 0];
       }
       return;
     };

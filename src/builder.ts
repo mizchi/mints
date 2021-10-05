@@ -19,10 +19,9 @@ import {
   Atom,
   Builder,
   Rule,
-  Pair,
 } from "./types";
 import { createParseError, createParseSuccess, defaultReshape } from "./index";
-import { pairRule } from "./rules";
+import { pairRule, notRule, Pair } from "./rules";
 
 export function createRef(refId: string | number, reshape?: Parser): Ref {
   return {
@@ -91,8 +90,8 @@ export function createBuilder<ID extends number = number>(
     return typeof input === "string" ? token(input) : input;
   };
 
-  const createPair = defineRule<Pair>(compiler, pairRule);
-
+  const createPair = defineRule(compiler, pairRule);
+  // const createNot = defineRule(compiler, notRule);
   function def<T extends ID | Symbol>(id: T | symbol, node: InputNodeExpr): T {
     if (typeof id === "symbol") {
       refSet.add(id);

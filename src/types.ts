@@ -219,7 +219,7 @@ export type Builder<ID = number> = {
     children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
     reshape?: Parser
   ): Seq;
-  pair(pair: { open: string; close: string }, reshape?: Parser): Pair;
+  pair(pair: { open: string; close: string }, reshape?: Parser): Node;
   not(child: InputNodeExpr, reshape?: Parser): Not;
   atom(fn: AtomParser): Atom;
   opt<T extends Node>(node: InputNodeExpr): T;
@@ -256,12 +256,13 @@ export type Compiler<ID extends number> = {
 
 export type RootCompiler<ID extends number> = (node: Node | ID) => RootParser;
 
-export type Pair = {
-  open: string;
-  close: string;
-};
+// export type Pair = {
+//   open: string;
+//   close: string;
+// };
 
-export type Rule<T> = {
+export type Rule<T, Args extends Array<any> = [T]> = {
   kind: any;
   run: RuleParser<T>;
+  builder?: (...args: Args) => T;
 };
