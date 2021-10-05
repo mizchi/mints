@@ -13,6 +13,13 @@ import {
   ParseError,
   CompiledParser,
   RootCompiler,
+  Not,
+  Ref,
+  Atom,
+  Token,
+  Or,
+  Repeat,
+  Seq,
 } from "./types";
 import { buildTokenMap, findPatternAt } from "./utils";
 
@@ -142,7 +149,7 @@ export function compileParser(
 
   switch (node.kind) {
     case NodeKind.NOT: {
-      const childParser = compileParser(node.child, compiler);
+      const childParser = compileParser((node as Not).child, compiler);
       return (input, ctx) => {
         return getOrCreateCache(ctx.cache, node.id, ctx.pos, () => {
           const result = childParser(input, ctx);
@@ -161,9 +168,9 @@ export function compileParser(
 
     case NodeKind.REF: {
       return (input, ctx) => {
-        const resolved = compiler.patterns[node.ref];
+        const resolved = compiler.patterns[(node as Ref).ref];
         if (!resolved) {
-          throw new Error(`symbol not found: ${node.ref}`);
+          throw new Error(`symbol not found: ${(node as Ref).ref}`);
         }
         return getOrCreateCache(ctx.cache, node.id, ctx.pos, () =>
           resolved!(input, ctx)
@@ -172,7 +179,8 @@ export function compileParser(
     }
 
     case NodeKind.ATOM: {
-      const parse = node.parse(compiler);
+      // const node = node as Atom;
+      const parse = (node as Atom).parse(compiler);
       return (input, ctx) => {
         return getOrCreateCache(ctx.cache, node.id, ctx.pos, () => {
           const ret = parse(input, ctx);
@@ -222,7 +230,7 @@ export function compileParser(
         return getOrCreateCache(ctx.cache, node.id, ctx.pos, () => {
           const cached = ctx.cache.get(node.id, ctx.pos);
           if (cached) return cached;
-          const matched = findPatternAt(input, node.expr, ctx.pos);
+          const matched = findPatternAt(input, (node as Token).expr, ctx.pos);
           // console.log("[eat] matched", {
           //   input: input.slice(ctx.pos),
           //   expr: node.expr,
@@ -238,7 +246,9 @@ export function compileParser(
                 node.kind,
                 ErrorType.Token_Unmatch,
                 ctx.pos,
-                `"${input.slice(ctx.pos)}" does not fill: ${node.expr}`
+                `"${input.slice(ctx.pos)}" does not fill: ${
+                  (node as Token).expr
+                }`
               );
             }
           }
@@ -251,7 +261,7 @@ export function compileParser(
       };
     }
     case NodeKind.OR: {
-      const compiledPatterns = node.patterns.map((p) => {
+      const compiledPatterns = (node as Or).patterns.map((p) => {
         return {
           parse: compileParser(p, compiler),
           node: p,
@@ -279,9 +289,10 @@ export function compileParser(
       };
     }
     case NodeKind.REPEAT: {
-      const parser = compileParser(node.pattern, compiler);
+      const parser = compileParser((node as Repeat).pattern, compiler);
       return (input: string, opts) => {
         return getOrCreateCache(opts.cache, node.id, opts.pos, () => {
+          const repeat = node as Repeat;
           const xs: string[] = [];
           let cursor = opts.pos;
           while (cursor < input.length) {
@@ -297,13 +308,17 @@ export function compileParser(
           }
           // size check
           // TODO: detect max at adding
-          if (xs.length < node.min || (node.max && xs.length > node.max)) {
+          if (
+            xs.length < repeat.min ||
+            // @ts-ignore
+            (repeat.max && xs.length > repeat.max)
+          ) {
             return createParseError(
               node.kind,
               ErrorType.Repeat_RangeError,
               opts.pos,
-              `not fill range: ${xs.length} in [${node.min}, ${
-                node.max ?? ""
+              `not fill range: ${xs.length} in [${repeat.min}, ${
+                repeat.max ?? ""
               }] `
             );
           }
@@ -316,7 +331,7 @@ export function compileParser(
       };
     }
     case NodeKind.SEQ: {
-      const parsers = node.children.map((c) => {
+      const parsers = (node as Seq).children.map((c) => {
         const parse = compileParser(c, compiler);
         return { parse, node: c };
       });
@@ -910,6 +925,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const { compile, builder: $ } = createContext({
       pairs: ["<", ">"],
     });
+    // @ts-ignore
     const parser = compile($.pair({ open: "<", close: ">" }));
     is(parser("<>").result, "<>");
     is(parser("<<>>").result, "<<>>");

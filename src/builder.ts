@@ -3,7 +3,6 @@ import {
   Compiler,
   InputNodeExpr,
   ParseContext,
-  RuleParser,
   NodeBase,
   ErrorType,
   Token,
@@ -19,9 +18,11 @@ import {
   Repeat,
   Atom,
   Builder,
+  Rule,
+  Pair,
 } from "./types";
-import { readPairedBlock } from "./utils";
 import { createParseError, createParseSuccess, defaultReshape } from "./index";
+import { pairRule } from "./rules";
 
 export function createRef(refId: string | number, reshape?: Parser): Ref {
   return {
@@ -33,11 +34,45 @@ export function createRef(refId: string | number, reshape?: Parser): Ref {
   } as Ref;
 }
 
-export function createBuilder<ID extends number = number>(opts: Compiler<ID>) {
+// inline define
+
+function defineRule<X>(compiler: Compiler<any>, rule: Rule<X>) {
+  const newRule = <T extends NodeBase>(node: T, opts: Compiler<any>) => {
+    const parse = rule.run(node as any, opts);
+    return (input: string, ctx: ParseContext) => {
+      const ret = parse(input, ctx);
+      if (ret == null) {
+        return createParseError(rule.kind, ErrorType.Atom_ParseError, ctx.pos);
+      }
+      if (typeof ret === "number") {
+        return createParseSuccess(
+          input.slice(ctx.pos, ctx.pos + ret),
+          ctx.pos,
+          ret
+        );
+      }
+      const [out, len] = ret;
+      return createParseSuccess(out, ctx.pos, len);
+    };
+  };
+  compiler.rules[rule.kind] = newRule as any;
+  return (args: Omit<X, keyof NodeBase>) => {
+    return {
+      ...nodeBaseDefault,
+      id: rule.kind + ":" + Math.random().toString(36).substr(2, 9),
+      kind: rule.kind,
+      ...args,
+    } as X & NodeBase;
+  };
+}
+
+export function createBuilder<ID extends number = number>(
+  compiler: Compiler<ID>
+) {
   let cnt = 0;
   const genId = () => (cnt++).toString();
   const exprCache: { [key: string]: Token } = {};
-  const refSet = new Set(Object.values(opts.refs)) as Set<ID | symbol>;
+  const refSet = new Set(Object.values(compiler.refs)) as Set<ID | symbol>;
 
   const toNode = (input: InputNodeExpr): Node => {
     if (typeof input === "object") {
@@ -47,7 +82,7 @@ export function createBuilder<ID extends number = number>(opts: Compiler<ID>) {
       if (!refSet.has(input as ID)) {
         throw new Error(
           `[pargen:convert-expr-to-node] Ref ${
-            (opts.refs as any)[input]
+            (compiler.refs as any)[input]
           }:${input} not found`
         );
       }
@@ -56,68 +91,20 @@ export function createBuilder<ID extends number = number>(opts: Compiler<ID>) {
     return typeof input === "string" ? token(input) : input;
   };
 
-  function defineRule<T extends NodeBase>(kind: any, parser: RuleParser<T>) {
-    const newRule = <T extends NodeBase>(node: T, opts: Compiler<any>) => {
-      const parse = parser(node as any, opts);
-      return (input: string, ctx: ParseContext) => {
-        const ret = parse(input, ctx);
-        if (ret == null) {
-          return createParseError(kind, ErrorType.Atom_ParseError, ctx.pos);
-        }
-        if (typeof ret === "number") {
-          return createParseSuccess(
-            input.slice(ctx.pos, ctx.pos + ret),
-            ctx.pos,
-            ret
-          );
-        }
-        const [out, len] = ret;
-        return createParseSuccess(out, ctx.pos, len);
-      };
-    };
-    opts.rules[kind] = newRule as any;
-    return (args: Omit<T, keyof NodeBase>) => {
-      return {
-        ...nodeBaseDefault,
-        id: kind + ":" + genId(),
-        kind: kind,
-        ...args,
-      } as T;
-    };
-  }
-
-  // inline define
-  const createPair = defineRule(
-    NodeKind.PAIR,
-    (
-      node: NodeBase & { open: string; close: string },
-      _compileCtx: Compiler<any>
-    ) => {
-      return (input: string, ctx: ParseContext) => {
-        const pairedEnd = readPairedBlock(ctx.tokenMap, ctx.pos, input.length, [
-          node.open,
-          node.close,
-        ]);
-        if (pairedEnd) {
-          return pairedEnd - ctx.pos;
-        }
-        return;
-      };
-    }
-  );
+  const createPair = defineRule<Pair>(compiler, pairRule);
 
   function def<T extends ID | Symbol>(id: T | symbol, node: InputNodeExpr): T {
     if (typeof id === "symbol") {
       refSet.add(id);
     }
-    if (opts.patterns[id as any]) {
+    if (compiler.patterns[id as any]) {
       throw new Error(`Symbol:${id.toString()} is already defined`);
     }
-    opts.patterns[id as any] = () => {
+    compiler.patterns[id as any] = () => {
       throw new Error("Override me");
     };
-    const parser = opts.compile(toNode(node));
-    opts.patterns[id as any] = parser as any;
+    const parser = compiler.compile(toNode(node));
+    compiler.patterns[id as any] = parser as any;
     return id as any;
   }
 
@@ -136,7 +123,7 @@ export function createBuilder<ID extends number = number>(opts: Compiler<ID>) {
     reshape?: Parser
   ): Seq {
     let nodes: Node[] = [];
-    if (opts.composeTokens) {
+    if (compiler.composeTokens) {
       // compose token
       let currentTokens: string[] = [];
       children.forEach((child) => {
@@ -151,7 +138,7 @@ export function createBuilder<ID extends number = number>(opts: Compiler<ID>) {
           child.reshape === defaultReshape &&
           child.key == null
         ) {
-          currentTokens.push(child.expr);
+          currentTokens.push((child as Token).expr);
         } else {
           // compose queued expr list to one expr
           if (currentTokens.length > 0) {

@@ -41,10 +41,10 @@ export type Node =
   | Repeat
   | Ref
   | Eof
-  | Pair
   | Not
   | Recursion
-  | Atom;
+  | Atom
+  | NodeBase;
 
 export type NodeBase = {
   id: string;
@@ -68,12 +68,6 @@ export type Atom = NodeBase & {
 
 export type Eof = NodeBase & {
   kind: NodeKind.EOF;
-};
-
-export type Pair = NodeBase & {
-  kind: NodeKind.PAIR;
-  open: string;
-  close: string;
 };
 
 export type Not = NodeBase & {
@@ -177,6 +171,15 @@ export type AtomParser = (
   ctx: ParseContext
 ) => number | [output: any, len: number] | void;
 
+// add
+export type RuleParser<T> = (
+  node: T,
+  opts: Compiler<any>
+) => (
+  input: string,
+  ctx: ParseContext
+) => number | [output: any, len: number] | void;
+
 export type ParseContext = {
   cache: PackratCache;
   pos: number;
@@ -189,18 +192,13 @@ export type Parser<In = any, Out = any> = (
   stack?: Array<Node>
 ) => Out;
 
-// add
-export type RuleParser<T> = (
-  node: T,
-  opts: Compiler<any>
-) => (
-  input: string,
-  ctx: ParseContext
-) => number | [output: any, len: number] | void;
-
 export type RootParser = (input: string, ctx?: ParseContext) => ParseResult;
+// type RuleDef<T extends NodeBase> = (kind: any, parser: RuleParser<T>) => void;
+
 export type Builder<ID = number> = {
   def(refId: ID | symbol, node: InputNodeExpr, reshape?: Parser): ID;
+  // rule(refId: ID | symbol, node: InputNodeExpr, reshape?: Parser): ID;
+  // rule<T, U = T & NodeBase>(kind: any, parser: RuleParser<U>): void;
   ref(refId: ID, reshape?: Parser): Ref;
   tok(expr: string, reshape?: Parser): Token;
   repeat(
@@ -257,3 +255,13 @@ export type Compiler<ID extends number> = {
 };
 
 export type RootCompiler<ID extends number> = (node: Node | ID) => RootParser;
+
+export type Pair = {
+  open: string;
+  close: string;
+};
+
+export type Rule<T> = {
+  kind: any;
+  run: RuleParser<T>;
+};

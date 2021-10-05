@@ -182,6 +182,7 @@ const DefineStmt = $.def(
       _,
       ["value", Or],
       _,
+      // @ts-ignore
       ["code", $.opt($.pair({ open: "{", close: "}" }))],
       ";",
     ],
