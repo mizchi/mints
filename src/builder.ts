@@ -101,7 +101,7 @@ export function createBuilder<
       _compileCtx: CompileContext<any, any>
     ) => {
       return (input: string, ctx: ParseContext) => {
-        console.log("pair", ctx.tokenMap, opts.pairs);
+        // console.olg
         const pairedEnd = readPairedBlock(ctx.tokenMap, ctx.pos, input.length, [
           node.open,
           node.close,
@@ -118,6 +118,7 @@ export function createBuilder<
     refId: T | symbol,
     node: InputNodeExpr
   ): T {
+    console.log("define ref!", refId);
     const id = refId;
     if (typeof id === "symbol") {
       refSet.add(id);

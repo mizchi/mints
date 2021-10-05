@@ -36,24 +36,9 @@ function createPackratCache(): PackratCache {
   };
 }
 
-export function createContext<
-  ID extends number = number,
-  RefMap extends {} = {}
->({
-  pairs = [],
-  composeTokens = true,
-  refs = {} as RefMap,
-  rules = {},
-  patterns = {},
-}: Partial<CompileContext<ID, RefMap>> = {}) {
-  const opts: CompileContext<ID, RefMap> = {
-    composeTokens,
-    pairs,
-    refs,
-    rules: rules,
-    patterns: patterns,
-  };
-
+export function createCompiler<ID extends number>(
+  opts: CompileContext<ID, any>
+) {
   const compile: RootCompiler<ID> = (
     node,
     {}: // contextRoot = Symbol(),
@@ -80,9 +65,24 @@ export function createContext<
     };
     return parser;
   };
+  return compile;
+}
 
+export function createContext<
+  ID extends number = number,
+  RefMap extends {} = {}
+>(partialOpts: Partial<CompileContext<ID, RefMap>> = {}) {
+  const opts: CompileContext<ID, RefMap> = {
+    pairs: [],
+    composeTokens: true,
+    refs: {} as RefMap,
+    rules: {},
+    patterns: {},
+    ...partialOpts,
+  };
+  const compile = createCompiler(opts);
   const builder = createBuilder(compile, opts);
-  return { symbolMap: opts.patterns, builder, compile };
+  return { builder, compile };
 }
 
 export const defaultReshape: Parser<any, any> = <T>(i: T): T => i;

@@ -250,12 +250,13 @@ export type RulesMap<T> = Record<
   (node: T, opts: CompileContext<any, any>) => CompiledParser
 >;
 
-export type CompileContext<ID, RefMap> = {
+export type CompileContext<ID extends number, RefMap> = {
   composeTokens: boolean;
   patterns: PatternsMap;
   pairs: string[];
   refs: RefMap;
   rules: RulesMap<any>;
+  // compile: Compiler;
   // refSet: Set<ID | symbol>;
 };
 
