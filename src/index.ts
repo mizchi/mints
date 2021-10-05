@@ -13,6 +13,7 @@ import {
   ParseError,
   CompiledParser,
   RootCompiler,
+  Compiler,
 } from "./types";
 import { buildTokenMap, findPatternAt } from "./utils";
 
@@ -39,17 +40,9 @@ function createPackratCache(): PackratCache {
 export function createCompiler<ID extends number>(
   opts: CompileContext<ID, any>
 ) {
-  const compile: RootCompiler<ID> = (
-    node,
-    {}: // contextRoot = Symbol(),
-    { pairs?: string[] } = {}
-  ) => {
+  const compiler: Compiler = (node) => {
     const resolved = typeof node === "number" ? createRef(node) : node;
-    const parse = compileParser(resolved, {
-      ...opts,
-      root: resolved.id,
-      // contextRoot,
-    });
+    const parse = compileParser(resolved, opts);
     const parser: RootParser = (
       input: string,
       ctx: Partial<ParseContext> = {}
@@ -65,7 +58,12 @@ export function createCompiler<ID extends number>(
     };
     return parser;
   };
-  return compile;
+
+  const rootCompiler: RootCompiler<ID> = (node) => {
+    const resolved = typeof node === "number" ? createRef(node) : node;
+    return compiler(resolved);
+  };
+  return rootCompiler;
 }
 
 export function createContext<
@@ -126,10 +124,7 @@ export const createParseError = <ET extends ErrorType>(
 
 export function compileParser(
   node: Node,
-  opts: CompileContext<any, any> & {
-    root: Node["id"];
-    contextRoot?: symbol | number;
-  }
+  opts: CompileContext<any, any>
 ): CompiledParser {
   const reshape = node.reshape ?? defaultReshape;
   // use additional parser

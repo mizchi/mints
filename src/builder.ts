@@ -130,11 +130,7 @@ export function createBuilder<
     opts.patterns[id as any] = () => {
       throw new Error("Override me");
     };
-    const parser = compile(toNode(node), {
-      // ...opts,
-      pairs: opts.pairs,
-      contextRoot: id as any,
-    });
+    const parser = compile(toNode(node));
     opts.patterns[id as any] = parser as any;
     return id as any;
   }

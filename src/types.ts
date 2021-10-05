@@ -260,9 +260,6 @@ export type CompileContext<ID extends number, RefMap> = {
   // refSet: Set<ID | symbol>;
 };
 
-export type Compiler = (
-  node: Node,
-  opts: { pairs: string[]; contextRoot: symbol }
-) => RootParser;
+export type Compiler = (node: Node) => RootParser;
 
 export type RootCompiler<ID extends number> = (node: Node | ID) => RootParser;
