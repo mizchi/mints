@@ -75,12 +75,12 @@ const callArguments = $.or([
   _,
 ]);
 
-const unaryCallExpression = $.def(
-  NodeTypes.UnaryCallExpression,
+const callExpression = $.def(
+  NodeTypes.CallExpression,
   $.or([
     // call chain!
     $.seq([
-      $.or([NodeTypes.UnaryMemberExpression, identifier]),
+      $.or([NodeTypes.MemberExpression, identifier]),
       _,
       "\\(",
       _,
@@ -91,14 +91,10 @@ const unaryCallExpression = $.def(
       $.repeat(
         $.seq([
           "\\.",
-          $.or([NodeTypes.UnaryMemberExpression, identifier]),
-          // $.not("\\("),
-          // $.not(NodeTypes.ParenExpression),
-          // NodeTypes.UnaryExpression,
+          $.or([NodeTypes.MemberExpression, identifier]),
           "\\(",
           _,
           callArguments,
-          // args,
           _,
           "\\)",
         ]),
@@ -106,7 +102,7 @@ const unaryCallExpression = $.def(
       ),
     ]),
     $.seq([
-      $.or([NodeTypes.UnaryMemberExpression, identifier]),
+      $.or([NodeTypes.MemberExpression, identifier]),
       _,
       "\\(",
       _,
@@ -167,32 +163,21 @@ const parenExpression = $.seq(["\\(", _, NodeTypes.UnaryExpression, _, "\\)"]);
 const primary = $.or([parenExpression, identifier]);
 // const property = $.or([identifier]);
 const unaryMemberExpression = $.def(
-  NodeTypes.UnaryMemberExpression,
-  $.seq([
-    primary,
-    $.repeat(
-      $.or([
-        $.seq(["\\.", identifier]),
-        $.seq(["\\[", NodeTypes.UnaryExpression, "\\]"]),
-      ]),
-      [1]
-    ),
+  NodeTypes.MemberExpression,
+  $.or([
+    $.seq([
+      primary,
+      $.repeat(
+        $.or([
+          $.seq(["\\.", identifier]),
+          $.seq(["\\[", NodeTypes.UnaryExpression, "\\]"]),
+        ]),
+        [1]
+      ),
+    ]),
+    // primary,
   ])
 );
-
-// const memberExpression = $.def(
-//   NodeTypes.MemberExpression,
-//   $.seq([
-//     // primary,
-//     $.repeat(
-//       $.or([
-//         $.seq(["\\.", identifier]),
-//         $.seq(["\\[", NodeTypes.UnaryExpression, "\\]"]),
-//       ]),
-//       [1]
-//     ),
-//   ])
-// );
 
 // const unaryExpression = $.def(
 //   NodeTypes.UnaryExpression,
@@ -290,8 +275,8 @@ const unaryExpression = $.def(
       // parenExpression,
       // $.seq(["\\(", _, NodeTypes.UnaryExpression, _, "\\)"]),
       $.seq(["\\(", _, NodeTypes.UnaryExpression, _, "\\)"]),
-      NodeTypes.UnaryCallExpression,
-      NodeTypes.UnaryMemberExpression,
+      NodeTypes.CallExpression,
+      NodeTypes.MemberExpression,
       identifier,
       ThisKeyword,
       Literal.anyLiteral,
@@ -306,7 +291,7 @@ export const anyExpression = $.def(
     binaryExpression,
     unaryExpression,
     unaryMemberExpression,
-    unaryCallExpression,
+    callExpression,
   ])
 );
 
@@ -339,7 +324,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("callExpression", () => {
-    const parse = compile($.seq([unaryCallExpression, $.eof()]));
+    const parse = compile($.seq([callExpression, $.eof()]));
     assertSame(parse, ["a().a()"]);
     assertSame(parse, ["a().a.b()"]);
     // assertError(parse, ["a"]);
@@ -380,7 +365,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("callExpression", () => {
-    const parse = compile(unaryCallExpression);
+    const parse = compile(callExpression);
     is(parse("func()").result, "func()");
     is(parse("func([])").result, "func([])");
     is(parse("func(1,2)").result, "func(1,2)");
