@@ -256,7 +256,7 @@ export type CompileContext<ID extends number, RefMap> = {
   pairs: string[];
   refs: RefMap;
   rules: RulesMap<any>;
-  // compile: Compiler;
+  compile: RootCompiler<ID>;
   // refSet: Set<ID | symbol>;
 };
 

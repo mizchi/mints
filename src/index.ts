@@ -38,9 +38,19 @@ function createPackratCache(): PackratCache {
 }
 
 export function createCompiler<ID extends number>(
-  opts: CompileContext<ID, any>
-) {
-  const compiler: Compiler = (node) => {
+  partial: Partial<CompileContext<ID, any>>
+): CompileContext<ID, any> {
+  const opts: CompileContext<ID, any> = {
+    pairs: [],
+    composeTokens: true,
+    refs: {} as any,
+    rules: {},
+    patterns: {},
+    ...partial,
+    compile: null as any,
+  };
+
+  const compile: Compiler = (node) => {
     const resolved = typeof node === "number" ? createRef(node) : node;
     const parse = compileParser(resolved, opts);
     const parser: RootParser = (
@@ -58,29 +68,21 @@ export function createCompiler<ID extends number>(
     };
     return parser;
   };
-
   const rootCompiler: RootCompiler<ID> = (node) => {
     const resolved = typeof node === "number" ? createRef(node) : node;
-    return compiler(resolved);
+    return compile(resolved);
   };
-  return rootCompiler;
+  opts.compile = rootCompiler;
+  return opts;
 }
 
 export function createContext<
   ID extends number = number,
   RefMap extends {} = {}
 >(partialOpts: Partial<CompileContext<ID, RefMap>> = {}) {
-  const opts: CompileContext<ID, RefMap> = {
-    pairs: [],
-    composeTokens: true,
-    refs: {} as RefMap,
-    rules: {},
-    patterns: {},
-    ...partialOpts,
-  };
-  const compile = createCompiler(opts);
-  const builder = createBuilder(compile, opts);
-  return { builder, compile };
+  const ctx = createCompiler(partialOpts);
+  const builder = createBuilder(ctx);
+  return { builder, compile: ctx.compile };
 }
 
 export const defaultReshape: Parser<any, any> = <T>(i: T): T => i;

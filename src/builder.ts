@@ -37,7 +37,7 @@ export function createRef(refId: string | number, reshape?: Parser): Ref {
 export function createBuilder<
   ID extends number = number,
   RefMap extends {} = {}
->(compile: Compiler, opts: CompileContext<ID, RefMap>) {
+>(opts: CompileContext<ID, RefMap>) {
   let cnt = 0;
   const genId = () => (cnt++).toString();
   const exprCache: { [key: string]: Token } = {};
@@ -130,7 +130,7 @@ export function createBuilder<
     opts.patterns[id as any] = () => {
       throw new Error("Override me");
     };
-    const parser = compile(toNode(node));
+    const parser = opts.compile(toNode(node));
     opts.patterns[id as any] = parser as any;
     return id as any;
   }
