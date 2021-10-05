@@ -12,7 +12,7 @@
     "test:ts": "NODE_ENV=test node -r esbuild-register src/ts/index.ts"
   },
   "devDependencies": {
-    "@mizchi/test": "^0.1.0",
+    "@mizchi/test": "^0.1.1",
     "@types/node": "^16.9.1",
     "esbuild": "^0.13.3",
     "esbuild-register": "^3.0.0",

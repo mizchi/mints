@@ -195,10 +195,17 @@ type ParseContext = {
 
 export type Parser<In = any, Out = any> = (
   input: In,
-  ctx?: ParseContext
+  ctx?: ParseContext,
+  stack?: Array<Node>
 ) => Out;
 
-type RootParser = (input: string, ctx?: ParseContext) => ParseResult;
+type InternalParser<In = any, Out = any> = (
+  input: In,
+  ctx: ParseContext,
+  stack: Array<Node>
+) => Out;
+
+export type RootParser = (input: string, ctx?: ParseContext) => ParseResult;
 
 export type Builder<ID = number> = {
   def(refId: ID | symbol, node: InputNodeExpr, reshape?: Parser): ID;
@@ -261,7 +268,7 @@ function createPackratCache(): PackratCache {
 }
 
 // type SymbolMap = { [key: string | Symbol]: RecParser | void };
-type DefMap = Record<string | symbol, CompiledParser | void>;
+type PatternsMap = Record<string | symbol, CompiledParser | void>;
 type RulesMap<T> = Record<
   any,
   (node: T, opts: CompileContext<any, any>) => CompiledParser
@@ -271,7 +278,7 @@ type RulesMap<T> = Record<
 
 export type CompileContext<ID, RefMap> = {
   composeTokens: boolean;
-  defMap: DefMap;
+  patterns: PatternsMap;
   refs: RefMap;
   rules: RulesMap<any>;
   refSet: Set<ID | symbol>;
@@ -290,7 +297,7 @@ export function createContext<
     refs,
     refSet: new Set(Object.values(refs)) as Set<ID | symbol>,
     rules,
-    defMap: {},
+    patterns: {},
   };
 
   const toNode = (input: InputNodeExpr): Node => {
@@ -346,7 +353,7 @@ export function createContext<
       const parse = parser(node as any, opts);
       // console.log("node!", kind, node);
       return (input: string, ctx: ParseContext) => {
-        console.log("node!", kind, node, input, "xx", parse(input, ctx));
+        // console.log("node!", kind, node, input, "xx", parse(input, ctx));
         const ret = parse(input, ctx);
         if (ret == null) {
           return createParseError(kind, ErrorType.Atom_ParseError, ctx.pos);
@@ -373,6 +380,7 @@ export function createContext<
     };
   }
 
+  // inline define
   const createPair = defineRule(
     NodeKind.PAIR,
     (
@@ -392,7 +400,7 @@ export function createContext<
     }
   );
 
-  function defineSymbol<T extends ID | Symbol>(
+  function definePattern<T extends ID | Symbol>(
     refId: T | symbol,
     node: InputNodeExpr
   ): T {
@@ -400,14 +408,14 @@ export function createContext<
     if (typeof id === "symbol") {
       compileCtx.refSet.add(id);
     }
-    if (compileCtx.defMap[id as any]) {
+    if (compileCtx.patterns[id as any]) {
       throw new Error(`Symbol:${id.toString()} is already defined`);
     }
-    compileCtx.defMap[id as any] = () => {
+    compileCtx.patterns[id as any] = () => {
       throw new Error("Override me");
     };
     const parser = compile(toNode(node), { contextRoot: id as any });
-    compileCtx.defMap[id as any] = parser as any;
+    compileCtx.patterns[id as any] = parser as any;
     return id as any;
   }
 
@@ -553,7 +561,7 @@ export function createContext<
 
   const RECURSION_ID = "RECURSION";
   const builder: Builder<ID> = {
-    def: defineSymbol,
+    def: definePattern,
     ref: createRef,
     tok: createToken,
     repeat: createRepeat,
@@ -593,7 +601,7 @@ export function createContext<
     },
   };
 
-  return { symbolMap: compileCtx.defMap, builder, compile };
+  return { symbolMap: compileCtx.patterns, builder, compile };
 
   function param<T extends Node>(key: string, node: InputNodeExpr): T {
     return { ...(toNode(node) as T), key };
@@ -650,12 +658,12 @@ export function compileParser(
   if (opts.rules[node.kind]) {
     // @ts-ignore
     const parse = opts.rules[node.kind](node, opts);
-    return (input, ctx) => {
+    return ((input, ctx) => {
       return getOrCreateCache(ctx.cache, node.id, ctx.pos, () => {
         // @ts-ignore
         return parse(input, ctx);
       });
-    };
+    }) as CompiledParser;
   }
 
   switch (node.kind) {
@@ -679,7 +687,7 @@ export function compileParser(
 
     case NodeKind.REF: {
       return (input, ctx) => {
-        const resolved = opts.defMap[node.ref];
+        const resolved = opts.patterns[node.ref];
         if (!resolved) {
           throw new Error(`symbol not found: ${node.ref}`);
         }
@@ -688,6 +696,7 @@ export function compileParser(
         );
       };
     }
+
     case NodeKind.ATOM: {
       const parse = node.parse(opts);
       return (input, ctx) => {
@@ -716,36 +725,10 @@ export function compileParser(
     case NodeKind.RECURSION: {
       // const childParser = compileRec(node.child, opts);
       return (input, ctx) => {
-        const resolved = opts.defMap[opts.contextRoot];
+        const resolved = opts.patterns[opts.contextRoot];
         return getOrCreateCache(ctx.cache, node.id, ctx.pos, () =>
           resolved!(input, ctx)
         );
-      };
-    }
-
-    case NodeKind.PAIR: {
-      return (input: string, ctx) => {
-        return getOrCreateCache(ctx.cache, node.id, ctx.pos, () => {
-          const pairedEnd = readPairedBlock(
-            ctx.tokenMap,
-            ctx.pos,
-            input.length,
-            [node.open, node.close]
-          );
-          if (pairedEnd) {
-            return createParseSuccess(
-              input.slice(ctx.pos, pairedEnd),
-              pairedEnd,
-              pairedEnd - ctx.pos
-            ) as ParseResult;
-          }
-          return createParseError(
-            node.kind,
-            ErrorType.Pair_Unmatch,
-            ctx.pos,
-            0
-          );
-        });
       };
     }
 
@@ -766,6 +749,13 @@ export function compileParser(
           const cached = ctx.cache.get(node.id, ctx.pos);
           if (cached) return cached;
           const matched = findPatternAt(input, node.expr, ctx.pos);
+          // console.log("[eat] matched", {
+          //   input: input.slice(ctx.pos),
+          //   expr: node.expr,
+          //   // pos: ctx.pos,
+          //   matched,
+          // });
+
           if (matched == null) {
             if (node.optional) {
               return createParseSuccess(null, ctx.pos, 0);
@@ -822,6 +812,7 @@ export function compileParser(
           let cursor = opts.pos;
           while (cursor < input.length) {
             const match = parser(input, { ...opts, pos: cursor });
+            // console.log("[eat]", match);
             if (match.error === true) break;
             // stop infinite loop
             if (match.len === 0) {
@@ -891,7 +882,7 @@ export function compileParser(
             }
           }
           const reshaped = reshape(isObject ? result : eaten);
-          console.log(">", eaten, cursor);
+          // console.log(">", eaten, cursor);
           return createParseSuccess(reshaped, ctx.pos, cursor - ctx.pos);
         });
       };
@@ -904,6 +895,8 @@ export function compileParser(
 
 import { test, run, is } from "@mizchi/test";
 if (process.env.NODE_ENV === "test" && require.main === module) {
+  const Return = "[\\r\\n]";
+
   test("whitespace", () => {
     const { compile, builder: $ } = createContext();
     is(compile($.tok("\\s+"))(" ").result, " ");
@@ -926,6 +919,14 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser(" a").result, " a");
     is(parser("  y").error, true);
   });
+
+  // test("token2", () => {
+  //   const { compile, builder: $ } = createContext();
+  //   const parser = compile($.tok("a[\\r\\n|\\n|\\r]b"));
+  //   is(parser("a\nb").result, "a\nb");
+  //   // is(parser(" a").result, " a");
+  //   // is(parser("  y").error, true);
+  // });
 
   test("nested-token", () => {
     const { compile, builder: $ } = createContext();
@@ -1018,12 +1019,28 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   test("seq:eof", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.seq(["a", $.eof()]));
-    console.log("parse", parser("a"));
+    // console.log("parse", parser("a"));
     is(parser("a").result, "a");
     is(parser("a ").error, true);
 
     const parser2 = compile($.seq([$.eof()]));
     is(parser2("").result, "");
+  });
+
+  test("seq:eof-eof", () => {
+    const { compile, builder: $ } = createContext({
+      composeTokens: false,
+    });
+    const parser = compile(
+      $.repeat(
+        $.seq([
+          // a
+          "a",
+          $.or(["[\\n]", $.eof()]),
+        ])
+      )
+    );
+    is(parser("a\na\na"), { result: ["a\n", "a\n", "a"] });
   });
 
   test("seq-with-param", () => {

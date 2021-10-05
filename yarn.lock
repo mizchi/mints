@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@mizchi/test@^0.1.0":
-  version "0.1.0"
-  resolved "https://registry.yarnpkg.com/@mizchi/test/-/test-0.1.0.tgz#df025faeefe6137d61b9794f07a96b3ff2e65a3f"
-  integrity sha512-xzA8KixTLm/mNpki/dcTqktbPBcLbvTLVynv0EWvSiI43z2JwpjZkObB0TLlFX/pJhvZGXgqvWotsk6j/5JsFA==
+"@mizchi/test@^0.1.1":
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/@mizchi/test/-/test-0.1.1.tgz#921af2e98ac263a6887324c6b339c24e86cc3d0d"
+  integrity sha512-THbfZExKqdtTBjM+QWmzMIA1bksTzIfcsNZI2lPZSquhLruv3vYqgf18SucejfJC+peLlgcwnKxZtYUPAxYSCQ==
 
 "@nodelib/fs.scandir@2.1.5":
   version "2.1.5"

@@ -7,7 +7,7 @@ export const findPatternAt = (
   regex: string,
   pos: number
 ): string | null => {
-  const re = new RegExp(`(?<=.{${pos}})${regex}`, "m");
+  const re = new RegExp(`(?<=.{${pos}})${regex}`, "ms");
   const match = re.exec(input);
   const notMatch = match == null || match.index !== pos;
   if (notMatch) return null;
