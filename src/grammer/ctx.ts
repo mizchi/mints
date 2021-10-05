@@ -14,5 +14,6 @@ export enum NodeTypes {
 const { compile, builder } = createContext<NodeTypes>({
   composeTokens: false,
   refs: NodeTypes,
+  pairs: ["{", "}"],
 });
 export { compile, builder };

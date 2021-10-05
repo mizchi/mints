@@ -1,4 +1,5 @@
-import { Builder, createContext } from "..";
+import { createContext } from "..";
+import { Builder } from "../types";
 import { Ast, initGrammerParser, Program } from "./index";
 
 const example = `

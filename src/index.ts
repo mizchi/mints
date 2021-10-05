@@ -1,252 +1,21 @@
 import {
-  buildTokenMap,
-  findPatternAt,
-  readPairedBlock,
-  TokenMap,
-} from "./utils";
+  CacheMap,
+  PackratCache,
+  Node,
+  ParseResult,
+  CompileContext,
+  RootParser,
+  ParseContext,
+  ErrorType,
+  NodeKind,
+  Parser,
+  ParseSuccess,
+  ParseError,
+  CompiledParser,
+  RootCompiler,
+} from "./types";
+import { buildTokenMap, findPatternAt } from "./utils";
 
-// ==== constants ====
-export enum NodeKind {
-  SEQ = 1,
-  ATOM,
-  REPEAT,
-  TOKEN,
-  STRING,
-  OR,
-  REF,
-  EOF,
-  PAIR,
-  NOT,
-  RECURSION,
-}
-
-export enum ErrorType {
-  Not_IncorrectMatch,
-  Pair_Unmatch,
-  Eof_Unmatch,
-  Token_Unmatch,
-  Seq_Stop,
-  Or_UnmatchAll,
-  Repeat_RangeError,
-  Atom_ParseError,
-}
-
-const nodeBaseDefault: Omit<NodeBase, "id" | "reshape" | "kind"> = {
-  key: undefined,
-  optional: false,
-  skip: false,
-};
-
-// ==== types ====
-export type Node =
-  | Seq
-  | Token
-  | Or
-  | Repeat
-  | Ref
-  | Eof
-  | Pair
-  | Not
-  | Recursion
-  | Atom;
-
-type NodeBase = {
-  id: string;
-  kind: NodeKind;
-  key?: string | void;
-  optional?: boolean;
-  /* Skip self as sequence result */
-  skip?: boolean;
-  /* Reshape result */
-  reshape?: Parser;
-};
-
-export type Recursion = NodeBase & {
-  kind: NodeKind.RECURSION;
-};
-
-export type Atom = NodeBase & {
-  kind: NodeKind.ATOM;
-  parse: AtomParser;
-};
-
-export type Eof = NodeBase & {
-  kind: NodeKind.EOF;
-};
-
-export type Pair = NodeBase & {
-  kind: NodeKind.PAIR;
-  open: string;
-  close: string;
-};
-
-export type Not = NodeBase & {
-  kind: NodeKind.NOT;
-  child: Node;
-};
-
-export type Seq = NodeBase & {
-  kind: NodeKind.SEQ;
-  children: Node[];
-};
-
-export type Ref = NodeBase & {
-  kind: NodeKind.REF;
-  ref: string;
-};
-
-export type Repeat = NodeBase & {
-  kind: NodeKind.REPEAT;
-  pattern: Node;
-  min: number;
-  max?: number | void;
-};
-
-export type Or = NodeBase & {
-  kind: NodeKind.OR;
-  patterns: Array<Seq | Token | Ref>;
-};
-
-export type Token = NodeBase & {
-  kind: NodeKind.TOKEN;
-  expr: string;
-};
-
-type CacheMap = { [key: `${number}@${string}`]: ParseSuccess };
-type PackratCache = {
-  export(): CacheMap;
-  add(id: Node["id"], pos: number, result: any): void;
-  get(id: Node["id"], pos: number): ParseResult | void;
-};
-
-type InputNodeExpr<RefId extends number | string = number> =
-  | Node
-  | string
-  | RefId;
-
-type ParseSuccess = {
-  error: false;
-  result: any;
-  len: number;
-};
-
-type ParseErrorBase = {
-  error: true;
-  pos: number;
-  errorType: ErrorType;
-  kind: NodeKind;
-  result?: any;
-  detail?: any;
-};
-
-type ParseError =
-  | (ParseErrorBase & {
-      errorType: ErrorType.Repeat_RangeError;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Not_IncorrectMatch;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Pair_Unmatch;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Eof_Unmatch;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Token_Unmatch;
-      detail?: string;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Seq_Stop;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Atom_ParseError;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Or_UnmatchAll;
-      detail: {
-        children: Array<ParseError[]>;
-      };
-    });
-
-type ParseResult = ParseSuccess | ParseError;
-
-type CompiledParser = (input: string, ctx: ParseContext) => ParseResult;
-type AtomParser = (
-  opts: CompileContext<any, any>
-) => (
-  input: string,
-  ctx: ParseContext
-) => number | [output: any, len: number] | void;
-
-type RuleParser<T> = (
-  node: T,
-  opts: CompileContext<any, any>
-) => (
-  input: string,
-  ctx: ParseContext
-) => number | [output: any, len: number] | void;
-
-type ParseContext = {
-  cache: PackratCache;
-  pos: number;
-  tokenMap: TokenMap<string>;
-};
-
-export type Parser<In = any, Out = any> = (
-  input: In,
-  ctx?: ParseContext,
-  stack?: Array<Node>
-) => Out;
-
-type InternalParser<In = any, Out = any> = (
-  input: In,
-  ctx: ParseContext,
-  stack: Array<Node>
-) => Out;
-
-export type RootParser = (input: string, ctx?: ParseContext) => ParseResult;
-
-export type Builder<ID = number> = {
-  def(refId: ID | symbol, node: InputNodeExpr, reshape?: Parser): ID;
-  ref(refId: ID, reshape?: Parser): Ref;
-  tok(expr: string, reshape?: Parser): Token;
-  repeat(
-    pattern: InputNodeExpr,
-    minmax?: [min: number | void, max?: number | void],
-    reshape?: Parser
-  ): Repeat;
-  repeat_seq(
-    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
-    minmax?: [min: number | void, max?: number | void],
-    reshape?: Parser
-  ): Repeat;
-  or: (
-    patterns: Array<Seq | Token | Ref | Or | Eof | string | ID | Recursion>,
-    reshape?: Parser
-  ) => Or;
-  seq(
-    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
-    reshape?: Parser
-  ): Seq;
-  pair(pair: { open: string; close: string }, reshape?: Parser): Pair;
-  not(child: InputNodeExpr, reshape?: Parser): Not;
-  atom(fn: AtomParser): Atom;
-  opt<T extends Node>(node: InputNodeExpr): T;
-  skip_opt<T extends Node>(node: InputNodeExpr): T;
-  param<T extends Node>(key: string, node: InputNodeExpr, reshape?: Parser): T;
-  skip<T extends Node>(node: T | string): T;
-  join(...expr: string[]): Token;
-  eof(): Eof;
-  ["!"]: (child: InputNodeExpr) => Not;
-  ["*"](
-    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>
-  ): Repeat;
-  ["+"](
-    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>
-  ): Repeat;
-  R: Recursion;
-};
 // impl
 function createPackratCache(): PackratCache {
   const cache: CacheMap = {};
@@ -267,74 +36,41 @@ function createPackratCache(): PackratCache {
   };
 }
 
-// type SymbolMap = { [key: string | Symbol]: RecParser | void };
-type PatternsMap = Record<string | symbol, CompiledParser | void>;
-type RulesMap<T> = Record<
-  any,
-  (node: T, opts: CompileContext<any, any>) => CompiledParser
->;
-
-// type RefMap<ID extends number> = Record<ID, string>;
-
-export type CompileContext<ID, RefMap> = {
-  composeTokens: boolean;
-  patterns: PatternsMap;
-  refs: RefMap;
-  rules: RulesMap<any>;
-  refSet: Set<ID | symbol>;
-};
-
 export function createContext<
   ID extends number = number,
   RefMap extends {} = {}
 >({
+  pairs = [],
   composeTokens = true,
   refs = {} as RefMap,
+  rules = {},
+  patterns = {},
 }: Partial<CompileContext<ID, RefMap>> = {}) {
-  const rules: RulesMap<any> = {};
-  const compileCtx: CompileContext<ID, RefMap> = {
+  const opts: CompileContext<ID, RefMap> = {
     composeTokens,
+    pairs,
     refs,
-    refSet: new Set(Object.values(refs)) as Set<ID | symbol>,
-    rules,
-    patterns: {},
+    rules: rules,
+    patterns: patterns,
   };
 
-  const toNode = (input: InputNodeExpr): Node => {
-    if (typeof input === "object") {
-      return input;
-    }
-    if (typeof input === "number") {
-      if (!compileCtx.refSet.has(input as ID)) {
-        throw new Error(
-          `[pargen:convert-expr-to-node] Ref ${
-            (refs as any)[input]
-          }:${input} not found`
-        );
-      }
-      return createRef(input);
-    }
-    return typeof input === "string" ? createToken(input) : input;
-  };
-  let cnt = 0;
-  const genId = () => (cnt++).toString();
-  const exprCache: { [key: string]: Token } = {};
-  function compile(
-    node: Node | ID,
-    {
-      pairs = [],
-      contextRoot = Symbol(),
-    }: { pairs?: string[]; contextRoot?: symbol | ID } = {}
-  ): RootParser {
-    const realNode = toNode(node);
-    const parse = compileParser(realNode, {
-      ...compileCtx,
-      root: realNode.id,
-      contextRoot,
+  const compile: RootCompiler<ID> = (
+    node,
+    {}: // contextRoot = Symbol(),
+    { pairs?: string[] } = {}
+  ) => {
+    const resolved = typeof node === "number" ? createRef(node) : node;
+    const parse = compileParser(resolved, {
+      ...opts,
+      root: resolved.id,
+      // contextRoot,
     });
-    return (input: string, ctx: Partial<ParseContext> = {}) => {
+    const parser: RootParser = (
+      input: string,
+      ctx: Partial<ParseContext> = {}
+    ) => {
       const cache = createPackratCache();
-      const tokenMap = buildTokenMap(input, pairs);
+      const tokenMap = buildTokenMap(input, opts.pairs);
       return parse(input, {
         cache: cache,
         pos: 0,
@@ -342,273 +78,15 @@ export function createContext<
         ...ctx,
       });
     };
-  }
-
-  // TODO: Refactor all
-  function defineRule<T extends NodeBase>(kind: any, parser: RuleParser<T>) {
-    const newRule = <T extends NodeBase>(
-      node: T,
-      opts: CompileContext<any, any>
-    ) => {
-      const parse = parser(node as any, opts);
-      // console.log("node!", kind, node);
-      return (input: string, ctx: ParseContext) => {
-        // console.log("node!", kind, node, input, "xx", parse(input, ctx));
-        const ret = parse(input, ctx);
-        if (ret == null) {
-          return createParseError(kind, ErrorType.Atom_ParseError, ctx.pos);
-        }
-        if (typeof ret === "number") {
-          return createParseSuccess(
-            input.slice(ctx.pos, ctx.pos + ret),
-            ctx.pos,
-            ret
-          );
-        }
-        const [out, len] = ret;
-        return createParseSuccess(out, ctx.pos, len);
-      };
-    };
-    rules[kind] = newRule as any;
-    return (args: Omit<T, keyof NodeBase>) => {
-      return {
-        ...nodeBaseDefault,
-        id: kind + ":" + genId(),
-        kind: kind,
-        ...args,
-      } as T;
-    };
-  }
-
-  // inline define
-  const createPair = defineRule(
-    NodeKind.PAIR,
-    (
-      node: NodeBase & { open: string; close: string },
-      _compileCtx: CompileContext<any, any>
-    ) => {
-      return (input: string, ctx: ParseContext) => {
-        const pairedEnd = readPairedBlock(ctx.tokenMap, ctx.pos, input.length, [
-          node.open,
-          node.close,
-        ]);
-        if (pairedEnd) {
-          return pairedEnd - ctx.pos;
-        }
-        return;
-      };
-    }
-  );
-
-  function definePattern<T extends ID | Symbol>(
-    refId: T | symbol,
-    node: InputNodeExpr
-  ): T {
-    const id = refId;
-    if (typeof id === "symbol") {
-      compileCtx.refSet.add(id);
-    }
-    if (compileCtx.patterns[id as any]) {
-      throw new Error(`Symbol:${id.toString()} is already defined`);
-    }
-    compileCtx.patterns[id as any] = () => {
-      throw new Error("Override me");
-    };
-    const parser = compile(toNode(node), { contextRoot: id as any });
-    compileCtx.patterns[id as any] = parser as any;
-    return id as any;
-  }
-
-  function createRef(refId: string | number, reshape?: Parser): Ref {
-    return {
-      ...nodeBaseDefault,
-      id: "symbol:" + genId(),
-      kind: NodeKind.REF,
-      ref: refId.toString(),
-      reshape,
-    } as Ref;
-  }
-
-  function createSeq(
-    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
-    reshape?: Parser
-  ): Seq {
-    let nodes: Node[] = [];
-
-    if (composeTokens) {
-      // compose token
-      let currentTokens: string[] = [];
-      children.forEach((child) => {
-        if (typeof child === "string") {
-          currentTokens.push(child);
-        } else if (
-          // plane expr
-          typeof child !== "number" &&
-          !Array.isArray(child) &&
-          !child.skip &&
-          child.kind === NodeKind.TOKEN &&
-          child.reshape === defaultReshape &&
-          child.key == null
-        ) {
-          currentTokens.push(child.expr);
-        } else {
-          // compose queued expr list to one expr
-          if (currentTokens.length > 0) {
-            nodes.push(createToken(currentTokens.join("")));
-            currentTokens = [];
-          }
-          if (Array.isArray(child)) {
-            const [key, ex] = child;
-            nodes.push(param(key, toNode(ex)));
-          } else {
-            // raw expr
-            nodes.push(toNode(child));
-          }
-        }
-      });
-      nodes.push(createToken(currentTokens.join("")));
-    } else {
-      // do not compose for debug
-      nodes = children.map((child): Node => {
-        if (Array.isArray(child)) {
-          const [key, ex] = child;
-          return param(key, toNode(ex));
-        } else {
-          return toNode(child);
-        }
-      });
-    }
-    return {
-      ...nodeBaseDefault,
-      reshape,
-      id: "seq:" + genId(),
-      kind: NodeKind.SEQ,
-      children: nodes,
-    } as Seq;
-  }
-
-  function createNot(child: InputNodeExpr, reshape?: Parser): Not {
-    const childNode = toNode(child);
-    return {
-      ...nodeBaseDefault,
-      kind: NodeKind.NOT,
-      child: childNode,
-      reshape,
-      id: "not:" + childNode.id,
-    } as Not;
-  }
-
-  function createOr(
-    patterns: Array<Seq | Token | Ref | Or | Eof | string | ID | Recursion>,
-    reshape?: Parser
-  ): Or {
-    return {
-      ...nodeBaseDefault,
-      kind: NodeKind.OR,
-      patterns: patterns.map(toNode) as Array<Seq | Token | Ref>,
-      reshape,
-      id: "or:" + genId(),
-    } as Or;
-  }
-
-  function createRepeat(
-    pattern: InputNodeExpr,
-    minmax?: [min: number | void, max?: number | void],
-    reshape?: Parser<any, any>
-  ): Repeat {
-    const [min = 0, max = undefined] = minmax ?? [];
-    return {
-      ...nodeBaseDefault,
-      id: "repeat:" + genId(),
-      kind: NodeKind.REPEAT,
-      pattern: toNode(pattern),
-      min,
-      max,
-      reshape,
-    };
-  }
-
-  function createToken(expr: string, reshape?: Parser<any, any>): Token {
-    if (exprCache[expr]) {
-      return exprCache[expr];
-    }
-    return (exprCache[expr] = {
-      ...nodeBaseDefault,
-      id: `expr:${expr}`,
-      kind: NodeKind.TOKEN,
-      expr,
-      reshape,
-    });
-  }
-
-  function createEof(): Eof {
-    return {
-      ...nodeBaseDefault,
-      id: "EOF",
-      kind: NodeKind.EOF,
-      reshape: undefined,
-    };
-  }
-
-  function createAtom(parse: Parser): Atom {
-    return {
-      ...nodeBaseDefault,
-      id: "atom:" + genId(),
-      kind: NodeKind.ATOM,
-      parse,
-    };
-  }
-
-  const RECURSION_ID = "RECURSION";
-  const builder: Builder<ID> = {
-    def: definePattern,
-    ref: createRef,
-    tok: createToken,
-    repeat: createRepeat,
-    atom: createAtom,
-    or: createOr,
-    seq: createSeq,
-    pair: createPair as any,
-    not: createNot,
-    param,
-    eof: createEof,
-    R: {
-      id: RECURSION_ID,
-      kind: NodeKind.RECURSION,
-      reshape: undefined,
-    },
-    repeat_seq(input, minmax, reshape) {
-      return createRepeat(createSeq(input), minmax, reshape);
-    },
-    opt<T extends Node>(input: InputNodeExpr): T {
-      return { ...(toNode(input) as T), optional: true };
-    },
-    skip<T extends Node>(node: InputNodeExpr): T {
-      return { ...(toNode(node) as T), skip: true };
-    },
-    skip_opt<T extends Node>(node: InputNodeExpr): T {
-      return { ...(toNode(node) as T), skip: true, optional: true };
-    },
-    join(...expr: string[]): Token {
-      return createToken(expr.join(""));
-    },
-    ["!"]: createNot,
-    ["*"](input: InputNodeExpr[]) {
-      return createRepeat(createSeq(input), [0]);
-    },
-    ["+"](input: InputNodeExpr[]) {
-      return createRepeat(createSeq(input), [1]);
-    },
+    return parser;
   };
 
-  return { symbolMap: compileCtx.patterns, builder, compile };
-
-  function param<T extends Node>(key: string, node: InputNodeExpr): T {
-    return { ...(toNode(node) as T), key };
-  }
+  const builder = createBuilder(compile, opts);
+  return { symbolMap: opts.patterns, builder, compile };
 }
 
-const defaultReshape: Parser<any, any> = <T>(i: T): T => i;
+export const defaultReshape: Parser<any, any> = <T>(i: T): T => i;
+
 const getOrCreateCache = (
   cache: PackratCache,
   id: string,
@@ -622,7 +100,7 @@ const getOrCreateCache = (
   return result;
 };
 
-const createParseSuccess = (result: any, pos: number, len: number) => {
+export const createParseSuccess = (result: any, pos: number, len: number) => {
   return {
     error: false,
     result,
@@ -631,7 +109,7 @@ const createParseSuccess = (result: any, pos: number, len: number) => {
   } as ParseSuccess;
 };
 
-const createParseError = <ET extends ErrorType>(
+export const createParseError = <ET extends ErrorType>(
   kind: NodeKind,
   errorType: ET,
   pos: number,
@@ -650,7 +128,7 @@ export function compileParser(
   node: Node,
   opts: CompileContext<any, any> & {
     root: Node["id"];
-    contextRoot: symbol | number;
+    contextRoot?: symbol | number;
   }
 ): CompiledParser {
   const reshape = node.reshape ?? defaultReshape;
@@ -688,6 +166,7 @@ export function compileParser(
     case NodeKind.REF: {
       return (input, ctx) => {
         const resolved = opts.patterns[node.ref];
+        // console.log("patterns", opts.patterns);
         if (!resolved) {
           throw new Error(`symbol not found: ${node.ref}`);
         }
@@ -722,15 +201,15 @@ export function compileParser(
       };
     }
 
-    case NodeKind.RECURSION: {
-      // const childParser = compileRec(node.child, opts);
-      return (input, ctx) => {
-        const resolved = opts.patterns[opts.contextRoot];
-        return getOrCreateCache(ctx.cache, node.id, ctx.pos, () =>
-          resolved!(input, ctx)
-        );
-      };
-    }
+    // case NodeKind.RECURSION: {
+    //   // const childParser = compileRec(node.child, opts);
+    //   return (input, ctx) => {
+    //     // const resolved = opts.patterns[opts.contextRoot];
+    //     return getOrCreateCache(ctx.cache, node.id, ctx.pos, () =>
+    //       resolved!(input, ctx)
+    //     );
+    //   };
+    // }
 
     case NodeKind.EOF: {
       return (input: string, ctx) => {
@@ -894,9 +373,8 @@ export function compileParser(
 }
 
 import { test, run, is } from "@mizchi/test";
+import { createBuilder, createRef } from "./builder";
 if (process.env.NODE_ENV === "test" && require.main === module) {
-  const Return = "[\\r\\n]";
-
   test("whitespace", () => {
     const { compile, builder: $ } = createContext();
     is(compile($.tok("\\s+"))(" ").result, " ");
@@ -1071,12 +549,12 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
   test("reuse symbol", () => {
     enum T {
-      _ = 1,
+      _,
     }
-    const { compile, builder: $ } = createContext({ refs: T as any });
-    const __ = $.def(T._, "\\s+");
-    // use result or enum
-    const seq = $.seq(["a", T._, "b", __, "c"]);
+    const { compile, builder: $ } = createContext({ refs: T });
+    $.def(T._, $.tok("\\s"));
+
+    const seq = $.seq(["a", T._, "b", T._, "c"]);
     const parser = compile(seq);
     is(parser("a b c"), {
       result: "a b c",
@@ -1442,10 +920,10 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   // });
 
   test("pair", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.pair({ open: "<", close: ">" }), {
+    const { compile, builder: $ } = createContext({
       pairs: ["<", ">"],
     });
+    const parser = compile($.pair({ open: "<", close: ">" }));
     is(parser("<>").result, "<>");
     is(parser("<<>>").result, "<<>>");
     is(parser("<<>").error, true);

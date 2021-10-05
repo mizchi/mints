@@ -272,20 +272,16 @@ export const Program = $.def(
 );
 
 export function initGrammerParser(): RootParser {
-  const pairs = ["{", "}"];
-  const opts = { pairs };
-  return compile(Program, opts);
-  // return parser();
+  return compile(Program);
 }
 
 import { run, test, is } from "@mizchi/test";
-import { RootParser } from "..";
+import { RootParser } from "../types";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
-  const pairs = ["{", "}"];
-  const opts = { pairs };
+  const opts = { pairs: ["{", "}"], contextRoot: Symbol() };
   test("Seq with or", () => {
-    const parse = compile(Sequence, opts);
+    const parse = compile(Sequence);
     is(parse("a (b)"), {
       result: {
         type: "seq",
@@ -297,7 +293,7 @@ if (process.env.NODE_ENV === "test") {
     });
   });
   test("Seq", () => {
-    const parse = compile(Sequence, opts);
+    const parse = compile(Sequence);
     is(parse("a b c"), {
       result: {
         type: "seq",
@@ -313,7 +309,7 @@ if (process.env.NODE_ENV === "test") {
     });
   });
   test("Or", () => {
-    const parse = compile(Or, opts);
+    const parse = compile(Or);
     is(parse("a/b/c"), {
       result: {
         type: "or",
@@ -330,14 +326,14 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("Expr", () => {
-    const parse = compile(Token, opts);
+    const parse = compile(Token);
     is(parse('"abc"'), {
       result: {
         type: "token",
         value: "abc",
       },
     });
-    const parseExpr = compile(UnaryExpr, opts);
+    const parseExpr = compile(UnaryExpr);
     is(parseExpr("a"), {
       result: {
         type: "ident",
@@ -416,7 +412,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("def", () => {
-    const parse = compile(DefineStmt, opts);
+    const parse = compile(DefineStmt);
     is(parse("a=b/c;"), {
       result: {
         type: "def",
@@ -468,7 +464,7 @@ if (process.env.NODE_ENV === "test") {
     });
   });
   test("comment", () => {
-    const parse = compile(CommentStatement, opts);
+    const parse = compile(CommentStatement);
     is(parse("//a"), {
       result: {
         type: "comment",
@@ -490,10 +486,8 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("program", () => {
-    const parse = compile(Program, opts);
+    const parse = compile(Program);
     const code = `a=a;a=x;`;
-    // console.log(parse(code));
-    // throw new Error("");
     is(parse("//xxx"), {
       result: {
         type: "program",
@@ -551,7 +545,7 @@ if (process.env.NODE_ENV === "test") {
     });
 
     test("program2", () => {
-      const parse = compile(Program, opts);
+      const parse = compile(Program);
       const code = `
 a=a;
       a=x/y;`;
