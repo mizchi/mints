@@ -3,7 +3,7 @@ import {
   PackratCache,
   Node,
   ParseResult,
-  CompileContext,
+  Compiler,
   RootParser,
   ParseContext,
   ErrorType,
@@ -13,7 +13,6 @@ import {
   ParseError,
   CompiledParser,
   RootCompiler,
-  Compiler,
 } from "./types";
 import { buildTokenMap, findPatternAt } from "./utils";
 
@@ -38,9 +37,9 @@ function createPackratCache(): PackratCache {
 }
 
 export function createCompiler<ID extends number>(
-  partial: Partial<CompileContext<ID, any>>
-): CompileContext<ID, any> {
-  const opts: CompileContext<ID, any> = {
+  partial: Partial<Compiler<ID>>
+): Compiler<ID> {
+  const opts: Compiler<ID> = {
     pairs: [],
     composeTokens: true,
     refs: {} as any,
@@ -50,7 +49,7 @@ export function createCompiler<ID extends number>(
     compile: null as any,
   };
 
-  const compile: Compiler = (node) => {
+  const compile: RootCompiler<ID> = (node) => {
     const resolved = typeof node === "number" ? createRef(node) : node;
     const parse = compileParser(resolved, opts);
     const parser: RootParser = (
@@ -79,7 +78,7 @@ export function createCompiler<ID extends number>(
 export function createContext<
   ID extends number = number,
   RefMap extends {} = {}
->(partialOpts: Partial<CompileContext<ID, RefMap>> = {}) {
+>(partialOpts: Partial<Compiler<ID>> = {}) {
   const ctx = createCompiler(partialOpts);
   const builder = createBuilder(ctx);
   return { builder, compile: ctx.compile };
@@ -126,13 +125,13 @@ export const createParseError = <ET extends ErrorType>(
 
 export function compileParser(
   node: Node,
-  opts: CompileContext<any, any>
+  compiler: Compiler<any>
 ): CompiledParser {
   const reshape = node.reshape ?? defaultReshape;
   // use additional parser
-  if (opts.rules[node.kind]) {
+  if (compiler.rules[node.kind]) {
     // @ts-ignore
-    const parse = opts.rules[node.kind](node, opts);
+    const parse = compiler.rules[node.kind](node, compiler);
     return ((input, ctx) => {
       return getOrCreateCache(ctx.cache, node.id, ctx.pos, () => {
         // @ts-ignore
@@ -143,7 +142,7 @@ export function compileParser(
 
   switch (node.kind) {
     case NodeKind.NOT: {
-      const childParser = compileParser(node.child, opts);
+      const childParser = compileParser(node.child, compiler);
       return (input, ctx) => {
         return getOrCreateCache(ctx.cache, node.id, ctx.pos, () => {
           const result = childParser(input, ctx);
@@ -162,8 +161,7 @@ export function compileParser(
 
     case NodeKind.REF: {
       return (input, ctx) => {
-        const resolved = opts.patterns[node.ref];
-        // console.log("patterns", opts.patterns);
+        const resolved = compiler.patterns[node.ref];
         if (!resolved) {
           throw new Error(`symbol not found: ${node.ref}`);
         }
@@ -174,7 +172,7 @@ export function compileParser(
     }
 
     case NodeKind.ATOM: {
-      const parse = node.parse(opts);
+      const parse = node.parse(compiler);
       return (input, ctx) => {
         return getOrCreateCache(ctx.cache, node.id, ctx.pos, () => {
           const ret = parse(input, ctx);
@@ -255,7 +253,7 @@ export function compileParser(
     case NodeKind.OR: {
       const compiledPatterns = node.patterns.map((p) => {
         return {
-          parse: compileParser(p, opts),
+          parse: compileParser(p, compiler),
           node: p,
         };
       });
@@ -281,7 +279,7 @@ export function compileParser(
       };
     }
     case NodeKind.REPEAT: {
-      const parser = compileParser(node.pattern, opts);
+      const parser = compileParser(node.pattern, compiler);
       return (input: string, opts) => {
         return getOrCreateCache(opts.cache, node.id, opts.pos, () => {
           const xs: string[] = [];
@@ -319,7 +317,7 @@ export function compileParser(
     }
     case NodeKind.SEQ: {
       const parsers = node.children.map((c) => {
-        const parse = compileParser(c, opts);
+        const parse = compileParser(c, compiler);
         return { parse, node: c };
       });
       return (input: string = "", ctx) => {
@@ -394,14 +392,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser(" a").result, " a");
     is(parser("  y").error, true);
   });
-
-  // test("token2", () => {
-  //   const { compile, builder: $ } = createContext();
-  //   const parser = compile($.tok("a[\\r\\n|\\n|\\r]b"));
-  //   is(parser("a\nb").result, "a\nb");
-  //   // is(parser(" a").result, " a");
-  //   // is(parser("  y").error, true);
-  // });
 
   test("nested-token", () => {
     const { compile, builder: $ } = createContext();
@@ -949,7 +939,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
   test("atom:shape", () => {
     const { compile, builder: $ } = createContext();
-    // read next >
     const parser = compile(
       $.atom((_opts) => {
         return (input, ctx) => {

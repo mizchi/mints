@@ -1,6 +1,6 @@
 import {
   Node,
-  CompileContext,
+  Compiler,
   InputNodeExpr,
   ParseContext,
   RuleParser,
@@ -19,7 +19,6 @@ import {
   Repeat,
   Atom,
   Builder,
-  Compiler,
 } from "./types";
 import { readPairedBlock } from "./utils";
 import { createParseError, createParseSuccess, defaultReshape } from "./index";
@@ -34,10 +33,7 @@ export function createRef(refId: string | number, reshape?: Parser): Ref {
   } as Ref;
 }
 
-export function createBuilder<
-  ID extends number = number,
-  RefMap extends {} = {}
->(opts: CompileContext<ID, RefMap>) {
+export function createBuilder<ID extends number = number>(opts: Compiler<ID>) {
   let cnt = 0;
   const genId = () => (cnt++).toString();
   const exprCache: { [key: string]: Token } = {};
@@ -55,16 +51,13 @@ export function createBuilder<
           }:${input} not found`
         );
       }
-      return createRef(input);
+      return ref(input);
     }
-    return typeof input === "string" ? createToken(input) : input;
+    return typeof input === "string" ? token(input) : input;
   };
 
   function defineRule<T extends NodeBase>(kind: any, parser: RuleParser<T>) {
-    const newRule = <T extends NodeBase>(
-      node: T,
-      opts: CompileContext<any, any>
-    ) => {
+    const newRule = <T extends NodeBase>(node: T, opts: Compiler<any>) => {
       const parse = parser(node as any, opts);
       return (input: string, ctx: ParseContext) => {
         const ret = parse(input, ctx);
@@ -98,10 +91,9 @@ export function createBuilder<
     NodeKind.PAIR,
     (
       node: NodeBase & { open: string; close: string },
-      _compileCtx: CompileContext<any, any>
+      _compileCtx: Compiler<any>
     ) => {
       return (input: string, ctx: ParseContext) => {
-        // console.olg
         const pairedEnd = readPairedBlock(ctx.tokenMap, ctx.pos, input.length, [
           node.open,
           node.close,
@@ -114,19 +106,13 @@ export function createBuilder<
     }
   );
 
-  function definePattern<T extends ID | Symbol>(
-    refId: T | symbol,
-    node: InputNodeExpr
-  ): T {
-    console.log("define ref!", refId);
-    const id = refId;
+  function def<T extends ID | Symbol>(id: T | symbol, node: InputNodeExpr): T {
     if (typeof id === "symbol") {
       refSet.add(id);
     }
     if (opts.patterns[id as any]) {
       throw new Error(`Symbol:${id.toString()} is already defined`);
     }
-
     opts.patterns[id as any] = () => {
       throw new Error("Override me");
     };
@@ -135,7 +121,7 @@ export function createBuilder<
     return id as any;
   }
 
-  function createRef(refId: string | number, reshape?: Parser): Ref {
+  function ref(refId: string | number, reshape?: Parser): Ref {
     return {
       ...nodeBaseDefault,
       id: "symbol:" + genId(),
@@ -145,7 +131,7 @@ export function createBuilder<
     } as Ref;
   }
 
-  function createSeq(
+  function seq(
     children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
     reshape?: Parser
   ): Seq {
@@ -169,7 +155,7 @@ export function createBuilder<
         } else {
           // compose queued expr list to one expr
           if (currentTokens.length > 0) {
-            nodes.push(createToken(currentTokens.join("")));
+            nodes.push(token(currentTokens.join("")));
             currentTokens = [];
           }
           if (Array.isArray(child)) {
@@ -181,7 +167,7 @@ export function createBuilder<
           }
         }
       });
-      nodes.push(createToken(currentTokens.join("")));
+      nodes.push(token(currentTokens.join("")));
     } else {
       // do not compose for debug
       nodes = children.map((child): Node => {
@@ -202,7 +188,7 @@ export function createBuilder<
     } as Seq;
   }
 
-  function createNot(child: InputNodeExpr, reshape?: Parser): Not {
+  function not(child: InputNodeExpr, reshape?: Parser): Not {
     const childNode = toNode(child);
     return {
       ...nodeBaseDefault,
@@ -213,7 +199,7 @@ export function createBuilder<
     } as Not;
   }
 
-  function createOr(
+  function or(
     patterns: Array<Seq | Token | Ref | Or | Eof | string | ID | Recursion>,
     reshape?: Parser
   ): Or {
@@ -226,7 +212,7 @@ export function createBuilder<
     } as Or;
   }
 
-  function createRepeat(
+  function repeat(
     pattern: InputNodeExpr,
     minmax?: [min: number | void, max?: number | void],
     reshape?: Parser<any, any>
@@ -243,7 +229,7 @@ export function createBuilder<
     };
   }
 
-  function createToken(expr: string, reshape?: Parser<any, any>): Token {
+  function token(expr: string, reshape?: Parser<any, any>): Token {
     if (exprCache[expr]) {
       return exprCache[expr];
     }
@@ -256,7 +242,7 @@ export function createBuilder<
     });
   }
 
-  function createEof(): Eof {
+  function eof(): Eof {
     return {
       ...nodeBaseDefault,
       id: "EOF",
@@ -265,7 +251,7 @@ export function createBuilder<
     };
   }
 
-  function createAtom(parse: Parser): Atom {
+  function atom(parse: Parser): Atom {
     return {
       ...nodeBaseDefault,
       id: "atom:" + genId(),
@@ -274,26 +260,30 @@ export function createBuilder<
     };
   }
 
+  function param<T extends Node>(key: string, node: InputNodeExpr): T {
+    return { ...(toNode(node) as T), key };
+  }
+
   const RECURSION_ID = "RECURSION";
   const builder: Builder<ID> = {
-    def: definePattern,
-    ref: createRef,
-    tok: createToken,
-    repeat: createRepeat,
-    atom: createAtom,
-    or: createOr,
-    seq: createSeq,
+    def,
+    ref,
+    tok: token,
+    repeat,
+    atom,
+    or,
+    seq,
     pair: createPair as any,
-    not: createNot,
+    not,
     param,
-    eof: createEof,
+    eof,
     R: {
       id: RECURSION_ID,
       kind: NodeKind.RECURSION,
       reshape: undefined,
     },
     repeat_seq(input, minmax, reshape) {
-      return createRepeat(createSeq(input), minmax, reshape);
+      return repeat(seq(input), minmax, reshape);
     },
     opt<T extends Node>(input: InputNodeExpr): T {
       return { ...(toNode(input) as T), optional: true };
@@ -305,20 +295,16 @@ export function createBuilder<
       return { ...(toNode(node) as T), skip: true, optional: true };
     },
     join(...expr: string[]): Token {
-      return createToken(expr.join(""));
+      return token(expr.join(""));
     },
-    ["!"]: createNot,
+    ["!"]: not,
     ["*"](input: InputNodeExpr[]) {
-      return createRepeat(createSeq(input), [0]);
+      return repeat(seq(input), [0]);
     },
     ["+"](input: InputNodeExpr[]) {
-      return createRepeat(createSeq(input), [1]);
+      return repeat(seq(input), [1]);
     },
   };
 
   return builder;
-
-  function param<T extends Node>(key: string, node: InputNodeExpr): T {
-    return { ...(toNode(node) as T), key };
-  }
 }

@@ -109,6 +109,7 @@ export type Token = NodeBase & {
 };
 
 export type CacheMap = { [key: `${number}@${string}`]: ParseSuccess };
+
 export type PackratCache = {
   export(): CacheMap;
   add(id: Node["id"], pos: number, result: any): void;
@@ -168,16 +169,9 @@ export type ParseError =
 export type ParseResult = ParseSuccess | ParseError;
 
 export type CompiledParser = (input: string, ctx: ParseContext) => ParseResult;
-export type AtomParser = (
-  opts: CompileContext<any, any>
-) => (
-  input: string,
-  ctx: ParseContext
-) => number | [output: any, len: number] | void;
 
-export type RuleParser<T> = (
-  node: T,
-  opts: CompileContext<any, any>
+export type AtomParser = (
+  opts: Compiler<any>
 ) => (
   input: string,
   ctx: ParseContext
@@ -195,14 +189,16 @@ export type Parser<In = any, Out = any> = (
   stack?: Array<Node>
 ) => Out;
 
-// type InternalParser<In = any, Out = any> = (
-//   input: In,
-//   ctx: ParseContext,
-//   stack: Array<Node>
-// ) => Out;
+// add
+export type RuleParser<T> = (
+  node: T,
+  opts: Compiler<any>
+) => (
+  input: string,
+  ctx: ParseContext
+) => number | [output: any, len: number] | void;
 
 export type RootParser = (input: string, ctx?: ParseContext) => ParseResult;
-
 export type Builder<ID = number> = {
   def(refId: ID | symbol, node: InputNodeExpr, reshape?: Parser): ID;
   ref(refId: ID, reshape?: Parser): Ref;
@@ -245,21 +241,19 @@ export type Builder<ID = number> = {
 };
 
 export type PatternsMap = Record<string | symbol, CompiledParser | void>;
+
 export type RulesMap<T> = Record<
   any,
-  (node: T, opts: CompileContext<any, any>) => CompiledParser
+  (node: T, opts: Compiler<any>) => CompiledParser
 >;
 
-export type CompileContext<ID extends number, RefMap> = {
+export type Compiler<ID extends number> = {
   composeTokens: boolean;
   patterns: PatternsMap;
   pairs: string[];
-  refs: RefMap;
+  refs: any;
   rules: RulesMap<any>;
   compile: RootCompiler<ID>;
-  // refSet: Set<ID | symbol>;
 };
-
-export type Compiler = (node: Node) => RootParser;
 
 export type RootCompiler<ID extends number> = (node: Node | ID) => RootParser;
