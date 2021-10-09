@@ -12,23 +12,7 @@ const ThisKeyword = $.tok("this");
 
 const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 
-// const argumentList = $.def(NodeTypes.Arguments, $.seq([]));
-
-const destructiveAssignment = $.seq([
-  "{",
-  _,
-  $.or([
-    // $.seq([
-    //   identifier,
-    //   ":",
-    //   // todo recursive
-    //   identifier
-    // ]),
-    identifier,
-  ]),
-  _,
-  "}",
-]);
+const destructiveAssignment = $.seq(["{", _, $.or([identifier]), _, "}"]);
 const arg = $.def(
   NodeTypes.Argument,
   $.or([destructiveAssignment, identifier])
@@ -61,12 +45,7 @@ const functionExpression = $.seq([
 const callArguments = $.or([
   // a, b, c
   $.seq([
-    $.repeat_seq([
-      NodeTypes.UnaryExpression,
-      _,
-      ",",
-      // unaryExpression,
-    ]),
+    $.repeat_seq([NodeTypes.UnaryExpression, _, ","]),
     // last arg
     NodeTypes.UnaryExpression,
   ]),
@@ -80,7 +59,7 @@ const callExpression = $.def(
   $.or([
     // call chain!
     $.seq([
-      $.or([NodeTypes.MemberExpression, identifier]),
+      $.or([NodeTypes.MemberExpression]),
       _,
       "\\(",
       _,
@@ -91,7 +70,7 @@ const callExpression = $.def(
       $.repeat(
         $.seq([
           "\\.",
-          $.or([NodeTypes.MemberExpression, identifier]),
+          $.or([NodeTypes.MemberExpression]),
           "\\(",
           _,
           callArguments,
@@ -102,7 +81,7 @@ const callExpression = $.def(
       ),
     ]),
     $.seq([
-      $.or([NodeTypes.MemberExpression, identifier]),
+      $.or([NodeTypes.MemberExpression]),
       _,
       "\\(",
       _,
@@ -162,7 +141,7 @@ const callExpression = $.def(
 const parenExpression = $.seq(["\\(", _, NodeTypes.UnaryExpression, _, "\\)"]);
 const primary = $.or([parenExpression, identifier]);
 // const property = $.or([identifier]);
-const unaryMemberExpression = $.def(
+const memberExpression = $.def(
   NodeTypes.MemberExpression,
   $.or([
     $.seq([
@@ -175,6 +154,7 @@ const unaryMemberExpression = $.def(
         [1]
       ),
     ]),
+    primary,
     // primary,
   ])
 );
@@ -260,24 +240,23 @@ const unaryExpression = $.def(
   NodeTypes.UnaryExpression,
   $.seq([
     // unary prefix
-    // $.opt(
-    //   $.or([
-    //     "\\+\\+",
-    //     "\\-\\-",
-    //     "void\\s",
-    //     "typeof\\s",
-    //     "delete\\s",
-    //     "\\~",
-    //     "\\!",
-    //   ])
-    // ),
+    $.opt(
+      $.or([
+        "\\+\\+",
+        "\\-\\-",
+        "void\\s",
+        "typeof\\s",
+        "delete\\s",
+        "\\~",
+        "\\!",
+      ])
+    ),
     $.or([
       // parenExpression,
       // $.seq(["\\(", _, NodeTypes.UnaryExpression, _, "\\)"]),
       $.seq(["\\(", _, NodeTypes.UnaryExpression, _, "\\)"]),
       NodeTypes.CallExpression,
       NodeTypes.MemberExpression,
-      identifier,
       ThisKeyword,
       Literal.anyLiteral,
     ]),
@@ -290,7 +269,7 @@ export const anyExpression = $.def(
     parenExpression,
     binaryExpression,
     unaryExpression,
-    unaryMemberExpression,
+    memberExpression,
     callExpression,
   ])
 );
@@ -317,37 +296,27 @@ if (process.env.NODE_ENV === "test") {
     assertError(parse, ["1", "1_", "const"]);
   });
 
-  test("unaryMemberExpression", () => {
-    const parse = compile(unaryMemberExpression);
-    assertSame(parse, ["a.b", "a.b.c", "a[1]", "a[1][2]"]);
-    assertError(parse, ["a"]);
+  test("memberExpression", () => {
+    const parse = compile(memberExpression);
+    assertSame(parse, ["a.b", "a", "a.b.c", "a[1]"]);
   });
 
   test("callExpression", () => {
     const parse = compile($.seq([callExpression, $.eof()]));
     assertSame(parse, ["a().a()"]);
     assertSame(parse, ["a().a.b()"]);
-    // assertError(parse, ["a"]);
   });
-
-  // test("callExpression:chain", () => {
-  //   const parse = compile(callExpression);
-  //   assertSame(parse, ["a()"]);
-  //   // assertError(parse, ["a"]);
-  // });
-
-  // cancel();
 
   // test("unaryExpr", () => {
   //   const parse = compile(unaryExpression);
   //   assertSame(parse, [
-  //     "1",
-  //     "++1",
+  //     "a",
+  //     "++a",
   //     // "typeof a",
   //     // "typeof (a)",
-  //     "delete 1",
-  //     "void a",
-  //     "--a",
+  //     // "delete a",
+  //     // "void a",
+  //     // "--a",
   //   ]);
   //   // assertError(parse, ["1 +", "1 + +", "1 + + 1"]);
   // });
