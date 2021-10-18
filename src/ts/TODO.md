@@ -10,6 +10,8 @@
 - Object Shorthand
 - Object Function shorthand
 - Object getter, setter
+- await
+- `foo?.()`
 
 ## TS
 

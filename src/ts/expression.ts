@@ -146,7 +146,7 @@ const destructivePattern = $.def(
 );
 
 const arg = $.def(T.Argument, destructivePattern);
-const args = $.def(
+const functionArgs = $.def(
   T.Arguments,
   $.or([
     // (a,)b
@@ -154,6 +154,67 @@ const args = $.def(
     // a,b,
     $.seq([$.repeat_seq([arg, ","])]),
     _,
+  ])
+);
+
+const classField = $.or([
+  $.seq([
+    $.opt($.seq(["(private|public)", __])),
+    // $.or(["constructor", identifier]),
+    "constructor",
+    _,
+    "\\(",
+    _,
+    functionArgs,
+    _,
+    "\\)",
+    _,
+    T.Block,
+  ]),
+  // class member
+  $.seq([
+    $.opt($.seq(["(private|public)", __])),
+    $.opt($.seq(["static", __])),
+    $.opt($.seq(["\\*"])),
+    $.opt($.seq(["\\#"])),
+    identifier,
+    _,
+    $.seq(["\\(", _, functionArgs, _, "\\)", _, T.Block]),
+  ]),
+  // field
+  $.seq([
+    $.opt($.seq(["(private|public)", __])),
+    $.opt($.seq(["static", __])),
+    $.opt($.seq(["\\#"])),
+    identifier,
+    _,
+    $.opt($.seq(["=", _, T.AnyExpression])),
+    ";",
+  ]),
+]);
+
+// class X {
+//   #x = 1;
+//   static #y = 2;
+// }
+
+const classExpression = $.def(
+  T.ClassExpression,
+  $.seq([
+    "class",
+    __,
+    $.opt($.seq([identifier, __])),
+    _,
+    // TODO: generics
+    $.opt($.seq(["extends", __, T.AnyExpression])),
+    // TODO: implements
+    _,
+    "\\{",
+    _,
+    $.repeat_seq([_, classField, _]),
+    _,
+    // TODO: class field
+    "\\}",
   ])
 );
 
@@ -167,7 +228,7 @@ const functionExpression = $.def(
     _,
     "\\(",
     _,
-    args,
+    functionArgs,
     _,
     "\\)",
     _,
@@ -179,7 +240,7 @@ const arrowFunctionExpression = $.def(
   T.ArrowFunctionExpression,
   $.seq([
     $.opt("async\\s+"),
-    $.or([$.seq(["\\(", _, args, _, "\\)"]), identifier]),
+    $.or([$.seq(["\\(", _, functionArgs, _, "\\)"]), identifier]),
     _,
     "\\=\\>",
     _,
@@ -211,23 +272,33 @@ const newExpression = $.seq([
   __,
   T.MemberExpression,
   _,
-  $.opt($.seq(["\\(", args, "\\)"])),
+  $.opt($.seq(["\\(", functionArgs, "\\)"])),
 ]);
 
 const paren = $.seq(["\\(", _, T.AnyExpression, _, "\\)"]);
 const primary = $.or([paren, newExpression, ThisKeyword, identifier]);
+
+const __call = $.or([
+  $.seq(["\\?\\.\\(", _, callArguments, _, "\\)"]),
+  $.seq(["\\(", _, callArguments, _, "\\)"]),
+]);
+
+const memberAccess = $.or([
+  $.seq(["\\?\\.", identifier]),
+  $.seq(["\\.", identifier]),
+  $.seq(["\\[", _, T.AnyExpression, _, "\\]"]),
+  __call,
+]);
+
+//  $.or([
+//   $.seq(["\\.", identifier]),
+//   $.seq(["\\[", _, T.AnyExpression, _, "\\]"]),
+// ]);
+
 const memberable = $.def(
   T.MemberExpression,
   $.or([
-    $.seq([
-      primary,
-      $.repeat(
-        $.or([
-          $.seq(["\\.", identifier]),
-          $.seq(["\\[", _, T.AnyExpression, _, "\\]"]),
-        ])
-      ),
-    ]),
+    $.seq([primary, $.repeat(memberAccess)]),
     // single
     anyLiteral,
   ])
@@ -238,29 +309,7 @@ const callable = $.def(
   T.CallExpression,
   $.or([
     // call chain
-    $.seq([
-      memberable,
-      _,
-      "\\(",
-      _,
-      callArguments,
-      _,
-      "\\)",
-      $.repeat(
-        $.or([
-          // dynamic access
-          $.seq(["\\[", T.AnyExpression, "\\]"]),
-          // chain access
-          $.seq([
-            "\\.",
-            memberable,
-            // $.or([T.MemberExpression]),
-            // call or access
-            $.opt($.seq(["\\(", _, callArguments, _, "\\)"])),
-          ]),
-        ])
-      ),
-    ]),
+    $.seq([memberable, _, __call, $.repeat_seq([memberAccess])]),
     memberable,
   ])
 );
@@ -270,12 +319,33 @@ const unary = $.def(
   $.or([
     // with unary prefix
     $.seq([
-      $.or(["\\+\\+", "\\-\\-", "void ", "typeof ", "delete ", "\\~", "\\!"]),
-      $.or([paren, functionExpression, arrowFunctionExpression, callable]),
+      $.or([
+        "\\+\\+",
+        "\\-\\-",
+        "void ",
+        "typeof ",
+        "delete ",
+        "await ",
+        "\\~",
+        "\\!",
+      ]),
+      $.or([
+        paren,
+        classExpression,
+        functionExpression,
+        arrowFunctionExpression,
+        callable,
+      ]),
     ]),
     // with optional postfix
     $.seq([
-      $.or([paren, functionExpression, arrowFunctionExpression, callable]),
+      $.or([
+        paren,
+        classExpression,
+        functionExpression,
+        arrowFunctionExpression,
+        callable,
+      ]),
       $.opt($.or(["\\+\\+", "\\-\\-"])),
     ]),
   ])
@@ -336,7 +406,8 @@ if (process.env.NODE_ENV === "test") {
 
   test("memberExpression", () => {
     const parse = compile(memberable);
-    expectSame(parse, ["a.b", "a", "a.b.c", "a[1]", "new X().b"]);
+    expectSame(parse, ["a.b", "a", "a.b.c", "a[1]", "new X().b", "a?.b"]);
+    // expectError(parse, ["a.new X()", "a.this"]);
   });
 
   test("callExpression", () => {
@@ -369,6 +440,23 @@ if (process.env.NODE_ENV === "test") {
       "({}) => 1",
       "async () => {}",
     ]);
+  });
+
+  test("classExpression", () => {
+    const parse = compile(classExpression);
+    expectSame(parse, ["class X {}", "class {}", "class X extends Y {}"]);
+    expectSame(parse, [
+      "class { x; }",
+      "class { x = 1;}",
+      "class { private x; }",
+      "class { private x = 1; #y = 2;  }",
+      "class { constructor() {} }",
+    ]);
+
+    // is(parse("func()").result, "func()");
+    // is(parse("func([])").result, "func([])");
+    // is(parse("func(1,2)").result, "func(1,2)");
+    // is(parse("func(1,2,)").result, "func(1,2,)");
   });
 
   test("callExpression", () => {
@@ -411,7 +499,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("anyExpression", () => {
-    const parse = compile(anyExpression);
+    const parse = compile(anyExpression, { end: true });
     expectSame(parse, [
       "i in []",
       "a = 1",
@@ -423,6 +511,11 @@ if (process.env.NODE_ENV === "test") {
       "1 + 1 + 1",
       "(1 + (1 * 2))",
       "((1 + 1) + (1 * 2))",
+      "await 1",
+      "await foo()",
+      // TODO:
+      // "(a).x",
+      // "(await x).x",
     ]);
   });
 

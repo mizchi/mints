@@ -22,6 +22,7 @@ export enum NodeTypes {
   // Expression
   Expression,
   AsExpression,
+  ClassExpression,
   AnyExpression,
   Identifier,
   ParenExpression,
@@ -48,6 +49,7 @@ export enum NodeTypes {
   DestructivePattern,
   DestructiveObjectPattern,
   DestructiveArrayPattern,
+  ClassField,
 }
 export const _ = "([\\s\\n]+)?";
 export const __ = "\\s+";
