@@ -150,6 +150,7 @@ export type Reshape<In = any, Out = any> = (
 export type ParseSuccess = {
   error: false;
   result: any;
+  pos: number;
   len: number;
 };
 

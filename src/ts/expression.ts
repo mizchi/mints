@@ -12,7 +12,13 @@ import {
 const reserved = "(" + RESERVED_WORDS.join("|") + ")";
 const identifier = $.def(
   T.Identifier,
-  $.seq([$.not(reserved), "([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)"])
+  $.seq([
+    // not reserved word
+    $.not(reserved),
+    "([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)",
+    // not arrow function
+    $.not("\\s*\\=\\>"),
+  ])
 );
 
 const ThisKeyword = $.tok("this");
@@ -33,11 +39,12 @@ export const stringLiteral = $.def(
   ])
 );
 
-// export const ident = $.def("ident", "([a-zA-Z_$][a-zA-Z0-9_$]*)");
-export const numberLiteral = $.def(T.NumberLiteral, `([1-9][0-9]*|[0-9])`);
-export const booleanLiteral = $.def(T.BooleanLiteral, `(true|false)`);
-export const nullLiteral = $.def(T.NullLiteral, `null`);
-export const arrayLiteral = $.def(
+// TODO: 111_000
+// TODO: 0b1011
+const numberLiteral = $.def(T.NumberLiteral, `([1-9][0-9]*|[0-9])`);
+const booleanLiteral = $.def(T.BooleanLiteral, `(true|false)`);
+const nullLiteral = $.def(T.NullLiteral, `null`);
+const arrayLiteral = $.def(
   T.ArrayLiteral,
   $.or([
     $.seq([
@@ -72,7 +79,7 @@ const objectKeyPair = $.seq([
 ]);
 
 // ref by key
-export const objectLiteral = $.def(
+const objectLiteral = $.def(
   T.ObjectLiteral,
   $.or([
     $.seq([
@@ -88,18 +95,6 @@ export const objectLiteral = $.def(
       "\\}",
     ]),
     $.seq(["\\{", _, "\\}"], () => ({ type: "object", values: [] })),
-  ])
-);
-
-export const anyLiteral = $.def(
-  T.AnyLiteral,
-  $.or([
-    objectLiteral,
-    arrayLiteral,
-    stringLiteral,
-    numberLiteral,
-    booleanLiteral,
-    nullLiteral,
   ])
 );
 
@@ -162,19 +157,35 @@ const args = $.def(
   ])
 );
 
-// TODO: statment
-const BlockOrStatement = $.seq(["\\{", _, "\\}"]);
-const functionExpression = $.seq([
-  "function",
-  __,
-  "\\(",
-  _,
-  args,
-  _,
-  "\\)",
-  _,
-  BlockOrStatement,
-]);
+const functionExpression = $.def(
+  T.FunctionExpression,
+  $.seq([
+    $.opt("async\\s"),
+    "function",
+    __,
+    $.opt(identifier),
+    _,
+    "\\(",
+    _,
+    args,
+    _,
+    "\\)",
+    _,
+    $.or([T.Block, T.AnyStatement]),
+  ])
+);
+
+const arrowFunctionExpression = $.def(
+  T.ArrowFunctionExpression,
+  $.seq([
+    $.opt("async\\s+"),
+    $.or([$.seq(["\\(", _, args, _, "\\)"]), identifier]),
+    _,
+    "\\=\\>",
+    _,
+    $.or([T.Block, T.AnyStatement]),
+  ])
+);
 
 const callArguments = $.or([
   // a, b, c
@@ -182,6 +193,18 @@ const callArguments = $.or([
   // a, b, c,
   $.seq([$.repeat_seq([T.UnaryExpression, _, ","])]),
 ]);
+
+export const anyLiteral = $.def(
+  T.AnyLiteral,
+  $.or([
+    objectLiteral,
+    arrayLiteral,
+    stringLiteral,
+    numberLiteral,
+    booleanLiteral,
+    nullLiteral,
+  ])
+);
 
 const paren = $.seq(["\\(", _, T.AnyExpression, _, "\\)"]);
 const primary = $.or([paren, ThisKeyword, identifier]);
@@ -197,6 +220,7 @@ const memberable = $.def(
         ])
       ),
     ]),
+    // single
     anyLiteral,
   ])
 );
@@ -221,7 +245,8 @@ const callable = $.def(
           // chain access
           $.seq([
             "\\.",
-            $.or([T.MemberExpression]),
+            memberable,
+            // $.or([T.MemberExpression]),
             // call or access
             $.opt($.seq(["\\(", _, callArguments, _, "\\)"])),
           ]),
@@ -238,21 +263,33 @@ const unary = $.def(
     // with unary prefix
     $.seq([
       $.or(["\\+\\+", "\\-\\-", "void ", "typeof ", "delete ", "\\~", "\\!"]),
-      $.or([paren, callable]),
+      $.or([paren, functionExpression, arrowFunctionExpression, callable]),
     ]),
     // with optional postfix
-    $.seq([$.or([paren, callable]), $.opt($.or(["\\+\\+", "\\-\\-"]))]),
+    $.seq([
+      $.or([paren, functionExpression, arrowFunctionExpression, callable]),
+      $.opt($.or(["\\+\\+", "\\-\\-"])),
+    ]),
   ])
 );
 
 const binaryExpression = $.def(
   T.BinaryExpression,
-  $.or([$.seq([unary, $.repeat_seq([_, BINARY_OPS, _, unary])])])
+  $.seq([unary, $.repeat_seq([_, BINARY_OPS, _, unary])])
 );
 
-export const anyExpression = $.def(T.AnyExpression, $.or([binaryExpression]));
+const asExpression = $.def(
+  T.AsExpression,
+  $.seq([
+    // foo as Type
+    binaryExpression,
+    $.skip_opt<any>($.seq([__, "as", __, identifier])),
+  ])
+);
 
-export const expression = $.def(
+export const anyExpression = $.def(T.AnyExpression, asExpression);
+
+const expression = $.def(
   T.Expression,
   $.seq([anyExpression, $.repeat_seq([",", _, anyExpression])])
 );
@@ -299,11 +336,17 @@ if (process.env.NODE_ENV === "test") {
 
   test("functionExpression", () => {
     const parse = compile(functionExpression);
-    is(parse("function () {}").result, "function () {}");
-    is(parse("function (a,) {}").result, "function (a,) {}");
-    is(parse("function (a,b) {}").result, "function (a,b) {}");
-    is(parse("function ({a}) {}").result, "function ({a}) {}");
-    is(parse("function ({a, b}) {}"), { result: "function ({a, b}) {}" });
+    expectSame(parse, [
+      "function ({a, b}) {}",
+      "function ({a, b}) return 1",
+      "function () {}",
+      "function (a) {}",
+      "function (a,) {}",
+      "function (a,b) {}",
+      "function ({a}) 1",
+      "async function ({a}) 1",
+      "function f() 1",
+    ]);
   });
 
   test("callExpression", () => {
@@ -334,9 +377,16 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(paren);
     expectSame(parse, ["(1)", "((1))"]);
   });
+  test("asExpression", () => {
+    const parse = compile(asExpression, { end: true });
+    is(parse("1"), { result: "1" });
+    is(parse("1 as number"), { result: "1" });
+    // is(parse("1 + 1 as number"), { result: "1 + 1" });
+    // is(parse("1 + 1 as number"), { result: "1 + 1" });
+  });
 
   test("anyExpression", () => {
-    const parse = compile(expression);
+    const parse = compile(anyExpression);
     expectSame(parse, [
       "i in []",
       "a = 1",
@@ -363,21 +413,5 @@ if (process.env.NODE_ENV === "test") {
     expectError(parse, ["a.b"]);
   });
 
-  test("expression", () => {
-    const parse = compile($.seq([expression, $.eof()]));
-    expectSame(parse, [
-      "a",
-      "a, a",
-      "a,a,a",
-      "a().a",
-      "--a",
-      "b++",
-      "a instanceof Array",
-      "a[1]()",
-      "a.b()[1]",
-      "a().b[x][1]",
-    ]);
-    expectError(parse, [",", "a,,", "a..", "xxx..xxx"]);
-  });
   run({ stopOnFail: true, isMain });
 }

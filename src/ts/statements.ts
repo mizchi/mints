@@ -153,6 +153,7 @@ export const anyStatement = $.def(
     ifStatement,
     forItemStatement,
     forStatement,
+    doWhileStatement,
     whileStatement,
     variableStatement,
     expressionStatement,

@@ -125,8 +125,8 @@ export const createParseSuccess = (result: any, pos: number, len: number) => {
   return {
     error: false,
     result,
-    len: len,
-    pos: pos,
+    len,
+    pos,
   } as ParseSuccess;
 };
 
@@ -223,7 +223,7 @@ export function compileParser(
       return (input: string, ctx) => {
         const ended = Array.from(input).length === ctx.pos;
         if (ended) {
-          return createParseSuccess("", ctx.pos, 0) as ParseResult;
+          return createParseSuccess("", ctx.pos, 0);
         }
         return createParseError(rule.kind, ErrorType.Eof_Unmatch, ctx.pos);
       };
@@ -336,48 +336,85 @@ export function compileParser(
       };
     }
     case NodeKind.SEQ: {
+      let isObjectMode = false;
       const parsers = (rule as Seq).children.map((c) => {
         const parse = compileParser(c, compiler);
+        if (c.key) isObjectMode = true;
         return { parse, node: c };
       });
       return (input: string = "", ctx) => {
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
-          const result: any = {};
           let cursor = ctx.pos;
-          let isObject = false;
-          let eaten = "";
-          for (const parser of parsers) {
-            const match = parser.parse(input, { ...ctx, pos: cursor });
-            if (match.error) {
-              if (parser.node.optional) {
-                continue;
-              } else {
+
+          if (isObjectMode) {
+            const result: any = {};
+            for (const parser of parsers) {
+              const parseResult = parser.parse(input, { ...ctx, pos: cursor });
+              if (parseResult.error) {
+                if (parser.node.optional) continue;
                 return createParseError(
                   rule.kind,
                   ErrorType.Seq_Stop,
                   ctx.pos,
                   {
-                    child: match,
+                    child: parseResult,
                   }
                 );
               }
-            } else {
-              // success
-              if (!parser.node.skip && match.len > 0) {
-                const text = input.slice(cursor, cursor + match.len);
-                eaten += text;
-              }
-              cursor += match.len;
               if (parser.node.key && !parser.node.skip) {
-                const reshaped = match.result;
+                const reshaped = parseResult.result;
                 result[parser.node.key] = reshaped;
-                isObject = true;
               }
+              // step cursor
+              cursor += parseResult.len;
             }
+            const reshaped = reshape(result);
+            return createParseSuccess(reshaped, ctx.pos, cursor - ctx.pos);
+          } else {
+            // string mode
+            let eaten = "";
+            for (const parser of parsers) {
+              const parseResult = parser.parse(input, { ...ctx, pos: cursor });
+              if (parseResult.error) {
+                if (parser.node.optional) continue;
+                return createParseError(
+                  rule.kind,
+                  ErrorType.Seq_Stop,
+                  ctx.pos,
+                  {
+                    child: parseResult,
+                  }
+                );
+              }
+              console.log("parseResult", parseResult);
+              if (!parser.node.skip) {
+                if (parser.node.kind === NodeKind.SEQ) {
+                  eaten += parseResult.result as string;
+                } else {
+                  eaten += input.slice(cursor, cursor + parseResult.len);
+                }
+              }
+              // step cursor
+              // if (parser.node.kind === NodeKind.SEQ) {
+              //   cursor
+              // }
+              cursor += parseResult.len;
+            }
+            // const reshaped = ;
+            // console.log(">", ctxId, eaten, cursor);
+            console.log("[seq:returns]", {
+              id: rule.id,
+              eaten,
+              // reshaped,
+              // isObject,
+              // rule: JSON.stringify(rule, null, 2),
+            });
+            return createParseSuccess(
+              reshape(eaten),
+              ctx.pos,
+              cursor - ctx.pos
+            );
           }
-          const reshaped = reshape(isObject ? result : eaten);
-          // console.log(">", eaten, cursor);
-          return createParseSuccess(reshaped, ctx.pos, cursor - ctx.pos);
         });
       };
     }
@@ -497,9 +534,10 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const { compile, builder: $ } = createContext();
     const parser = compile(
       $.seq(["a", $.skip_opt($.seq(["\\:", "@"])), "=", "b"])
+      // { end: true }
     );
-    is(parser("a=b").result, "a=b");
-    is(parser("a:@=b").result, "a=b");
+    is(parser("a=b"), { result: "a=b" });
+    is(parser("a:@=b"), { result: "a=b" });
   });
 
   test("seq:eof", () => {
@@ -886,58 +924,17 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("((1)").error, true);
   });
 
-  // test("reuse with recursion", () => {
-  //   // enum E {
-  //   //   Paren,
-  //   // }
-  //   const { compile, builder: $ } = createContext({
-  //     // refs: E,
-  //   });
-  //   const paren = $.def(
-  //     Symbol("recursion-test"),
-  //     $.seq([
-  //       "\\(",
-  //       $.or([
-  //         // nested: ((1))
-  //         $.R,
-  //         // $.ref(E.Paren),
-  //         // (1),
-  //         "1",
-  //       ]),
-  //       "\\)",
-  //     ])
-  //   );
-  //   const parser = compile($.ref(paren));
-  //   is(parser("(1)_"), { result: "(1)", len: 3, pos: 0 });
-  //   is(parser("((1))"), {
-  //     result: "((1))",
-  //     len: 5,
-  //     pos: 0,
-  //   });
-  //   is(parser("(((1)))"), {
-  //     result: "(((1)))",
-  //     len: 7,
-  //     pos: 0,
-  //   });
-  //   is(parser("((((1))))"), {
-  //     result: "((((1))))",
-  //     len: 9,
-  //     pos: 0,
-  //   });
-  //   is(parser("((1)").error, true);
-  // });
-
   test("pair", () => {
     const { compile, builder: $ } = createContext({
       pairs: ["<", ">"],
     });
     const parser = compile($.pair({ open: "<", close: ">" }));
     is(parser("<>").result, "<>");
-    // is(parser("<<>>").result, "<<>>");
-    // is(parser("<<>").error, true);
-    // is(parser("<<a>").error, true);
-    // is(parser(">").error, true);
-    // is(parser("").error, true);
+    is(parser("<<>>").result, "<<>>");
+    is(parser("<<>").error, true);
+    is(parser("<<a>").error, true);
+    is(parser(">").error, true);
+    is(parser("").error, true);
   });
 
   test("atom", () => {
@@ -974,6 +971,23 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("<>").result, {
       atom: "x",
     });
+  });
+
+  test("seq:skip-nested", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.seq(["a", $.seq([$.skip("b"), "c"])]));
+    is(parser("abc"), { result: "ac" });
+  });
+  test("seq:skip-nested2", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.or([$.seq([$.skip("b")])]));
+    is(parser("b"), { result: "" });
+  });
+  test("seq:skip-nested3-optional", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.or([$.seq([$.skip_opt("b")])]));
+    is(parser("b"), { result: "" });
+    is(parser(""), { result: "" });
   });
 
   run({ stopOnFail: true, stub: true });

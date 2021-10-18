@@ -154,6 +154,7 @@ export function createBuilder<ID extends number = number>(
             nodes.push(token(currentTokens.join("")));
             currentTokens = [];
           }
+
           if (Array.isArray(child)) {
             const [key, ex] = child;
             nodes.push(param(key, toNode(ex)));

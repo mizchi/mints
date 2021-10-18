@@ -21,6 +21,7 @@ export enum NodeTypes {
 
   // Expression
   Expression,
+  AsExpression,
   AnyExpression,
   Identifier,
   ParenExpression,
@@ -29,6 +30,8 @@ export enum NodeTypes {
   MemberExpression,
   UnaryExpression,
   BinaryExpression,
+  FunctionExpression,
+  ArrowFunctionExpression,
 
   // Literal
   AnyLiteral,
