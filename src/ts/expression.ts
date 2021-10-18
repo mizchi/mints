@@ -375,6 +375,7 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(paren);
     expectSame(parse, ["(1)", "((1))"]);
   });
+
   test("asExpression", () => {
     const parse = compile(asExpression);
     // const parse = compile(asExpression, { end: true });
@@ -382,9 +383,7 @@ if (process.env.NODE_ENV === "test") {
     is(parse("1 as number"), { result: "1" });
     is(parse("1 + 1 as number"), { result: "1 + 1" });
     is(parse("(a) as number"), { result: "(a)" });
-
-    // is(parse("1 + 1 as number"), { result: "1 + 1" });
-    // is(parse("1 + 1 as number"), { result: "1 + 1" });
+    is(parse("(a as number)"), { result: "(a)" });
   });
 
   test("anyExpression", () => {
@@ -402,6 +401,7 @@ if (process.env.NODE_ENV === "test") {
       "((1 + 1) + (1 * 2))",
     ]);
   });
+
   test("identifier", () => {
     const parse = compile(identifier);
     expectSame(parse, ["a", "$1"]);
