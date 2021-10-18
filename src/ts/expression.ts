@@ -34,7 +34,7 @@ export const stringLiteral = $.def(
 );
 
 // export const ident = $.def("ident", "([a-zA-Z_$][a-zA-Z0-9_$]*)");
-export const numberLiteral = $.def(T.NumberLiteral, `([0-9]|[1-9][0-9]*)`);
+export const numberLiteral = $.def(T.NumberLiteral, `([1-9][0-9]*|[0-9])`);
 export const booleanLiteral = $.def(T.BooleanLiteral, `(true|false)`);
 export const nullLiteral = $.def(T.NullLiteral, `null`);
 export const arrayLiteral = $.def(
@@ -258,7 +258,7 @@ export const expression = $.def(
 );
 
 import { test, run, is } from "@mizchi/test";
-import { assertError, expectSame } from "./_testHelpers";
+import { expectError, expectSame } from "./_testHelpers";
 
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
@@ -283,7 +283,7 @@ if (process.env.NODE_ENV === "test") {
   test("identExpression", () => {
     const parse = compile(identifier);
     expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1"]);
-    assertError(parse, ["1", "1_", "const"]);
+    expectError(parse, ["1", "1_", "const"]);
   });
 
   test("memberExpression", () => {
@@ -353,14 +353,14 @@ if (process.env.NODE_ENV === "test") {
   test("identifier", () => {
     const parse = compile(identifier);
     expectSame(parse, ["a", "$1"]);
-    assertError(parse, ["1_", "const", "typeof"]);
+    expectError(parse, ["1_", "const", "typeof"]);
   });
 
   test("destructivePattern", () => {
     const parse = compile(destructivePattern, { end: true });
-    expectSame(parse, ["a", `{a}`, `{a: b}`, `{a:{b,c}}`]);
+    expectSame(parse, ["a", `{a}`, `{a: b}`, `{a:{b,c}}`, `{a: [a]}`]);
     expectSame(parse, ["[]", `[a]`, `[[a,b]]`]);
-    assertError(parse, ["a.b"]);
+    expectError(parse, ["a.b"]);
   });
 
   test("expression", () => {
@@ -377,7 +377,7 @@ if (process.env.NODE_ENV === "test") {
       "a.b()[1]",
       "a().b[x][1]",
     ]);
-    assertError(parse, [",", "a,,", "a..", "xxx..xxx"]);
+    expectError(parse, [",", "a,,", "a..", "xxx..xxx"]);
   });
   run({ stopOnFail: true, isMain });
 }

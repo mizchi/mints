@@ -7,7 +7,7 @@ export enum NodeTypes {
   Block,
   DebuggerStatement,
   ReturnStatement,
-  AssignStatement,
+  VariableStatement,
   ThrowStatement,
   BreakStatement,
   EmptyStatement,
@@ -17,8 +17,7 @@ export enum NodeTypes {
   DoWhileStatement,
   WhileStatement,
   ForStatement,
-  ForOfStatement,
-  ForInStatement,
+  ForItemStatement,
 
   // Expression
   Expression,
@@ -56,6 +55,7 @@ export const OPERATORS = [
   // relation
   "instanceof",
   "in",
+
   // 3 chars
   "\\>\\>\\>",
   "\\=\\=\\=",

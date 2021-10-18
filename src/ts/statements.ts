@@ -19,7 +19,7 @@ const throwStatement = $.def(
 );
 
 const blockOrStatement = $.or([T.Block, T.AnyStatement]);
-export const ifStatement = $.def(
+const ifStatement = $.def(
   T.IfStatement,
   $.or([
     $.seq([
@@ -39,47 +39,67 @@ export const ifStatement = $.def(
   ])
 );
 
-export const assignStatement = $.def(
-  T.AssignStatement,
+const __assignSeq = $.seq(["=", _, T.AnyExpression]);
+export const variableStatement = $.def(
+  T.VariableStatement,
   $.or([
     $.seq([
-      // for(start;continuous;end)
+      // single
       "(var|const|let)",
       __,
-      T.Identifier,
+      // x, y=1,
+      $.repeat_seq([T.DestructivePattern, _, $.opt(__assignSeq), _, ",", _]),
       _,
-      "=",
+      T.DestructivePattern,
       _,
-      T.AnyExpression,
+      $.opt(__assignSeq),
     ]),
   ])
 );
 
 export const forStatement = $.def(
   T.ForStatement,
-  $.or([
-    $.seq([
-      // for(start;continuous;end)
-      "for",
-      _,
-      "\\(",
-      _,
-      // step start
-      // TODO: assignStatement;
-      T.AnyExpression,
-      _,
-      "\\;",
-      // continuous
-      _,
-      T.AnyExpression,
-      _,
-      "\\;",
-      // step end
-      T.AnyExpression,
-      "\\)",
-      _,
-      blockOrStatement,
-    ]),
+  $.seq([
+    "for",
+    _,
+    "\\(",
+    _,
+    // start
+    $.or([variableStatement, T.AnyExpression, _]),
+    _,
+    "\\;",
+    // condition
+    _,
+    $.opt(T.AnyExpression),
+    _,
+    "\\;",
+    // step end
+    $.opt(T.AnyExpression),
+    "\\)",
+    _,
+    blockOrStatement,
+  ])
+);
+
+// include for in / for of
+export const forItemStatement = $.def(
+  T.ForItemStatement,
+  $.seq([
+    "for",
+    _,
+    "\\(",
+    _,
+    "(var|const|let)",
+    __,
+    T.DestructivePattern,
+    __,
+    "(of|in)",
+    __,
+    T.AnyExpression,
+    _,
+    "\\)",
+    _,
+    blockOrStatement,
   ])
 );
 
@@ -87,7 +107,6 @@ export const whileStatement = $.def(
   T.WhileStatement,
   $.or([
     $.seq([
-      // if
       "while",
       _,
       "\\(",
@@ -101,7 +120,26 @@ export const whileStatement = $.def(
   ])
 );
 
-export const expressionStatement = $.def(
+const doWhileStatement = $.def(
+  T.DoWhileStatement,
+  $.or([
+    $.seq([
+      "do",
+      _,
+      blockOrStatement,
+      _,
+      "while",
+      _,
+      "\\(",
+      _,
+      T.AnyExpression,
+      _,
+      "\\)",
+    ]),
+  ])
+);
+
+const expressionStatement = $.def(
   T.ExpressionStatement,
   $.seq([anyExpression, $.repeat_seq([",", _, anyExpression])])
 );
@@ -113,7 +151,10 @@ export const anyStatement = $.def(
     breakStatement,
     returnStatement,
     ifStatement,
+    forItemStatement,
+    forStatement,
     whileStatement,
+    variableStatement,
     expressionStatement,
     emptyStatement,
   ])
@@ -121,7 +162,7 @@ export const anyStatement = $.def(
 
 const statementLine = $.or([
   $.seq([_, anyStatement, _, "(\\;\\n?|\\n)"]),
-  $.seq([_, ";"]),
+  $.seq([_, ";", _]),
 ]);
 
 export const block = $.def(
@@ -135,7 +176,7 @@ export const program = $.def(
 );
 
 import { test, run, is } from "@mizchi/test";
-import { assertError, expectSame } from "./_testHelpers";
+import { expectError, expectSame } from "./_testHelpers";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
   test("empty", () => {
@@ -157,13 +198,40 @@ if (process.env.NODE_ENV === "test") {
   test("throw", () => {
     const parse = compile(throwStatement);
     expectSame(parse, ["throw 1"]);
-    assertError(parse, ["throw"]);
+    expectError(parse, ["throw"]);
   });
   test("block", () => {
     const parse = compile($.seq([block, $.eof()]));
     expectSame(parse, [`{ return 1; }`, `{ debugger; return; }`, "{}"]);
   });
+  test("assign", () => {
+    const parse = compile(variableStatement, { end: true });
+    expectSame(parse, ["let x = 1", "let x,y"]);
+  });
 
+  test("for", () => {
+    const parse = compile(forStatement, { end: true });
+    expectSame(parse, [
+      "for(x=0;x<1;x++) x",
+      "for(x=0;x<1;x++) {}",
+      "for(;;) x",
+      "for(let x = 1;x<6;x++) x",
+      "for(let x = 1;x<6;x++) {}",
+      "for(;;) {}",
+      "for(;x;x) {}",
+    ]);
+  });
+
+  test("for-item", () => {
+    const parse = compile(forItemStatement, { end: true });
+    expectSame(parse, [
+      "for(const i of array) x",
+      "for(const k in array) x",
+      "for(let {} in array) x",
+      "for(let {} in []) x",
+      "for(let [] in xs) {}",
+    ]);
+  });
   test("while", () => {
     const parse = compile($.seq([whileStatement, $.eof()]));
     expectSame(parse, ["while(1) 1", "while(1) { break; }"]);
@@ -186,6 +254,19 @@ if (process.env.NODE_ENV === "test") {
     expectSame(parse, ["1", "func()", "a = 1", "a.b = 1", "1, 1"]);
   });
 
+  test("variableStatement", () => {
+    const parse = compile(variableStatement);
+    expectSame(parse, [
+      "let x",
+      "let x,y",
+      "let x,y,z",
+      "let x,y=1,z",
+      "let x=1",
+      "const [] = []",
+      "const {} = {}, [] = a",
+    ]);
+  });
+
   test("anyStatement", () => {
     const parseEmpty = compile(anyStatement);
     is(parseEmpty(" ").result, " ");
@@ -193,12 +274,12 @@ if (process.env.NODE_ENV === "test") {
 
   test("program:multiline", () => {
     const parse = compile(program);
-    is(parse(`debugger;`).result, "debugger;");
-    is(
-      parse(`debugger; debugger;   debugger   ;`).result,
-      "debugger; debugger;   debugger   ;"
-    );
-    is(parse(`debugger; debugger;1;;`).result, "debugger; debugger;1;;");
+    expectSame(parse, [
+      "debugger;",
+      "debugger; debugger;   debugger   ;",
+      ";;;",
+      "",
+    ]);
   });
   run({ stopOnFail: true, stub: true, isMain });
 }

@@ -10,7 +10,6 @@ export default defineConfig({
     lib: process.env.LIB && {
       // entry: "src/index",
       entry: "src/ts/index",
-
       formats: ["es", "cjs"],
       fileName: (format) => {
         if (format === "cjs") {
