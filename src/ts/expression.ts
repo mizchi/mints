@@ -1,6 +1,13 @@
 import { compile, builder as $ } from "./ctx";
-import * as Literal from "./literal";
-import { OPERATORS, NodeTypes as T, RESERVED_WORDS, _, __ } from "./constants";
+// import * as Literal from "./literal";
+import {
+  OPERATORS,
+  NodeTypes as T,
+  RESERVED_WORDS,
+  _,
+  __,
+  SYMBOL,
+} from "./constants";
 
 const reserved = "(" + RESERVED_WORDS.join("|") + ")";
 const identifier = $.def(
@@ -12,49 +19,138 @@ const ThisKeyword = $.tok("this");
 
 const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 
-// const destructiveObjectAssingment = $.or([
-//   $.seq(["{", _, $.repeat_seq([identifier, _, ",", _]), "}"]),
-//   $.seq(["{", _, identifier, "}"]),
-// ]);
+/* Expression */
 
-// const destructiveArrayAssingment = $.or([
-//   $.seq(["{", _, $.repeat_seq([identifier, _, ",", _]), "}"]),
-//   $.seq(["{", _, identifier, "}"]),
-// ]);
+export const stringLiteral = $.def(
+  T.StringLiteral,
+  $.or([
+    // double quote
+    `("[^"\\n]*")`,
+    // single
+    `('[^'\\n]*')`,
+    // backtick
+    "(`[^`]*`)",
+  ])
+);
 
-const destructiveNode = $.or([T.DestructivePattern, identifier]);
-const destructiveObjectKeyPair = $.or([
-  $.seq([identifier, _, "\\:", _, destructiveNode]),
-  identifier,
+// export const ident = $.def("ident", "([a-zA-Z_$][a-zA-Z0-9_$]*)");
+export const numberLiteral = $.def(T.NumberLiteral, `([0-9]|[1-9][0-9]*)`);
+export const booleanLiteral = $.def(T.BooleanLiteral, `(true|false)`);
+export const nullLiteral = $.def(T.NullLiteral, `null`);
+export const arrayLiteral = $.def(
+  T.ArrayLiteral,
+  $.or([
+    $.seq([
+      "\\[",
+      _,
+      T.AnyExpression,
+      _,
+      $.repeat(
+        $.seq([
+          // , item
+          _,
+          ",",
+          _,
+          T.AnyExpression,
+        ])
+      ),
+      _,
+      "\\]",
+    ]),
+    $.seq(["\\[", _, "\\]"], () => ({ type: "array", values: [] })),
+  ])
+);
+
+// key: val
+const objectKeyPair = $.seq([
+  _,
+  $.or([stringLiteral, SYMBOL]),
+  _,
+  "\\:",
+  _,
+  $.ref(T.AnyExpression),
 ]);
 
-const destructiveArrayItem = $.or([
-  $.seq(["\\[", _, destructiveNode, _, "\\]"]),
-  $.seq(["\\[", _, destructiveNode, _, "\\]"]),
-  identifier,
-]);
-
-// TODO: Array
-const destructiveAssignment = $.def(
-  T.DestructivePattern,
+// ref by key
+export const objectLiteral = $.def(
+  T.ObjectLiteral,
   $.or([
     $.seq([
       "\\{",
       _,
-      destructiveObjectKeyPair,
+      objectKeyPair,
+      $.repeat(
+        $.seq([_, ",", objectKeyPair]),
+        undefined,
+        (input) => input.item
+      ),
       _,
-      $.repeat_seq([",", _, destructiveObjectKeyPair]),
       "\\}",
     ]),
-    $.seq(["\\{", _, destructiveObjectKeyPair, "\\}"]),
-    $.seq(["\\[", _, $.repeat_seq([destructiveNode, _, ",", _]), "\\]"]),
-    $.seq(["\\[", _, destructiveNode, "\\]"]),
+    $.seq(["\\{", _, "\\}"], () => ({ type: "object", values: [] })),
+  ])
+);
+
+export const anyLiteral = $.def(
+  T.AnyLiteral,
+  $.or([
+    objectLiteral,
+    arrayLiteral,
+    stringLiteral,
+    numberLiteral,
+    booleanLiteral,
+    nullLiteral,
+  ])
+);
+
+// Destructive Pattren
+// TODO: Array
+const destructiveArrayPattern = $.def(
+  T.DestructiveArrayPattern,
+  $.or([
+    $.seq([
+      "\\[",
+      _,
+      $.repeat_seq([$.opt(T.DestructivePattern), _, ",", _]),
+      _,
+      $.opt(T.DestructivePattern),
+      _,
+      ",?",
+      _,
+      "\\]",
+    ]),
     identifier,
   ])
 );
 
-const arg = $.def(T.Argument, destructiveAssignment);
+const __destructiveObjectKeyPair = $.or([
+  $.seq([identifier, _, "\\:", _, T.DestructivePattern]),
+  identifier,
+]);
+const destructiveObjectPattern = $.def(
+  T.DestructiveObjectPattern,
+  $.or([
+    $.seq([
+      "\\{",
+      _,
+      __destructiveObjectKeyPair,
+      _,
+      $.repeat_seq([",", _, __destructiveObjectKeyPair]),
+      _,
+      "(,?)",
+      "\\}",
+    ]),
+    $.seq(["\\{", _, $.opt(__destructiveObjectKeyPair), _, "\\}"]),
+    identifier,
+  ])
+);
 
+const destructivePattern = $.def(
+  T.DestructivePattern,
+  $.or([destructiveObjectPattern, destructiveArrayPattern, identifier])
+);
+
+const arg = $.def(T.Argument, destructivePattern);
 const args = $.def(
   T.Arguments,
   $.or([
@@ -97,18 +193,19 @@ const memberable = $.def(
       $.repeat(
         $.or([
           $.seq(["\\.", identifier]),
-          $.seq(["\\[", T.UnaryExpression, "\\]"]),
+          $.seq(["\\[", _, T.AnyExpression, _, "\\]"]),
         ])
       ),
     ]),
-    Literal.anyLiteral,
+    anyLiteral,
   ])
 );
 
+// call chain access and member access
 const callable = $.def(
   T.CallExpression,
   $.or([
-    // pattern: call chain
+    // call chain
     $.seq([
       memberable,
       _,
@@ -161,39 +258,43 @@ export const expression = $.def(
 );
 
 import { test, run, is } from "@mizchi/test";
+import { assertError, expectSame } from "./_testHelpers";
 
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
-  const assertSame = (parse: any, inputs: string[]) => {
-    inputs.forEach((input) => {
-      is(parse(input), {
-        result: input,
-      });
-    });
-  };
-  const assertError = (parse: any, inputs: string[]) => {
-    inputs.forEach((input) => {
-      is(parse(input), {
-        error: true,
-      });
-    });
-  };
+  test("string", () => {
+    const parseString = compile(stringLiteral);
+    is(parseString('"hello"').result, '"hello"');
+  });
+
+  test("array", () => {
+    const parseArray = compile(arrayLiteral);
+    expectSame(parseArray, ["[null]", "[1,2]", "[1, a, {}]"]);
+  });
+
+  test("json", () => {
+    const parseExpression = compile(anyLiteral);
+    expectSame(parseExpression, [
+      `{ "a" : 1, "b": "text", "c" : true, "d": null }`,
+      `{ "a": { "b": "2" }, c: {}, "d": [1], "e": [{} ] }`,
+    ]);
+  });
 
   test("identExpression", () => {
     const parse = compile(identifier);
-    assertSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1"]);
+    expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1"]);
     assertError(parse, ["1", "1_", "const"]);
   });
 
   test("memberExpression", () => {
     const parse = compile(memberable);
-    assertSame(parse, ["a.b", "a", "a.b.c", "a[1]"]);
+    expectSame(parse, ["a.b", "a", "a.b.c", "a[1]"]);
   });
 
   test("callExpression", () => {
     const parse = compile($.seq([callable, $.eof()]));
-    assertSame(parse, ["a().a()"]);
-    assertSame(parse, ["a().a.b()"]);
+    expectSame(parse, ["a().a()"]);
+    expectSame(parse, ["a().a.b()"]);
   });
 
   test("functionExpression", () => {
@@ -215,7 +316,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("binaryExpr", () => {
     const parse = compile(binaryExpression);
-    assertSame(parse, [
+    expectSame(parse, [
       "a + a",
       "1 = 1",
       "1 + 1",
@@ -231,12 +332,12 @@ if (process.env.NODE_ENV === "test") {
 
   test("parenExpr", () => {
     const parse = compile(paren);
-    assertSame(parse, ["(1)", "((1))"]);
+    expectSame(parse, ["(1)", "((1))"]);
   });
 
   test("anyExpression", () => {
     const parse = compile(expression);
-    assertSame(parse, [
+    expectSame(parse, [
       "i in []",
       "a = 1",
       "a ?? b",
@@ -251,13 +352,20 @@ if (process.env.NODE_ENV === "test") {
   });
   test("identifier", () => {
     const parse = compile(identifier);
-    assertSame(parse, ["a", "$1"]);
+    expectSame(parse, ["a", "$1"]);
     assertError(parse, ["1_", "const", "typeof"]);
+  });
+
+  test("destructivePattern", () => {
+    const parse = compile(destructivePattern, { end: true });
+    expectSame(parse, ["a", `{a}`, `{a: b}`, `{a:{b,c}}`]);
+    expectSame(parse, ["[]", `[a]`, `[[a,b]]`]);
+    assertError(parse, ["a.b"]);
   });
 
   test("expression", () => {
     const parse = compile($.seq([expression, $.eof()]));
-    assertSame(parse, [
+    expectSame(parse, [
       "a",
       "a, a",
       "a,a,a",

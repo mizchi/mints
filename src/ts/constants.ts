@@ -1,10 +1,24 @@
 // import { debuggerStatement } from './statements';
 export enum NodeTypes {
-  NONE = 512,
+  // Root
+  Program = 512,
+
   // Statements
+  Block,
   DebuggerStatement,
+  ReturnStatement,
+  AssignStatement,
+  ThrowStatement,
+  BreakStatement,
   EmptyStatement,
+  ExpressionStatement,
   AnyStatement,
+  IfStatement,
+  DoWhileStatement,
+  WhileStatement,
+  ForStatement,
+  ForOfStatement,
+  ForInStatement,
 
   // Expression
   Expression,
@@ -13,14 +27,9 @@ export enum NodeTypes {
   ParenExpression,
   LefthandSideExpression,
   CallExpression,
-  // UnaryCallExpression,
   MemberExpression,
-  // UnaryMemberExpression,
-
   UnaryExpression,
-  ExpressionStatement,
   BinaryExpression,
-  PropertyAccessExpression,
 
   // Literal
   AnyLiteral,
@@ -31,12 +40,12 @@ export enum NodeTypes {
   ArrayLiteral,
   ObjectLiteral,
 
-  // patterns
+  // Patterns
   Argument,
   Arguments,
   DestructivePattern,
-  // Root
-  Program,
+  DestructiveObjectPattern,
+  DestructiveArrayPattern,
 }
 export const _ = "([\\s\\n]+)?";
 export const __ = "\\s+";
@@ -111,9 +120,7 @@ const KEYWORDS = [
   "delete",
   "in",
   "try",
-];
-
-const FUTURE_RESERVED_WORDS = [
+  // Future reserved words
   "class",
   "enum",
   "extends",
@@ -130,63 +137,8 @@ const FUTURE_RESERVED_WORDS = [
   "package",
   "protected",
   "static",
-];
-
-export const RESERVED_WORDS = [
-  ...KEYWORDS,
-  ...FUTURE_RESERVED_WORDS,
-  // "break",
-  // "const",
-  // "let",
-  // "if",
-  // "while",
-  // "do",
-  // "else",
-  // "default",
-  // "case",
-  // "debugger",
-  // "continue",
-  // "instanceof",
-  // "import",
-  // "in",
-  // "new",
-  // "return",
-  // "switch",
-  // "throw",
-  // "try",
-  // "typeof",
-  // "var",
-  // "void",
-  // "delete",
-  // "export",
-  // "from",
-  // "of",
-  // "yield",
-  // "await",
-  // "async",
-  // "function",
-  // "get",
-  // "set",
-  "static",
-  "class",
-  "extends",
-  "super",
-  "const",
-  "enum",
-  // "implements",
-  "interface",
-  "package",
-  "private",
-  "protected",
-  "public",
-  "static",
-  "yield",
-  "implements",
-  "with",
-  "class",
-  "super",
-  "null",
-  "true",
-  "false",
-  "this",
 ] as const;
+
+export const LITERAL_KEYWORDS = ["null", "true", "false"] as const;
+
+export const RESERVED_WORDS = [...KEYWORDS, ...LITERAL_KEYWORDS] as const;

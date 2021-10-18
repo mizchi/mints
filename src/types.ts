@@ -23,7 +23,7 @@ export enum NodeKind {
 }
 
 export enum ErrorType {
-  Not_IncorrectMatch,
+  Not_IncorrectMatch = 400,
   Pair_Unmatch,
   Eof_Unmatch,
   Token_Unmatch,
@@ -37,7 +37,10 @@ export const defaultReshape: Reshape<any, any> = <T>(i: T): T => i;
 
 // ==== public interface
 
-export type RootCompiler<ID extends number> = (node: Rule | ID) => RootParser;
+export type RootCompiler<ID extends number> = (
+  node: Rule | ID,
+  opts?: { end: boolean }
+) => RootParser;
 
 export type RootParser = (input: string, ctx?: ParseContext) => ParseResult;
 

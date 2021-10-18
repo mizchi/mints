@@ -56,6 +56,7 @@ export function createCompiler<ID extends number>(
     compile: null as any,
   };
 
+  // internal
   const compile: RootCompiler<ID> = (node) => {
     const resolved = typeof node === "number" ? createRef(node) : node;
     const parse = compileParser(resolved, compiler);
@@ -74,9 +75,26 @@ export function createCompiler<ID extends number>(
     };
     return parser;
   };
-  const rootCompiler: RootCompiler<ID> = (node) => {
+
+  const rootCompiler: RootCompiler<ID> = (node, rootOpts) => {
+    const end = rootOpts?.end ?? false;
     const resolved = typeof node === "number" ? createRef(node) : node;
-    return compile(resolved);
+    const out = end
+      ? ({
+          id: "entry:" + Math.random().toString(),
+          kind: NodeKind.SEQ,
+          primitive: true,
+          children: [
+            resolved,
+            {
+              id: "eof:" + Math.random().toString(),
+              kind: NodeKind.EOF,
+              primitive: true,
+            },
+          ],
+        } as Seq)
+      : resolved;
+    return compile(out);
   };
   compiler.compile = rootCompiler;
   return compiler;
