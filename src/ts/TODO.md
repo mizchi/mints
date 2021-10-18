@@ -1,11 +1,9 @@
 # TODO
 
-- ArrowFunction
 - class / abstract
 - Switch
 - Destructive Assign Default
 - Array/Object Rest Spread
-- New
 - RegExp Literal
 - Generator
 - Template Literal
@@ -18,8 +16,16 @@
 - TypeAnnotation
 - AsExpression
 - interface
+- type
+- ArrowFunction
+- Function
+- Class
 
 ## Advanced Transform
 
 - [ ] Enum
 - [ ] JSX
+
+## Perf
+
+- Not(Reserved) Identifier 

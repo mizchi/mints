@@ -17,7 +17,7 @@ const identifier = $.def(
     $.not(reserved),
     "([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)",
     // not arrow function
-    $.not("\\s*\\=\\>"),
+    // $.not("\\s*\\=\\>"),
   ])
 );
 
@@ -206,8 +206,16 @@ export const anyLiteral = $.def(
   ])
 );
 
+const newExpression = $.seq([
+  "new",
+  __,
+  T.MemberExpression,
+  _,
+  $.opt($.seq(["\\(", args, "\\)"])),
+]);
+
 const paren = $.seq(["\\(", _, T.AnyExpression, _, "\\)"]);
-const primary = $.or([paren, ThisKeyword, identifier]);
+const primary = $.or([paren, newExpression, ThisKeyword, identifier]);
 const memberable = $.def(
   T.MemberExpression,
   $.or([
@@ -321,15 +329,20 @@ if (process.env.NODE_ENV === "test") {
     expectError(parse, ["1", "1_", "const"]);
   });
 
+  test("newExpression", () => {
+    const parse = compile(newExpression, { end: true });
+    expectSame(parse, ["new X()", "new X[1]()", "new X.Y()"]);
+  });
+
   test("memberExpression", () => {
     const parse = compile(memberable);
-    expectSame(parse, ["a.b", "a", "a.b.c", "a[1]"]);
+    expectSame(parse, ["a.b", "a", "a.b.c", "a[1]", "new X().b"]);
   });
 
   test("callExpression", () => {
     const parse = compile($.seq([callable, $.eof()]));
     expectSame(parse, ["a().a()"]);
-    expectSame(parse, ["a().a.b()"]);
+    expectSame(parse, ["a().a.b()", "new X().b()"]);
   });
 
   test("functionExpression", () => {
@@ -344,6 +357,17 @@ if (process.env.NODE_ENV === "test") {
       "function ({a}) 1",
       "async function ({a}) 1",
       "function f() 1",
+    ]);
+  });
+  test("arrowFunctionExpression", () => {
+    const parse = compile(arrowFunctionExpression);
+    // expectSame(parse, ["a => 1"]);
+    expectSame(parse, [
+      "() => {}",
+      "(a) => 1",
+      "a => 1",
+      "({}) => 1",
+      "async () => {}",
     ]);
   });
 

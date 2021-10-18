@@ -116,7 +116,6 @@ export function createBuilder<ID extends number = number>(
     compiler.patterns[id as any] = parser as any;
     return id as any;
   }
-
   function ref(refId: string | number, reshape?: Reshape): Ref {
     return {
       ...nodeBaseDefault,
