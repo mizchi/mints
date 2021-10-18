@@ -289,16 +289,14 @@ const asExpression = $.def(
 
 export const anyExpression = $.def(T.AnyExpression, asExpression);
 
-const expression = $.def(
-  T.Expression,
-  $.seq([anyExpression, $.repeat_seq([",", _, anyExpression])])
-);
-
 import { test, run, is } from "@mizchi/test";
 import { expectError, expectSame } from "./_testHelpers";
 
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
+  // require statements
+  require("./statements");
+
   test("string", () => {
     const parseString = compile(stringLiteral);
     is(parseString('"hello"').result, '"hello"');
@@ -309,7 +307,7 @@ if (process.env.NODE_ENV === "test") {
     expectSame(parseArray, ["[null]", "[1,2]", "[1, a, {}]"]);
   });
 
-  test("json", () => {
+  test("object", () => {
     const parseExpression = compile(anyLiteral);
     expectSame(parseExpression, [
       `{ "a" : 1, "b": "text", "c" : true, "d": null }`,
@@ -378,9 +376,13 @@ if (process.env.NODE_ENV === "test") {
     expectSame(parse, ["(1)", "((1))"]);
   });
   test("asExpression", () => {
-    const parse = compile(asExpression, { end: true });
+    const parse = compile(asExpression);
+    // const parse = compile(asExpression, { end: true });
     is(parse("1"), { result: "1" });
     is(parse("1 as number"), { result: "1" });
+    is(parse("1 + 1 as number"), { result: "1 + 1" });
+    is(parse("(a) as number"), { result: "(a)" });
+
     // is(parse("1 + 1 as number"), { result: "1 + 1" });
     // is(parse("1 + 1 as number"), { result: "1 + 1" });
   });

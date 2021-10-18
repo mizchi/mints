@@ -282,5 +282,13 @@ if (process.env.NODE_ENV === "test") {
       "",
     ]);
   });
+
+  test("program:with as", () => {
+    const parse = compile(program);
+    is(parse("1 as number;"), {
+      result: "1;",
+    });
+  });
+
   run({ stopOnFail: true, stub: true, isMain });
 }

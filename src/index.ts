@@ -20,6 +20,7 @@ import {
   Repeat,
   Seq,
   defaultReshape,
+  Range,
 } from "./types";
 import { buildTokenMap, findPatternAt } from "./utils";
 
@@ -121,12 +122,18 @@ const getOrCreateCache = (
   return result;
 };
 
-export const createParseSuccess = (result: any, pos: number, len: number) => {
+export const createParseSuccess = (
+  result: any,
+  pos: number,
+  len: number,
+  ranges: Range[] = [[pos, pos + len]]
+) => {
   return {
     error: false,
     result,
     len,
     pos,
+    ranges,
   } as ParseSuccess;
 };
 
@@ -230,7 +237,6 @@ export function compileParser(
     }
 
     case NodeKind.TOKEN: {
-      // const re = new RegExp(`^${node.expr}`, "m");
       return (input: string, ctx) => {
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
           const cached = ctx.cache.get(rule.id, ctx.pos);
@@ -242,7 +248,6 @@ export function compileParser(
           //   // pos: ctx.pos,
           //   matched,
           // });
-
           if (matched == null) {
             if (rule.optional) {
               return createParseSuccess(null, ctx.pos, 0);
@@ -299,17 +304,19 @@ export function compileParser(
         return getOrCreateCache(opts.cache, rule.id, opts.pos, () => {
           const repeat = rule as Repeat;
           const xs: string[] = [];
+          let ranges: Range[] = [];
           let cursor = opts.pos;
           while (cursor < input.length) {
-            const match = parser(input, { ...opts, pos: cursor });
+            const parseResult = parser(input, { ...opts, pos: cursor });
             // console.log("[eat]", match);
-            if (match.error === true) break;
+            if (parseResult.error === true) break;
             // stop infinite loop
-            if (match.len === 0) {
+            if (parseResult.len === 0) {
               throw new Error(`Zero offset repeat item is not allowed`);
             }
-            xs.push(match.result);
-            cursor += match.len;
+            xs.push(parseResult.result);
+            ranges.push(...parseResult.ranges);
+            cursor += parseResult.len;
           }
           // size check
           // TODO: detect max at adding
@@ -330,7 +337,8 @@ export function compileParser(
           return createParseSuccess(
             xs.map(reshape as any),
             opts.pos,
-            cursor - opts.pos
+            cursor - opts.pos,
+            ranges
           );
         });
       };
@@ -345,7 +353,6 @@ export function compileParser(
       return (input: string = "", ctx) => {
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
           let cursor = ctx.pos;
-
           if (isObjectMode) {
             const result: any = {};
             for (const parser of parsers) {
@@ -372,7 +379,8 @@ export function compileParser(
             return createParseSuccess(reshaped, ctx.pos, cursor - ctx.pos);
           } else {
             // string mode
-            let eaten = "";
+            // let eaten = "";
+            let ranges: Range[] = [];
             for (const parser of parsers) {
               const parseResult = parser.parse(input, { ...ctx, pos: cursor });
               if (parseResult.error) {
@@ -386,33 +394,21 @@ export function compileParser(
                   }
                 );
               }
-              console.log("parseResult", parseResult);
+              // WIP: Skip
               if (!parser.node.skip) {
-                if (parser.node.kind === NodeKind.SEQ) {
-                  eaten += parseResult.result as string;
-                } else {
-                  eaten += input.slice(cursor, cursor + parseResult.len);
-                }
+                ranges.push(...parseResult.ranges);
               }
-              // step cursor
-              // if (parser.node.kind === NodeKind.SEQ) {
-              //   cursor
-              // }
               cursor += parseResult.len;
             }
-            // const reshaped = ;
-            // console.log(">", ctxId, eaten, cursor);
-            console.log("[seq:returns]", {
-              id: rule.id,
-              eaten,
-              // reshaped,
-              // isObject,
-              // rule: JSON.stringify(rule, null, 2),
-            });
+            const text = ranges
+              .map(([start, end]) => input.slice(start, end))
+              .join("");
+            console.log("input", text);
             return createParseSuccess(
-              reshape(eaten),
+              reshape(text),
               ctx.pos,
-              cursor - ctx.pos
+              cursor - ctx.pos,
+              ranges
             );
           }
         });
@@ -988,6 +984,20 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const parser = compile($.or([$.seq([$.skip_opt("b")])]));
     is(parser("b"), { result: "" });
     is(parser(""), { result: "" });
+  });
+
+  // test("skip with eof", () => {
+  //   const { compile, builder: $ } = createContext();
+  //   const parserNoEof = compile($.seq(["a", $.skip("b"), "c"]));
+  //   is(parserNoEof("abc"), { result: "ac" });
+  //   const parser = compile($.seq(["a", $.skip("b"), "c", $.eof()]));
+  //   is(parser("abc"), { result: "ac" });
+  // });
+
+  test("skip with repeat", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.seq([$.repeat_seq(["a", $.skip("b")])]));
+    is(parser("ababab"), { result: "aaa" });
   });
 
   run({ stopOnFail: true, stub: true });

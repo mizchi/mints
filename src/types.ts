@@ -147,11 +147,13 @@ export type Reshape<In = any, Out = any> = (
   ctx?: ParseContext
 ) => Out;
 
+export type Range = [start: number, end: number];
 export type ParseSuccess = {
   error: false;
   result: any;
   pos: number;
   len: number;
+  ranges: Array<Range>;
 };
 
 export type ParseErrorBase = {
