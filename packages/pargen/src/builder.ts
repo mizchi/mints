@@ -99,21 +99,27 @@ export function createBuilder<ID extends number = number>(
   const createPair = defineRule(compiler, pairRule);
   // const createNot = defineRule(compiler, notRule);
 
-  function def<T extends ID | Symbol>(
-    id: T | symbol,
-    nodeCreator: () => InputNodeExpr
-  ): T {
-    const node = nodeCreator();
-    if (compiler.patterns[id as any]) {
-      throw new Error(`Symbol:${id.toString()} is already defined`);
-    }
-    compiler.patterns[id as any] = () => {
-      throw new Error("Override me");
-    };
-    const parser = compiler.compile(toNode(node));
-    compiler.patterns[id as any] = parser as any;
+  const registeredPatterns: Array<[ID, () => InputNodeExpr]> = [];
+  const _hydratePatterns = () => {
+    registeredPatterns.forEach(([id, nodeCreator]) => {
+      const node = nodeCreator();
+      compiler.patterns[id as any] = () => {
+        throw new Error("Override me");
+      };
+      const parser = compiler.compile(toNode(node));
+      compiler.patterns[id as any] = parser as any;
+    });
+    registeredPatterns.length = 0;
+  };
+
+  let _cnt = 1024;
+  function def<T extends ID | Symbol>(nodeCreator: () => InputNodeExpr): T {
+    // const id = Math.random();
+    const id = _cnt++;
+    registeredPatterns.push([id as any, nodeCreator]);
     return id as any;
   }
+
   function ref(refId: string | number, reshape?: Reshape): Ref {
     return {
       ...nodeBaseDefault,
@@ -267,6 +273,7 @@ export function createBuilder<ID extends number = number>(
   }
 
   const builder: Builder<ID> = {
+    close: _hydratePatterns,
     def,
     ref,
     tok: token,

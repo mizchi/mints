@@ -105,7 +105,11 @@ export function createContext<ID extends number = number>(
 ) {
   const ctx = createCompiler(partialOpts);
   const builder = createBuilder(ctx);
-  return { builder, compile: ctx.compile };
+  const compile: RootCompiler<any> = (...args) => {
+    builder.close();
+    return ctx.compile(...args);
+  };
+  return { builder, compile };
 }
 
 const getOrCreateCache = (
@@ -589,13 +593,10 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("reuse symbol", () => {
-    enum T {
-      _,
-    }
     const { compile, builder: $ } = createContext({});
-    $.def(T._, () => $.tok("\\s"));
+    const _ = $.def(() => $.tok("\\s"));
 
-    const seq = $.seq(["a", T._, "b", T._, "c"]);
+    const seq = $.seq(["a", _, "b", _, "c"]);
     const parser = compile(seq);
     is(parser("a b c"), {
       result: "a b c",
@@ -879,21 +880,21 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("reuse recursive with suffix", () => {
-    const Paren = 1000;
+    // const Paren = 1000;
     const { compile, builder: $ } = createContext({});
-    const paren = $.def(Paren, () =>
+    const paren = $.def(() =>
       $.seq([
         "\\(",
         $.or([
           // nested: ((1))
-          $.ref(Paren),
+          $.ref(paren),
           // (1),
           "1",
         ]),
         "\\)",
       ])
     );
-    const parser = compile($.ref(paren));
+    const parser = compile(paren);
     // console.log("compile success");
     is(parser("(1)_"), { result: "(1)", len: 3, pos: 0 });
     is(parser("((1))"), {

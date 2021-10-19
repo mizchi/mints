@@ -1,40 +1,19 @@
 import { compile, builder as $ } from "./ctx";
-// import * as Literal from "./literal";
-import {
-  BooleanLiteral,
-  Identifier,
-  NullLiteral,
-  NumberLiteral,
-  REST_SPREAD,
-  StringLiteral,
-  TemplateLiteral,
-  TypeArrayLiteral,
-  TypeBinaryExpression,
-  TypeDeclareParameters,
-  TypeExpression,
-  TypeFunctionExpression,
-  TypeIdentifier,
-  TypeObjectLiteral,
-  TypeParameters,
-  TypeReference,
-  TypeUnaryExpression,
-  _,
-  __,
-} from "./constants";
+import { REST_SPREAD, _, __ } from "./constants";
 
 /* TypeExpression */
-
-const typeDeclareParameter = $.seq([
-  TypeExpression,
-  // extends T
-  $.opt($.seq([_, "extends", __, TypeExpression])),
-  _,
-  // = any
-  $.opt($.seq(["\\=", _, TypeExpression])),
-]);
+const typeDeclareParameter = $.def(() =>
+  $.seq([
+    typeExpression,
+    // extends T
+    $.opt($.seq([_, "extends", __, typeExpression])),
+    _,
+    $.opt($.seq(["\\=", _, typeExpression])),
+  ])
+);
 
 // declare parameters
-const typeDeclareParameters = $.def(TypeDeclareParameters, () =>
+export const typeDeclareParameters = $.def(() =>
   $.seq([
     "\\<",
     _,
@@ -46,71 +25,64 @@ const typeDeclareParameters = $.def(TypeDeclareParameters, () =>
 );
 
 // apply parameters
-const typeParameters = $.def(TypeParameters, () =>
+export const typeParameters = $.def(() =>
   $.seq([
     "\\<",
     _,
-    $.repeat_seq([TypeExpression, _, ",", _]),
-    $.seq([TypeExpression, _, ",?"]),
+    $.repeat_seq([typeExpression, _, ",", _]),
+    $.seq([typeExpression, _, ",?"]),
     _,
     "\\>",
   ])
 );
 
-const typeParen = $.seq([
-  "\\(",
-  _,
-  TypeExpression,
-  _,
-  "\\)",
-  _,
-  $.opt(typeParameters),
-]);
+const typeParen = $.def(() =>
+  $.seq(["\\(", _, typeExpression, _, "\\)", _, $.opt(typeParameters)])
+);
 
-const typeIdentifier = $.def(TypeIdentifier, () =>
+const typeIdentifier = $.def(() =>
   $.or([
     // type's reserved words
     "void",
     "any",
     "unknown",
-    $.seq([Identifier, _, $.opt(TypeParameters)]),
+    $.seq([identifier, _, $.opt(typeParameters)]),
   ])
 );
 
-const typePrimary = $.or([
-  typeParen,
-  TypeObjectLiteral,
-  TypeArrayLiteral,
-  typeIdentifier,
-]);
+const typePrimary = $.def(() =>
+  $.or([typeParen, typeObjectLiteral, typeArrayLiteral, typeIdentifier])
+);
 
-const typeReference = $.def(TypeReference, () =>
+const typeReference = $.def(() =>
   $.seq([
     typePrimary,
     $.repeat_seq([
       _,
       $.or([
         $.seq(["\\.", _, typeIdentifier]),
-        $.seq(["\\[", $.opt(TypeExpression), "\\]"]),
+        $.seq(["\\[", $.opt(typeExpression), "\\]"]),
       ]),
     ]),
   ])
 );
 
-const _typeNameableItem = $.or([
-  $.seq([
-    // start: number,
-    Identifier,
-    _,
-    "\\:",
-    _,
-    TypeExpression,
-    _,
-  ]),
-  TypeExpression,
-]);
+const _typeNameableItem = $.def(() =>
+  $.or([
+    $.seq([
+      // start: number,
+      identifier,
+      _,
+      "\\:",
+      _,
+      typeExpression,
+      _,
+    ]),
+    typeExpression,
+  ])
+);
 
-const typeArrayLiteral = $.def(TypeArrayLiteral, () =>
+const typeArrayLiteral = $.def(() =>
   $.seq([
     // array
     "\\[",
@@ -124,11 +96,11 @@ const typeArrayLiteral = $.def(TypeArrayLiteral, () =>
         // ...args: any
         REST_SPREAD,
         _,
-        Identifier,
+        identifier,
         _,
         "\\:",
         _,
-        TypeExpression,
+        typeExpression,
         // _,
       ]),
       _typeNameableItem,
@@ -139,56 +111,60 @@ const typeArrayLiteral = $.def(TypeArrayLiteral, () =>
   ])
 );
 
-const typeFunctionArgs = $.seq([
-  $.repeat_seq([
-    // args
-    Identifier,
-    _,
-    "\\:",
-    _,
-    TypeExpression,
-    _,
-    ",",
-    _,
-  ]),
+const typeFunctionArgs = $.def(() =>
+  $.seq([
+    $.repeat_seq([
+      // args
+      identifier,
+      _,
+      "\\:",
+      _,
+      typeExpression,
+      _,
+      ",",
+      _,
+    ]),
+    $.or([
+      // last
+      $.seq([REST_SPREAD, _, identifier, _, "\\:", _, typeExpression]),
+      $.seq([identifier, _, "\\:", _, typeExpression, _, ",?"]),
+      _,
+    ]),
+  ])
+);
+
+const _typeObjectItem = $.def(() =>
   $.or([
-    // last
-    $.seq([REST_SPREAD, _, Identifier, _, "\\:", _, TypeExpression]),
-    $.seq([Identifier, _, "\\:", _, TypeExpression, _, ",?"]),
-    _,
-  ]),
-]);
+    $.seq([
+      // async foo<T>(arg: any): void;
+      $.opt($.seq(["async", __])),
+      identifier,
+      _,
+      $.opt(typeDeclareParameters),
+      _,
+      "\\(",
+      _,
+      typeFunctionArgs,
+      _,
+      "\\)",
+      _,
+      "\\:",
+      _,
+      typeExpression,
+    ]),
+    // member
+    $.seq([
+      $.opt($.seq(["readonly", __])),
+      identifier,
+      _,
+      "\\:",
+      _,
+      typeExpression,
+    ]),
+  ])
+);
 
-const _typeObjectItem = $.or([
-  $.seq([
-    // async foo<T>(arg: any): void;
-    $.opt($.seq(["async", __])),
-    Identifier,
-    _,
-    $.opt(typeDeclareParameters),
-    _,
-    "\\(",
-    _,
-    typeFunctionArgs,
-    _,
-    "\\)",
-    _,
-    "\\:",
-    _,
-    TypeExpression,
-  ]),
-  // member
-  $.seq([
-    $.opt($.seq(["readonly", __])),
-    Identifier,
-    _,
-    "\\:",
-    _,
-    TypeExpression,
-  ]),
-]);
-
-const typeObjectLiteral = $.def(TypeObjectLiteral, () =>
+export const typeObjectLiteral = $.def(() =>
   $.seq([
     // object
     "\\{",
@@ -205,15 +181,15 @@ const typeObjectLiteral = $.def(TypeObjectLiteral, () =>
 const typeLiteral = $.or([
   typeObjectLiteral,
   typeArrayLiteral,
-  StringLiteral,
-  NumberLiteral,
+  stringLiteral,
+  numberLiteral,
   // TODO: rewrite template literal for typeExpression
-  TemplateLiteral,
-  BooleanLiteral,
-  NullLiteral,
+  templateLiteral,
+  booleanLiteral,
+  nullLiteral,
 ]);
 
-const typeFunctionExpression = $.def(TypeFunctionExpression, () =>
+const typeFunctionExpression = $.def(() =>
   $.seq([
     // function
     $.opt(typeDeclareParameters),
@@ -227,11 +203,11 @@ const typeFunctionExpression = $.def(TypeFunctionExpression, () =>
     "\\=\\>",
     _,
     // return type
-    TypeExpression,
+    typeExpression,
   ])
 );
 
-const typeUnaryExpression = $.def(TypeUnaryExpression, () =>
+const typeUnaryExpression = $.def(() =>
   $.seq([
     $.opt($.seq(["(keyof|typeof|infer)", __])),
     $.or([typeFunctionExpression, typeParen, typeReference, typeLiteral]),
@@ -239,19 +215,25 @@ const typeUnaryExpression = $.def(TypeUnaryExpression, () =>
   ])
 );
 
-const typeBinaryExpression = $.def(TypeBinaryExpression, () =>
+const typeBinaryExpression = $.def(() =>
   $.seq([
     $.repeat_seq([typeUnaryExpression, _, $.or(["\\|", "\\&"]), _]),
     typeUnaryExpression,
   ])
 );
 
-export const typeExpression = $.def(TypeExpression, () =>
-  $.or([typeBinaryExpression])
-);
+export const typeExpression = $.def(() => $.or([typeBinaryExpression]));
 
 import { test, run, is, cancelAll } from "@mizchi/test";
 import { expectError, expectSame, formatError } from "./_testHelpers";
+import {
+  booleanLiteral,
+  identifier,
+  nullLiteral,
+  numberLiteral,
+  stringLiteral,
+  templateLiteral,
+} from "./expression";
 const isMain = require.main === module;
 
 if (process.env.NODE_ENV === "test") {

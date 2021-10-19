@@ -1,102 +1,108 @@
 // TODO: use symbol
-import "./expression";
-
-import { anyExpression } from "./expression";
 import {
-  AnyExpression,
-  AnyStatement,
-  Block,
-  BlockStatement,
-  BreakStatement,
-  ClassExpression,
-  DebuggerStatement,
-  DeclareVariableStatement,
-  DestructivePattern,
-  DoWhileStatement,
-  EmptyStatement,
-  ExportStatement,
-  ExpressionStatement,
-  ForItemStatement,
-  ForStatement,
-  FunctionExpression,
-  Identifier,
-  IfStatement,
-  ImportStatement,
-  InterfaceStatement,
-  LabeledStatement,
-  NonEmptyStatement,
-  Program,
-  ReturnStatement,
-  StringLiteral,
-  SwitchStatement,
-  ThrowStatement,
-  TypeExpression,
-  TypeObjectLiteral,
-  TypeStatement,
-  VariableStatement,
-  WhileStatement,
+  anyExpression,
+  classExpression,
+  destructivePattern,
+  functionExpression,
+  identifier,
+  stringLiteral,
+} from "./expression";
+import {
+  // AnyExpression,
+  // AnyExpression,
+  // AnyStatement,
+  // Block,
+  // BlockStatement,
+  // BreakStatement,
+  // ClassExpression,
+  // DebuggerStatement,
+  // DeclareVariableStatement,
+  // DestructivePattern,
+  // DoWhileStatement,
+  // EmptyStatement,
+  // ExportStatement,
+  // ExpressionStatement,
+  // ForItemStatement,
+  // ForStatement,
+  // FunctionExpression,
+  // Identifier,
+  // IfStatement,
+  // ImportStatement,
+  // InterfaceStatement,
+  // LabeledStatement,
+  // NonEmptyStatement,
+  // Program,
+  // ReturnStatement,
+  // StringLiteral,
+  // SwitchStatement,
+  // ThrowStatement,
+  // TypeExpression,
+  // TypeObjectLiteral,
+  // TypeStatement,
+  // VariableStatement,
+  // WhileStatement,
   _,
   __,
 } from "./constants";
 import { compile, builder as $ } from "./ctx";
 
-const _typeAnnotation = $.seq([":", _, TypeExpression]);
+const _typeAnnotation = $.seq([":", _, typeExpression]);
 
-const emptyStatement = $.def(EmptyStatement, () => $.seq(["[\\s\\n;]*"]));
-const breakStatement = $.def(BreakStatement, () => "break");
-const debuggerStatement = $.def(DebuggerStatement, () => "debugger");
+const emptyStatement = $.def(() => $.seq(["[\\s\\n;]*"]));
+const breakStatement = $.def(() => "break");
+const debuggerStatement = $.def(() => "debugger");
 
-const returnStatement = $.def(ReturnStatement, () =>
-  $.seq(["(return|yield)", $.opt($.seq([__, AnyExpression]))])
+const returnStatement = $.def(() =>
+  $.seq(["(return|yield)", $.opt($.seq([__, anyExpression]))])
 );
 
-const throwStatement = $.def(ThrowStatement, () =>
-  $.seq(["throw", __, AnyExpression])
+const throwStatement = $.def(() => $.seq(["throw", __, anyExpression]));
+
+const blockOrStatement = $.def(() => $.or([block, anyStatement]));
+const blockOrNonEmptyStatement = $.def(() => $.or([block, nonEmptyStatement]));
+
+const blockStatement = $.def(() => block);
+
+const labeledStatement = $.def(() =>
+  $.seq([identifier, _, "\\:", _, blockOrNonEmptyStatement])
 );
 
-const blockOrStatement = $.or([Block, AnyStatement]);
-const blockOrNonEmptyStatement = $.or([Block, NonEmptyStatement]);
-
-const blockStatement = $.def(BlockStatement, () => Block);
-
-const labeledStatement = $.def(LabeledStatement, () =>
-  $.seq([Identifier, _, "\\:", _, blockOrNonEmptyStatement])
-);
-
-const _importRightSide = $.seq([
-  $.or([
-    // default only
-    Identifier,
-    $.seq(["\\*", __, "as", __, Identifier]),
-    // TODO: * as b
-    $.seq([
-      "\\{",
-      _,
-      $.repeat_seq([
-        Identifier,
-        $.opt($.seq([__, "as", __, Identifier])),
+const _importRightSide = $.def(() =>
+  $.seq([
+    $.or([
+      // default only
+      identifier,
+      $.seq(["\\*", __, "as", __, identifier]),
+      // TODO: * as b
+      $.seq([
+        "\\{",
         _,
-        ",",
+        $.repeat_seq([
+          identifier,
+          $.opt($.seq([__, "as", __, identifier])),
+          _,
+          ",",
+          _,
+        ]),
+        // last item
+        $.opt(
+          $.seq([identifier, $.opt($.seq([__, "as", __, identifier, _, ",?"]))])
+        ),
         _,
+        "\\}",
       ]),
-      // last item
-      $.opt(
-        $.seq([Identifier, $.opt($.seq([__, "as", __, Identifier, _, ",?"]))])
-      ),
-      _,
-      "\\}",
     ]),
-  ]),
-  __,
-  "from",
-  __,
-  StringLiteral,
-]);
+    __,
+    "from",
+    __,
+    stringLiteral,
+  ])
+);
 
-const importStatement = $.def(ImportStatement, () =>
+const importStatement = $.def(() =>
   $.or([
     // import 'specifier';
-    $.seq(["import", __, StringLiteral]),
+    $.seq(["import", __, stringLiteral]),
     // import type
     $.seq([$.skip($.seq(["import", __, "type", __, _importRightSide]))]),
     // import pattern
@@ -104,9 +110,9 @@ const importStatement = $.def(ImportStatement, () =>
   ])
 );
 
-const defaultOrIdentifer = $.or(["default", Identifier]);
+const defaultOrIdentifer = $.or(["default", identifier]);
 
-const exportStatement = $.def(ExportStatement, () =>
+const exportStatement = $.def(() =>
   $.or([
     // TODO: skip: export type|interface
     // export clause
@@ -133,18 +139,18 @@ const exportStatement = $.def(ExportStatement, () =>
       _,
       "\\}",
       _,
-      $.opt($.seq(["from", __, StringLiteral])),
+      $.opt($.seq(["from", __, stringLiteral])),
     ]),
     // export named expression
     $.seq([
       "export",
       __,
-      $.or([VariableStatement, FunctionExpression, ClassExpression]),
+      $.or([variableStatement, functionExpression, classExpression]),
     ]),
   ])
 );
 
-const ifStatement = $.def(IfStatement, () =>
+const ifStatement = $.def(() =>
   // $.or([
   $.seq([
     // if
@@ -152,7 +158,7 @@ const ifStatement = $.def(IfStatement, () =>
     _,
     "\\(",
     _,
-    AnyExpression,
+    anyExpression,
     _,
     "\\)",
     _,
@@ -162,14 +168,14 @@ const ifStatement = $.def(IfStatement, () =>
   ])
 );
 
-const switchStatement = $.def(SwitchStatement, () =>
+const switchStatement = $.def(() =>
   $.or([
     $.seq([
       "switch",
       _,
       "\\(",
       _,
-      AnyExpression,
+      anyExpression,
       _,
       "\\)",
       _,
@@ -178,7 +184,7 @@ const switchStatement = $.def(SwitchStatement, () =>
       $.repeat_seq([
         "case",
         __,
-        AnyExpression,
+        anyExpression,
         _,
         "\\:",
         _,
@@ -196,8 +202,8 @@ const switchStatement = $.def(SwitchStatement, () =>
   ])
 );
 
-const __assignSeq = $.seq(["=", _, AnyExpression]);
-export const variableStatement = $.def(VariableStatement, () =>
+const __assignSeq = $.seq(["=", _, anyExpression]);
+export const variableStatement = $.def(() =>
   $.or([
     $.seq([
       // single
@@ -205,7 +211,7 @@ export const variableStatement = $.def(VariableStatement, () =>
       __,
       // x, y=1,
       $.repeat_seq([
-        DestructivePattern,
+        destructivePattern,
         _,
         $.skip_opt(_typeAnnotation),
         _,
@@ -215,7 +221,7 @@ export const variableStatement = $.def(VariableStatement, () =>
         _,
       ]),
       _,
-      DestructivePattern,
+      destructivePattern,
       _,
       $.skip_opt(_typeAnnotation),
       _,
@@ -224,27 +230,27 @@ export const variableStatement = $.def(VariableStatement, () =>
   ])
 );
 
-const declareVariableStatement = $.def(DeclareVariableStatement, () =>
+const declareVariableStatement = $.def(() =>
   $.seq([$.skip($.seq(["declare", __, variableStatement]))])
 );
 
-const typeStatement = $.def(TypeStatement, () =>
+const typeStatement = $.def(() =>
   $.seq([
     $.skip(
       $.seq([
         $.opt($.seq(["export\\s+"])),
         "type",
         __,
-        Identifier,
+        identifier,
         _,
         "=",
         _,
-        TypeExpression,
+        typeExpression,
       ])
     ),
   ])
 );
-const interfaceStatement = $.def(InterfaceStatement, () =>
+const interfaceStatement = $.def(() =>
   $.seq([
     // skip all
     $.skip(
@@ -252,32 +258,32 @@ const interfaceStatement = $.def(InterfaceStatement, () =>
         $.opt($.seq(["export\\s+"])),
         "interface",
         __,
-        Identifier,
-        $.opt($.seq([__, "extends", __, TypeExpression])),
+        identifier,
+        $.opt($.seq([__, "extends", __, typeExpression])),
         _,
-        TypeObjectLiteral,
+        typeObjectLiteral,
       ])
     ),
   ])
 );
 
-export const forStatement = $.def(ForStatement, () =>
+export const forStatement = $.def(() =>
   $.seq([
     "for",
     _,
     "\\(",
     _,
     // start
-    $.or([variableStatement, AnyExpression, _]),
+    $.or([variableStatement, anyExpression, _]),
     _,
     "\\;",
     // condition
     _,
-    $.opt(AnyExpression),
+    $.opt(anyExpression),
     _,
     "\\;",
     // step end
-    $.opt(AnyExpression),
+    $.opt(anyExpression),
     "\\)",
     _,
     blockOrNonEmptyStatement,
@@ -285,7 +291,7 @@ export const forStatement = $.def(ForStatement, () =>
 );
 
 // include for in / for of
-const forItemStatement = $.def(ForItemStatement, () =>
+const forItemStatement = $.def(() =>
   $.seq([
     "for",
     _,
@@ -293,11 +299,11 @@ const forItemStatement = $.def(ForItemStatement, () =>
     _,
     "(var|const|let)",
     __,
-    DestructivePattern,
+    destructivePattern,
     __,
     "(of|in)",
     __,
-    AnyExpression,
+    anyExpression,
     _,
     "\\)",
     _,
@@ -305,14 +311,14 @@ const forItemStatement = $.def(ForItemStatement, () =>
   ])
 );
 
-export const whileStatement = $.def(WhileStatement, () =>
+export const whileStatement = $.def(() =>
   $.or([
     $.seq([
       "while",
       _,
       "\\(",
       _,
-      AnyExpression,
+      anyExpression,
       _,
       "\\)",
       _,
@@ -321,7 +327,7 @@ export const whileStatement = $.def(WhileStatement, () =>
   ])
 );
 
-const doWhileStatement = $.def(DoWhileStatement, () =>
+const doWhileStatement = $.def(() =>
   $.or([
     $.seq([
       "do",
@@ -332,18 +338,18 @@ const doWhileStatement = $.def(DoWhileStatement, () =>
       _,
       "\\(",
       _,
-      AnyExpression,
+      anyExpression,
       _,
       "\\)",
     ]),
   ])
 );
 
-const expressionStatement = $.def(ExpressionStatement, () =>
-  $.seq([anyExpression, $.repeat_seq([",", _, AnyExpression])])
+const expressionStatement = $.def(() =>
+  $.seq([anyExpression, $.repeat_seq([",", _, anyExpression])])
 );
 
-const nonEmptyStatement = $.def(NonEmptyStatement, () =>
+const nonEmptyStatement = $.def(() =>
   $.or([
     debuggerStatement,
     breakStatement,
@@ -365,7 +371,7 @@ const nonEmptyStatement = $.def(NonEmptyStatement, () =>
   ])
 );
 
-export const anyStatement = $.def(AnyStatement, () =>
+export const anyStatement = $.def(() =>
   $.or([nonEmptyStatement, emptyStatement])
 );
 
@@ -381,8 +387,8 @@ const statementLine = $.or([
       blockStatement,
       forItemStatement,
       interfaceStatement,
-      FunctionExpression,
-      ClassExpression,
+      functionExpression,
+      classExpression,
     ]),
     _,
     "(\\;?\\n?|\\n)",
@@ -392,16 +398,17 @@ const statementLine = $.or([
   $.seq([_, ";", _]),
 ]);
 
-export const block = $.def(Block, () =>
+export const block = $.def(() =>
   $.seq(["{", _, $.repeat(statementLine), _, "}"])
 );
 
-export const program = $.def(Program, () =>
+export const program = $.def(() =>
   $.seq([$.repeat(statementLine), _, $.eof()])
 );
 
 import { test, run, is } from "@mizchi/test";
 import { expectError, expectSame, formatError } from "./_testHelpers";
+import { typeExpression, typeObjectLiteral } from "./type";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
   test("empty", () => {
