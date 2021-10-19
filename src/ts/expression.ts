@@ -228,7 +228,7 @@ const anyLiteral = $.def(
 /* Class */
 const classField = $.or([
   $.seq([
-    $.opt($.seq(["(private|public)", __])),
+    $.skip_opt($.seq(["(private|public)", __])),
     // $.or(["constructor", identifier]),
     "constructor",
     _,
@@ -242,7 +242,8 @@ const classField = $.or([
   ]),
   // class member
   $.seq([
-    "((private|public|protected)\\s+)?",
+    $.skip_opt("(private|public|protected)\\s+"),
+    // "((private|public|protected)\\s+)?",
     "(static\\s+)?",
     "(async\\s+)?",
     "\\*?", // generator
@@ -253,7 +254,7 @@ const classField = $.or([
   ]),
   // field
   $.seq([
-    $.opt($.seq(["(private|public)", __])),
+    $.skip_opt($.seq(["(private|public)", __])),
     $.opt($.seq(["static", __])),
     $.opt($.seq(["\\#"])),
     identifier,
@@ -266,10 +267,9 @@ const classField = $.or([
 const classExpression = $.def(
   T.ClassExpression,
   $.seq([
-    $.opt($.seq(["abstract", __])),
+    $.skip_opt($.seq(["abstract", __])),
     "class",
-    __,
-    $.opt($.seq([identifier, __])),
+    $.opt($.seq([__, identifier, __])),
     _,
     // TODO: generics
     $.opt($.seq(["extends", __, T.AnyExpression])),
@@ -334,8 +334,9 @@ const __call = $.or([
 ]);
 
 const memberAccess = $.or([
-  $.seq(["(\\?|\\#)?\\.", identifier]),
-  $.seq(["\\[", _, T.AnyExpression, _, "\\]"]),
+  // ?. | .#a | .a
+  $.seq(["(\\?)?\\.", "\\#?", identifier]),
+  $.seq(["(\\?\\.)?", "\\[", _, T.AnyExpression, _, "\\]"]),
   __call,
 ]);
 
@@ -505,7 +506,16 @@ if (process.env.NODE_ENV === "test") {
 
   test("memberExpression", () => {
     const parse = compile(memberable, { end: true });
-    expectSame(parse, ["a.b", "a", "a.b.c", "a[1]", "new X().b", "a?.b"]);
+    expectSame(parse, [
+      "a.b",
+      "a",
+      "a.b.c",
+      "a[1]",
+      "new X().b",
+      "a?.b",
+      "this.#a",
+      "a?.[x]",
+    ]);
     expectError(parse, ["a.new X()", "a.this", "(a).(b)"]);
   });
 
@@ -566,20 +576,22 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(classExpression);
     expectSame(parse, ["class X {}", "class {}", "class X extends Y {}"]);
     expectSame(parse, [
+      "class{}",
       "class {}",
       "class extends A {}",
-      "abstract class {}",
       "class { x; }",
       "class { x = 1;}",
-      "class { private x; }",
-      "class { private x = 1; #y = 2;  }",
+      "class { x = 1; #y = 2;  }",
       "class { constructor() {} }",
       "class { constructor() { this.val = 1; } }",
       "class { foo() {} }",
       "class { async foo() {} }",
-      "class { private async foo() {} }",
-      "class { public static async foo() {} }",
+      "class { async foo() {} }",
+      "class { static async foo() {} }",
     ]);
+    is(parse("abstract class{}"), { result: "class{}" });
+    is(parse("class { private x; }"), { result: "class { x; }" });
+    is(parse("class { public x; }"), { result: "class { x; }" });
   });
 
   test("callExpression", () => {
