@@ -2,12 +2,10 @@
 
 ## JavaScript
 
-- Ternary Operator: `a ? b : c`
-- class getter/setter
+- LineComment
+- InlineComment
 
 ## TS
-
-### TypeExpression
 
 - [x] Class Keywords / private public abstract
 - [x] AsExpression
@@ -20,17 +18,14 @@
 - TernaryOperator: `T extends U ? A : B`
 - infer
 - (Study other syntaxes for myself)
-
-### TypeAnnotation
-
 - [x] FunctionArgs
 - [x] Function: Generics
 - [x] Function: ReturnType
 - [x] ArrowFunction: Generics
 - [x] ArrowFunction: ReturnType
-- InterfaceStatement
-- TypeStatement
-- declare var 
+- [x] InterfaceStatement
+- [x] TypeStatement
+- [x] declare var 
 
 ## Advanced Transform
 
@@ -43,8 +38,10 @@
 ## Perf
 
 - skip: zero-width whitespace
+- Backtrack Counter
 - enum => const
 - optimize: flat or
 - optimize: flat seq
 - optimize: recursive token compose
 - optimize: dump syntax definition and load
+- cache clear on next statement

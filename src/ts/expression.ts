@@ -1,6 +1,5 @@
 // import "./type";
 import { compile, builder as $ } from "./ctx";
-// import * as Literal from "./literal";
 import {
   OPERATORS,
   NodeTypes as T,
@@ -10,7 +9,6 @@ import {
   REST_SPREAD,
 } from "./constants";
 
-// const reserved = "(" + RESERVED_WORDS.join("|") + ")";
 const identifier = $.def(
   T.Identifier,
   $.seq([`(?!${RESERVED_WORDS.join("|")})`, "([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)"])
@@ -234,7 +232,7 @@ const anyLiteral = $.def(
 const accessModifier = "(private|public|protected)\\s+";
 const staticModifier = "static\\s+";
 const asyncModifier = "async\\s+";
-
+const getOrSetModifier = "(get|set)\\s+";
 const classField = $.or([
   $.seq([
     $.skip_opt(accessModifier),
@@ -253,6 +251,7 @@ const classField = $.or([
     $.skip_opt(accessModifier),
     `(${staticModifier})?`,
     `(${asyncModifier})?`,
+    `(${getOrSetModifier})?`,
     "\\*?", // generator
     "\\#?", // private
     identifier,
@@ -463,7 +462,26 @@ const asExpression = $.def(
   ])
 );
 
-export const anyExpression = $.def(T.AnyExpression, asExpression);
+// a ? b: c
+const ternaryExpression = $.def(
+  T.TernaryExpression,
+  $.seq([
+    asExpression,
+    _,
+    "\\?",
+    _,
+    T.AnyExpression,
+    _,
+    "\\:",
+    _,
+    T.AnyExpression,
+  ])
+);
+
+export const anyExpression = $.def(
+  T.AnyExpression,
+  $.or([ternaryExpression, asExpression])
+);
 
 import { test, run, is } from "@mizchi/test";
 import { expectError, expectSame } from "./_testHelpers";
@@ -555,7 +573,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("identifier", () => {
     const parse = compile(identifier);
-    expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1"]);
+    expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1", "aAa"]);
     expectError(parse, ["1", "1_", "const", "public"]);
   });
 
@@ -663,6 +681,8 @@ if (process.env.NODE_ENV === "test") {
       "class { constructor() {} }",
       "class { constructor() { this.val = 1; } }",
       "class { foo() {} }",
+      "class { get foo() {} }",
+      "class { set foo() {} }",
       "class { async foo() {} }",
       "class { async foo() {} }",
       "class { static async foo() {} }",
@@ -748,6 +768,9 @@ if (process.env.NODE_ENV === "test") {
       "f()`bbb`",
       "(x)`bbb`",
       "a.b().c``",
+      "a?b:c",
+      "(a ? b : c).d",
+      "(a ? b : c ? d : e ).d",
     ]);
     is(parse("a!"), { result: "a" });
     // remove typescript bang operator

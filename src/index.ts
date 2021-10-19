@@ -403,7 +403,7 @@ export function compileParser(
             const text = ranges
               .map(([start, end]) => input.slice(start, end))
               .join("");
-            console.log("input", text);
+            // console.log("input", text);
             return createParseSuccess(
               reshape(text),
               ctx.pos,
@@ -840,7 +840,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       len: 3,
       pos: 0,
     });
-    console.log("xyb", JSON.stringify(parser("xyb"), null, 2));
+    // console.log("xyb", JSON.stringify(parser("xyb"), null, 2));
     is(parser("xyb"), {
       error: true,
       pos: 0,

@@ -1,4 +1,14 @@
-export { program } from "./statements";
+import "./expression";
+import "./type";
+import { program } from "./statements";
+
+import { compile } from "./ctx";
+
+const parse = compile(program, { end: true });
+
+export function transform(input: string) {
+  return parse(input);
+}
 
 import { run } from "@mizchi/test";
 const isMain = require.main === module;

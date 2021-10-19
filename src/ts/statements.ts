@@ -82,19 +82,6 @@ const exportStatement = $.def(
   T.ExportStatement,
   $.or([
     // TODO: skip: export type|interface
-    $.seq([
-      $.skip(
-        $.seq([
-          // import ... from "";
-          "export",
-          __,
-          "type",
-          __,
-          // _importRightSide,
-        ])
-      ),
-    ]),
-
     // export clause
     $.seq([
       "export",
@@ -213,6 +200,46 @@ export const variableStatement = $.def(
   ])
 );
 
+const declareVariableStatement = $.def(
+  T.DeclareVariableStatement,
+  $.seq([$.skip($.seq(["declare", __, variableStatement]))])
+);
+
+const typeStatement = $.def(
+  T.TypeStatement,
+  $.seq([
+    $.skip(
+      $.seq([
+        $.opt($.seq(["export\\s+"])),
+        "type",
+        __,
+        T.Identifier,
+        _,
+        "=",
+        _,
+        T.TypeExpression,
+      ])
+    ),
+  ])
+);
+const interfaceStatement = $.def(
+  T.InterfaceStatement,
+  $.seq([
+    // skip all
+    $.skip(
+      $.seq([
+        $.opt($.seq(["export\\s+"])),
+        "interface",
+        __,
+        T.Identifier,
+        $.opt($.seq([__, "extends", __, T.TypeExpression])),
+        _,
+        T.TypeObjectLiteral,
+      ])
+    ),
+  ])
+);
+
 export const forStatement = $.def(
   T.ForStatement,
   $.seq([
@@ -306,7 +333,10 @@ const nonEmptyStatement = $.def(
     debuggerStatement,
     breakStatement,
     returnStatement,
+    declareVariableStatement,
     variableStatement,
+    typeStatement,
+    interfaceStatement,
     ifStatement,
     importStatement,
     forItemStatement,
@@ -326,6 +356,24 @@ export const anyStatement = $.def(
 );
 
 const statementLine = $.or([
+  $.seq([
+    _,
+    $.or([
+      "\\/\\/[^\\n]*",
+      // semicolon less allowed statements
+      blockStatement,
+      ifStatement,
+      whileStatement,
+      blockStatement,
+      forItemStatement,
+      interfaceStatement,
+      T.FunctionExpression,
+      T.ClassExpression,
+    ]),
+    _,
+    "(\\;?\\n?|\\n)",
+  ]),
+  // semicolon
   $.seq([_, anyStatement, _, "(\\;\\n?|\\n)"]),
   $.seq([_, ";", _]),
 ]);
@@ -337,7 +385,7 @@ export const block = $.def(
 
 export const program = $.def(
   T.Program,
-  $.seq([$.repeat(statementLine), $.eof()])
+  $.seq([$.repeat(statementLine), _, $.eof()])
 );
 
 import { test, run, is } from "@mizchi/test";
@@ -510,6 +558,15 @@ if (process.env.NODE_ENV === "test") {
       "",
       "import a from 'b';",
     ]);
+    is(parse("declare const x: number;"), { result: ";" });
+    is(parse("declare const x: number = 1;"), { result: ";" });
+    is(parse("type x = number;"), { result: ";" });
+    is(parse("type x = {};"), { result: ";" });
+    is(parse("export type x = number;"), { result: ";" });
+    is(parse("interface I {};"), { result: ";" });
+    is(parse("interface I extends T {};"), { result: ";" });
+    is(parse("interface I extends T { a: number; };"), { result: ";" });
+    is(parse("export interface I {};"), { result: ";" });
   });
 
   test("program:with as", () => {

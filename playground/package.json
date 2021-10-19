@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "devDependencies": {
+    "comlink": "^4.3.1",
+    "vite": "^2.6.10"
+  }
+}
