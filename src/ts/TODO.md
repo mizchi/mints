@@ -2,8 +2,6 @@
 
 ## JavaScript
 
-- `import()`
-- `import.meta`
 - Ternary Operator: `a ? b : c`
 - class getter/setter
 
@@ -17,20 +15,19 @@
 - [x] import type
 - [x] TypeParameters
 - [x] TypeFunctionExpression
-- Class: Implements
-- Class: Generics
+- [x] Class: Implements
+- [x] Class: Generics
 - TernaryOperator: `T extends U ? A : B`
 - infer
 - (Study other syntaxes for myself)
 
 ### TypeAnnotation
 
-- FunctionArgs
-- Function: Generics
-- Function: ReturnType
-- ArrowFunction: Generics
-- ArrowFunction: ReturnType
-
+- [x] FunctionArgs
+- [x] Function: Generics
+- [x] Function: ReturnType
+- [x] ArrowFunction: Generics
+- [x] ArrowFunction: ReturnType
 - InterfaceStatement
 - TypeStatement
 - declare var 

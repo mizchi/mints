@@ -17,6 +17,7 @@ const identifier = $.def(
 );
 
 const ThisKeyword = $.tok("this");
+const ImportKeyword = $.tok("import");
 const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 
 /*
@@ -76,15 +77,18 @@ const destructivePattern = $.def(
 );
 
 const lefthand = $.def(T.Argument, destructivePattern);
+
+const _typeAnnotation = $.seq([":", _, T.TypeExpression]);
+
 const functionArguments = $.def(
   T.Arguments,
   $.seq([
-    $.repeat_seq([lefthand, _, ","]),
+    $.repeat_seq([lefthand, _, $.skip_opt(_typeAnnotation), _, ","]),
     _,
     $.or([
       // rest spread
-      $.seq([REST_SPREAD, _, identifier]),
-      lefthand,
+      $.seq([REST_SPREAD, _, identifier, _, $.skip_opt(_typeAnnotation)]),
+      $.seq([lefthand, _, $.skip_opt(_typeAnnotation)]),
       _,
     ]),
   ])
@@ -252,15 +256,28 @@ const classField = $.or([
     "\\*?", // generator
     "\\#?", // private
     identifier,
+    // <T>
+    $.skip_opt($.seq([_, T.TypeDeclareParameters])),
     _,
-    $.seq(["\\(", _, functionArguments, _, "\\)", _, T.Block]),
+    $.seq([
+      // foo(): void {}
+      "\\(",
+      _,
+      functionArguments,
+      _,
+      "\\)",
+      $.skip_opt($.seq([_, _typeAnnotation])),
+      _,
+      T.Block,
+    ]),
   ]),
   // field
   $.seq([
     $.skip_opt(accessModifier),
     `(${staticModifier})?`,
-    $.opt($.seq(["\\#"])),
+    $.opt("\\#"),
     identifier,
+    $.skip_opt($.seq([_, _typeAnnotation])),
     _,
     $.opt($.seq(["=", _, T.AnyExpression])),
     ";",
@@ -273,9 +290,10 @@ const classExpression = $.def(
     $.skip_opt($.seq(["abstract", __])),
     "class",
     $.opt($.seq([__, identifier])),
-    // TODO: generics
+    // <T>
+    $.skip_opt(T.TypeDeclareParameters),
     $.opt($.seq([__, "extends", __, T.AnyExpression])),
-    // TODO: implements
+    $.skip_opt($.seq([__, "implements", __, T.TypeExpression])),
     _,
     "\\{",
     _,
@@ -292,14 +310,18 @@ const functionExpression = $.def(
     $.opt(asyncModifier),
     "function",
     _,
-    "(\\*)?\\s+",
+    "(\\*)?\\s+", // generator
     $.opt(identifier),
+    _,
+    $.skip_opt(T.TypeDeclareParameters),
     _,
     "\\(",
     _,
     functionArguments,
     _,
     "\\)",
+    _,
+    $.skip_opt(_typeAnnotation),
     _,
     $.or([T.Block, T.AnyStatement]),
   ])
@@ -309,9 +331,21 @@ const arrowFunctionExpression = $.def(
   T.ArrowFunctionExpression,
   $.seq([
     $.opt(asyncModifier),
+    $.skip_opt(T.TypeDeclareParameters),
+    _,
     "(\\*)?",
     _,
-    $.or([$.seq(["\\(", _, functionArguments, _, "\\)"]), identifier]),
+    $.or([
+      $.seq([
+        "\\(",
+        _,
+        functionArguments,
+        _,
+        "\\)",
+        $.skip_opt($.seq([_, _typeAnnotation])),
+      ]),
+      identifier,
+    ]),
     _,
     "\\=\\>",
     _,
@@ -328,11 +362,34 @@ const newExpression = $.seq([
 ]);
 
 const paren = $.seq(["\\(", _, T.AnyExpression, _, "\\)"]);
-const primary = $.or([paren, newExpression, ThisKeyword, identifier]);
+const primary = $.or([
+  paren,
+  newExpression,
+  ImportKeyword,
+  ThisKeyword,
+  identifier,
+]);
 
 const __call = $.or([
-  $.seq(["\\?\\.\\(", _, callArguments, _, "\\)"]),
-  $.seq(["\\(", _, callArguments, _, "\\)"]),
+  $.seq([
+    "\\?\\.",
+    $.skip_opt($.seq([_, T.TypeParameters])),
+    _,
+    "\\(",
+    _,
+    callArguments,
+    _,
+    "\\)",
+  ]),
+  $.seq([
+    $.skip_opt($.seq([_, T.TypeParameters])),
+    _,
+    "\\(",
+    _,
+    callArguments,
+    _,
+    "\\)",
+  ]),
 ]);
 
 const memberAccess = $.or([
@@ -518,6 +575,7 @@ if (process.env.NODE_ENV === "test") {
       "a?.b",
       "this.#a",
       "a?.[x]",
+      "import.meta",
     ]);
     expectError(parse, ["a.new X()", "a.this", "(a).(b)"]);
   });
@@ -541,7 +599,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("callExpression", () => {
     const parse = compile($.seq([accessible, $.eof()]));
-    expectSame(parse, ["a().a()"]);
+    expectSame(parse, ["a().a()", "import('aaa')"]);
     expectSame(parse, ["a().a.b()", "new X().b()"]);
   });
 
@@ -559,6 +617,18 @@ if (process.env.NODE_ENV === "test") {
       "function ({a}) 1",
       "function f() 1",
     ]);
+    // drop types
+    is(parse("function f() {}"), { result: "function f() {}" });
+    is(parse("function f<T extends U>() {}"), { result: "function f() {}" });
+    is(parse("function f(arg: T) {}"), { result: "function f(arg) {}" });
+    is(parse("function f(arg: T, ...args: any[]) {}"), {
+      result: "function f(arg, ...args) {}",
+    });
+
+    is(parse("function f(): void {}"), { result: "function f() {}" });
+    // TODO: fix space eating by types
+    is(parse("function f(): T {}"), { result: "function f(){}" });
+    is(parse("function f(): T | U {}"), { result: "function f(){}" });
   });
   test("arrowFunctionExpression", () => {
     const parse = compile(arrowFunctionExpression);
@@ -573,6 +643,11 @@ if (process.env.NODE_ENV === "test") {
       "async () => await p",
       "async () => await new Promise(r => setTimeout(r))",
     ]);
+    is(parse("() => {}"), { result: "() => {}" });
+    is(parse("<T>() => {}"), { result: "() => {}" });
+    // TODO: fix space eating by types
+    is(parse("(): T => {}"), { result: "()=> {}" });
+    is(parse("(a:T) => {}"), { result: "(a) => {}" });
   });
 
   test("classExpression", () => {
@@ -595,6 +670,23 @@ if (process.env.NODE_ENV === "test") {
     is(parse("abstract class{}"), { result: "class{}" });
     is(parse("class { private x; }"), { result: "class { x; }" });
     is(parse("class { public x; }"), { result: "class { x; }" });
+    is(parse("class<T>{}"), { result: "class{}" });
+    is(parse("class<T> implements X{}"), { result: "class{}" });
+    is(parse("class<T> extends C implements X{}"), {
+      result: "class extends C{}",
+    });
+    is(parse("class{foo(): void {} }"), {
+      result: "class{foo() {} }",
+    });
+    is(parse("class{foo(arg:T): void {} }"), {
+      result: "class{foo(arg) {} }",
+    });
+    is(parse("class{foo<T>(arg:T): void {} }"), {
+      result: "class{foo(arg) {} }",
+    });
+    is(parse("class{x:number;y=1;}"), {
+      result: "class{x;y=1;}",
+    });
   });
 
   test("callExpression", () => {
@@ -603,6 +695,10 @@ if (process.env.NODE_ENV === "test") {
     is(parse("func([])").result, "func([])");
     is(parse("func(1,2)").result, "func(1,2)");
     is(parse("func(1,2,)").result, "func(1,2,)");
+    is(parse("f<T>()").result, "f()");
+    is(parse("f?.()").result, "f?.()");
+    is(parse("x.f()").result, "x.f()");
+    is(parse("x.f<T>()").result, "x.f()");
   });
 
   test("binaryExpr", () => {

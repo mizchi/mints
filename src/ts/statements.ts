@@ -5,6 +5,8 @@ import { anyExpression } from "./expression";
 import { _, __, NodeTypes as T } from "./constants";
 import { compile, builder as $ } from "./ctx";
 
+const _typeAnnotation = $.seq([":", _, T.TypeExpression]);
+
 const emptyStatement = $.def(T.EmptyStatement, $.seq(["[\\s\\n;]*"]));
 const breakStatement = $.def(T.BreakStatement, "break");
 const debuggerStatement = $.def(T.DebuggerStatement, "debugger");
@@ -191,9 +193,20 @@ export const variableStatement = $.def(
       "(var|const|let)",
       __,
       // x, y=1,
-      $.repeat_seq([T.DestructivePattern, _, $.opt(__assignSeq), _, ",", _]),
+      $.repeat_seq([
+        T.DestructivePattern,
+        _,
+        $.skip_opt(_typeAnnotation),
+        _,
+        $.opt(__assignSeq),
+        _,
+        ",",
+        _,
+      ]),
       _,
       T.DestructivePattern,
+      _,
+      $.skip_opt(_typeAnnotation),
       _,
       $.opt(__assignSeq),
     ]),
@@ -359,6 +372,9 @@ if (process.env.NODE_ENV === "test") {
   test("assign", () => {
     const parse = compile(variableStatement, { end: true });
     expectSame(parse, ["let x = 1", "let x,y"]);
+    is(parse("let x:number = 1"), { result: "let x= 1" });
+    is(parse("let x:any"), { result: "let x" });
+    is(parse("let x:number = 1,y:number=2"), { result: "let x= 1,y=2" });
   });
 
   test("for", () => {
@@ -442,6 +458,8 @@ if (process.env.NODE_ENV === "test") {
       "const [] = []",
       "const {} = {}, [] = a",
     ]);
+    is(parse("let x = 1").result, "let x = 1");
+    is(parse("let x: number = 1").result, "let x= 1");
   });
 
   test("importStatement", () => {
