@@ -7,6 +7,7 @@
   "module": "dist/index.js",
   "scripts": {
     "build": "vite build && tsc",
+    "benchmark": "node -r esbuild-register benchmark/bench.ts",
     "test": "NODE_ENV=test node -r esbuild-register src/"
   }
 }
