@@ -2,15 +2,45 @@
 import { compile, builder as $ } from "./ctx";
 import {
   OPERATORS,
-  NodeTypes as T,
+  // NodeTypes as T,
   RESERVED_WORDS,
+  Identifier,
   _,
   __,
   REST_SPREAD,
+  DestructiveArrayPattern,
+  DestructivePattern,
+  AnyExpression,
+  DestructiveObjectPattern,
+  Argument,
+  TypeExpression,
+  Arguments,
+  StringLiteral,
+  TemplateLiteral,
+  RegExpLiteral,
+  NumberLiteral,
+  BooleanLiteral,
+  NullLiteral,
+  ArrayLiteral,
+  Block,
+  ObjectLiteral,
+  AnyLiteral,
+  TypeDeclareParameters,
+  FunctionExpression,
+  AnyStatement,
+  ArrowFunctionExpression,
+  ClassExpression,
+  MemberExpression,
+  TypeParameters,
+  CallExpression,
+  UnaryExpression,
+  BinaryExpression,
+  AsExpression,
+  TernaryExpression,
 } from "./constants";
 
 const identifier = $.def(
-  T.Identifier,
+  Identifier,
   $.seq([`(?!${RESERVED_WORDS.join("|")})`, "([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)"])
 );
 
@@ -25,15 +55,15 @@ const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 // Destructive Pattren
 // TODO: Array
 const destructiveArrayPattern = $.def(
-  T.DestructiveArrayPattern,
+  DestructiveArrayPattern,
   $.seq([
     "\\[",
     _,
-    $.repeat_seq([$.opt(T.DestructivePattern), _, ",", _]),
+    $.repeat_seq([$.opt(DestructivePattern), _, ",", _]),
     _,
     $.or([
       $.seq([REST_SPREAD, _, identifier]),
-      $.opt<any>(T.DestructivePattern),
+      $.opt<any>(DestructivePattern),
       _,
     ]),
     _,
@@ -48,14 +78,14 @@ const destructiveObjectItem = $.or([
     // a : b
     identifier,
     _,
-    $.opt($.seq(["\\:", _, T.DestructivePattern])),
+    $.opt($.seq(["\\:", _, DestructivePattern])),
     // a: b = 1,
-    $.opt($.seq([_, "=", _, T.AnyExpression])),
+    $.opt($.seq([_, "=", _, AnyExpression])),
   ]),
 ]);
 
 const destructiveObjectPattern = $.def(
-  T.DestructiveObjectPattern,
+  DestructiveObjectPattern,
   $.seq([
     "\\{",
     _,
@@ -67,19 +97,19 @@ const destructiveObjectPattern = $.def(
 );
 
 const destructivePattern = $.def(
-  T.DestructivePattern,
+  DestructivePattern,
   $.seq([
     $.or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
-    $.opt($.seq([_, "=", _, T.AnyExpression])),
+    $.opt($.seq([_, "=", _, AnyExpression])),
   ])
 );
 
-const lefthand = $.def(T.Argument, destructivePattern);
+const lefthand = $.def(Argument, destructivePattern);
 
-const _typeAnnotation = $.seq([":", _, T.TypeExpression]);
+const _typeAnnotation = $.seq([":", _, TypeExpression]);
 
 const functionArguments = $.def(
-  T.Arguments,
+  Arguments,
   $.seq([
     $.repeat_seq([lefthand, _, $.skip_opt(_typeAnnotation), _, ","]),
     _,
@@ -93,12 +123,12 @@ const functionArguments = $.def(
 );
 
 const callArguments = $.seq([
-  $.repeat_seq([T.AnyExpression, _, ","]),
+  $.repeat_seq([AnyExpression, _, ","]),
   _,
   $.or([
     // rest spread
-    $.seq([REST_SPREAD, _, T.AnyExpression]),
-    T.AnyExpression,
+    $.seq([REST_SPREAD, _, AnyExpression]),
+    AnyExpression,
     _,
   ]),
 ]);
@@ -106,7 +136,7 @@ const callArguments = $.seq([
 /* Expression */
 
 const stringLiteral = $.def(
-  T.StringLiteral,
+  StringLiteral,
   $.or([
     // double quote
     `("[^"\\n]*")`,
@@ -118,25 +148,25 @@ const stringLiteral = $.def(
 const nonBacktickChars = "[^`]*";
 
 const templateLiteral = $.def(
-  T.TemplateLiteral,
+  TemplateLiteral,
   $.seq([
     "`",
     // aaa${}
-    $.repeat_seq([nonBacktickChars, "\\$\\{", _, T.AnyExpression, _, "\\}"]),
+    $.repeat_seq([nonBacktickChars, "\\$\\{", _, AnyExpression, _, "\\}"]),
     nonBacktickChars,
     "`",
   ])
 );
 
 const regexpLiteral = $.def(
-  T.RegExpLiteral,
+  RegExpLiteral,
   $.seq(["\\/[^\\/]+\\/([igmsuy]*)?"])
 );
 
 // TODO: 111_000
 // TODO: 0b1011
 const numberLiteral = $.def(
-  T.NumberLiteral,
+  NumberLiteral,
   $.or([
     // 16
     `(0(x|X)[0-9a-fA-F]+)`,
@@ -149,13 +179,13 @@ const numberLiteral = $.def(
   ])
 );
 
-const booleanLiteral = $.def(T.BooleanLiteral, `(true|false)`);
-const nullLiteral = $.def(T.NullLiteral, `null`);
+const booleanLiteral = $.def(BooleanLiteral, `(true|false)`);
+const nullLiteral = $.def(NullLiteral, `null`);
 
-const restSpread = $.seq([REST_SPREAD, _, T.AnyExpression]);
+const restSpread = $.seq([REST_SPREAD, _, AnyExpression]);
 
 const arrayLiteral = $.def(
-  T.ArrayLiteral,
+  ArrayLiteral,
   $.or([
     $.seq([
       "\\[",
@@ -163,13 +193,13 @@ const arrayLiteral = $.def(
         $.seq([
           // , item
           _,
-          $.opt(T.AnyExpression),
+          $.opt(AnyExpression),
           _,
           ",",
         ])
       ),
       _,
-      $.or([$.opt<any>(restSpread), T.AnyExpression, _]),
+      $.or([$.opt<any>(restSpread), AnyExpression, _]),
       _,
       "\\]",
     ]),
@@ -183,27 +213,27 @@ const objectItem = $.or([
     "((async|get|set)\\s+)?",
     $.or([
       stringLiteral,
-      $.seq(["\\[", _, T.AnyExpression, _, "\\]"]),
+      $.seq(["\\[", _, AnyExpression, _, "\\]"]),
       identifier,
     ]),
-    $.seq([_, "\\(", _, functionArguments, _, "\\)", _, T.Block]),
+    $.seq([_, "\\(", _, functionArguments, _, "\\)", _, Block]),
   ]),
   $.seq([
     // value
     $.or([
       stringLiteral,
-      $.seq(["\\[", _, T.AnyExpression, _, "\\]"]),
+      $.seq(["\\[", _, AnyExpression, _, "\\]"]),
       identifier,
     ]),
     // value or shorthand
-    $.seq([_, "\\:", _, T.AnyExpression]),
+    $.seq([_, "\\:", _, AnyExpression]),
   ]),
   identifier,
 ]);
 
 // ref by key
 const objectLiteral = $.def(
-  T.ObjectLiteral,
+  ObjectLiteral,
   $.seq([
     "\\{",
     $.repeat($.seq([_, objectItem, _, ","])),
@@ -215,7 +245,7 @@ const objectLiteral = $.def(
 );
 
 const anyLiteral = $.def(
-  T.AnyLiteral,
+  AnyLiteral,
   $.or([
     objectLiteral,
     arrayLiteral,
@@ -244,7 +274,7 @@ const classField = $.or([
     _,
     "\\)",
     _,
-    T.Block,
+    Block,
   ]),
   // class member
   $.seq([
@@ -256,7 +286,7 @@ const classField = $.or([
     "\\#?", // private
     identifier,
     // <T>
-    $.skip_opt($.seq([_, T.TypeDeclareParameters])),
+    $.skip_opt($.seq([_, TypeDeclareParameters])),
     _,
     $.seq([
       // foo(): void {}
@@ -267,7 +297,7 @@ const classField = $.or([
       "\\)",
       $.skip_opt($.seq([_, _typeAnnotation])),
       _,
-      T.Block,
+      Block,
     ]),
   ]),
   // field
@@ -278,21 +308,21 @@ const classField = $.or([
     identifier,
     $.skip_opt($.seq([_, _typeAnnotation])),
     _,
-    $.opt($.seq(["=", _, T.AnyExpression])),
+    $.opt($.seq(["=", _, AnyExpression])),
     ";",
   ]),
 ]);
 
 const classExpression = $.def(
-  T.ClassExpression,
+  ClassExpression,
   $.seq([
     $.skip_opt($.seq(["abstract", __])),
     "class",
     $.opt($.seq([__, identifier])),
     // <T>
-    $.skip_opt(T.TypeDeclareParameters),
-    $.opt($.seq([__, "extends", __, T.AnyExpression])),
-    $.skip_opt($.seq([__, "implements", __, T.TypeExpression])),
+    $.skip_opt(TypeDeclareParameters),
+    $.opt($.seq([__, "extends", __, AnyExpression])),
+    $.skip_opt($.seq([__, "implements", __, TypeExpression])),
     _,
     "\\{",
     _,
@@ -304,7 +334,7 @@ const classExpression = $.def(
 );
 
 const functionExpression = $.def(
-  T.FunctionExpression,
+  FunctionExpression,
   $.seq([
     $.opt(asyncModifier),
     "function",
@@ -312,7 +342,7 @@ const functionExpression = $.def(
     "(\\*)?\\s+", // generator
     $.opt(identifier),
     _,
-    $.skip_opt(T.TypeDeclareParameters),
+    $.skip_opt(TypeDeclareParameters),
     _,
     "\\(",
     _,
@@ -322,15 +352,15 @@ const functionExpression = $.def(
     _,
     $.skip_opt(_typeAnnotation),
     _,
-    $.or([T.Block, T.AnyStatement]),
+    $.or([Block, AnyStatement]),
   ])
 );
 
 const arrowFunctionExpression = $.def(
-  T.ArrowFunctionExpression,
+  ArrowFunctionExpression,
   $.seq([
     $.opt(asyncModifier),
-    $.skip_opt(T.TypeDeclareParameters),
+    $.skip_opt(TypeDeclareParameters),
     _,
     "(\\*)?",
     _,
@@ -348,19 +378,19 @@ const arrowFunctionExpression = $.def(
     _,
     "\\=\\>",
     _,
-    $.or([T.Block, T.AnyStatement]),
+    $.or([Block, AnyStatement]),
   ])
 );
 
 const newExpression = $.seq([
   "new",
   __,
-  T.MemberExpression,
+  MemberExpression,
   _,
   $.opt($.seq(["\\(", functionArguments, "\\)"])),
 ]);
 
-const paren = $.seq(["\\(", _, T.AnyExpression, _, "\\)"]);
+const paren = $.seq(["\\(", _, AnyExpression, _, "\\)"]);
 const primary = $.or([
   paren,
   newExpression,
@@ -372,7 +402,7 @@ const primary = $.or([
 const __call = $.or([
   $.seq([
     "\\?\\.",
-    $.skip_opt($.seq([_, T.TypeParameters])),
+    $.skip_opt($.seq([_, TypeParameters])),
     _,
     "\\(",
     _,
@@ -381,7 +411,7 @@ const __call = $.or([
     "\\)",
   ]),
   $.seq([
-    $.skip_opt($.seq([_, T.TypeParameters])),
+    $.skip_opt($.seq([_, TypeParameters])),
     _,
     "\\(",
     _,
@@ -394,18 +424,18 @@ const __call = $.or([
 const memberAccess = $.or([
   // ?. | .#a | .a
   $.seq(["(\\?)?\\.", "\\#?", identifier]),
-  $.seq(["(\\?\\.)?", "\\[", _, T.AnyExpression, _, "\\]"]),
+  $.seq(["(\\?\\.)?", "\\[", _, AnyExpression, _, "\\]"]),
   __call,
 ]);
 
 const memberable = $.def(
-  T.MemberExpression,
+  MemberExpression,
   $.or([$.seq([primary, $.repeat(memberAccess)]), anyLiteral])
 );
 
 // call chain access and member access
 const accessible = $.def(
-  T.CallExpression,
+  CallExpression,
   $.or([
     // call chain
     $.seq([memberable, _, __call, _, $.repeat_seq([memberAccess])]),
@@ -414,7 +444,7 @@ const accessible = $.def(
 );
 
 const unary = $.def(
-  T.UnaryExpression,
+  UnaryExpression,
   $.or([
     // with unary prefix
     $.seq([
@@ -428,7 +458,7 @@ const unary = $.def(
         "\\~",
         "\\!",
       ]),
-      T.UnaryExpression,
+      UnaryExpression,
     ]),
     $.seq([$.or([accessible, paren]), templateLiteral]),
     $.seq([
@@ -447,39 +477,29 @@ const unary = $.def(
 );
 
 const binaryExpression = $.def(
-  T.BinaryExpression,
+  BinaryExpression,
   $.seq([unary, $.repeat_seq([_, BINARY_OPS, _, unary])])
 );
 
 /* TypeExpression */
 
 const asExpression = $.def(
-  T.AsExpression,
+  AsExpression,
   $.seq([
     // foo as Type
     binaryExpression,
-    $.skip_opt<any>($.seq([__, "as", __, T.TypeExpression])),
+    $.skip_opt<any>($.seq([__, "as", __, TypeExpression])),
   ])
 );
 
 // a ? b: c
 const ternaryExpression = $.def(
-  T.TernaryExpression,
-  $.seq([
-    asExpression,
-    _,
-    "\\?",
-    _,
-    T.AnyExpression,
-    _,
-    "\\:",
-    _,
-    T.AnyExpression,
-  ])
+  TernaryExpression,
+  $.seq([asExpression, _, "\\?", _, AnyExpression, _, "\\:", _, AnyExpression])
 );
 
 export const anyExpression = $.def(
-  T.AnyExpression,
+  AnyExpression,
   $.or([ternaryExpression, asExpression])
 );
 

@@ -50,7 +50,6 @@ export function createCompiler<ID extends number>(
   const compiler: Compiler<ID> = {
     pairs: [],
     composeTokens: true,
-    refs: {} as any,
     rules: {},
     patterns: {},
     ...partial,
@@ -593,7 +592,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     enum T {
       _,
     }
-    const { compile, builder: $ } = createContext({ refs: T });
+    const { compile, builder: $ } = createContext({});
     $.def(T._, $.tok("\\s"));
 
     const seq = $.seq(["a", T._, "b", T._, "c"]);
@@ -880,19 +879,15 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("reuse recursive with suffix", () => {
-    enum E {
-      Paren,
-    }
-    const { compile, builder: $ } = createContext({
-      refs: E,
-    });
+    const Paren = 1000;
+    const { compile, builder: $ } = createContext({});
     const paren = $.def(
-      E.Paren,
+      Paren,
       $.seq([
         "\\(",
         $.or([
           // nested: ((1))
-          $.ref(E.Paren),
+          $.ref(Paren),
           // (1),
           "1",
         ]),

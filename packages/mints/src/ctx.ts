@@ -1,8 +1,7 @@
 import { createContext } from "@mizchi/pargen/src";
-import { NodeTypes } from "./constants";
-const { compile, builder } = createContext<NodeTypes>({
+const { compile, builder } = createContext<number>({
   composeTokens: true,
-  refs: NodeTypes,
+  // refs: NodeTypes,
   pairs: ["{", "}"],
 });
 export { compile, builder };

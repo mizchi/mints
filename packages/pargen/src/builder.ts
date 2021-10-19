@@ -81,20 +81,16 @@ export function createBuilder<ID extends number = number>(
   let cnt = 0;
   const genId = () => (cnt++).toString();
   const exprCache: { [key: string]: Token } = {};
-  const refSet = new Set(Object.values(compiler.refs)) as Set<ID | symbol>;
+  // const refSet = new Set(Object.values(compiler.refs)) as Set<ID | symbol>;
 
   const toNode = (input: InputNodeExpr): Rule => {
     if (typeof input === "object") {
       return input;
     }
     if (typeof input === "number") {
-      if (!refSet.has(input as ID)) {
-        throw new Error(
-          `[pargen:convert-expr-to-node] Ref ${
-            (compiler.refs as any)[input]
-          }:${input} not found`
-        );
-      }
+      // if (!refSet.has(input as ID)) {
+      // throw new Error(`[pargen:convert-expr-to-node] Ref ${input} not found`);
+      // }
       return ref(input);
     }
     return typeof input === "string" ? token(input) : input;
@@ -103,9 +99,9 @@ export function createBuilder<ID extends number = number>(
   const createPair = defineRule(compiler, pairRule);
   // const createNot = defineRule(compiler, notRule);
   function def<T extends ID | Symbol>(id: T | symbol, node: InputNodeExpr): T {
-    if (typeof id === "symbol") {
-      refSet.add(id);
-    }
+    // if (typeof id === "symbol") {
+    //   refSet.add(id);
+    // }
     if (compiler.patterns[id as any]) {
       throw new Error(`Symbol:${id.toString()} is already defined`);
     }

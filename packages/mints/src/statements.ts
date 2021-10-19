@@ -2,57 +2,89 @@
 import "./expression";
 
 import { anyExpression } from "./expression";
-import { _, __, NodeTypes as T } from "./constants";
+import {
+  AnyExpression,
+  AnyStatement,
+  Block,
+  BlockStatement,
+  BreakStatement,
+  ClassExpression,
+  DebuggerStatement,
+  DeclareVariableStatement,
+  DestructivePattern,
+  DoWhileStatement,
+  EmptyStatement,
+  ExportStatement,
+  ExpressionStatement,
+  ForItemStatement,
+  ForStatement,
+  FunctionExpression,
+  Identifier,
+  IfStatement,
+  ImportStatement,
+  InterfaceStatement,
+  LabeledStatement,
+  NonEmptyStatement,
+  Program,
+  ReturnStatement,
+  StringLiteral,
+  SwitchStatement,
+  ThrowStatement,
+  TypeExpression,
+  TypeObjectLiteral,
+  TypeStatement,
+  VariableStatement,
+  WhileStatement,
+  _,
+  __,
+} from "./constants";
 import { compile, builder as $ } from "./ctx";
 
-const _typeAnnotation = $.seq([":", _, T.TypeExpression]);
+const _typeAnnotation = $.seq([":", _, TypeExpression]);
 
-const emptyStatement = $.def(T.EmptyStatement, $.seq(["[\\s\\n;]*"]));
-const breakStatement = $.def(T.BreakStatement, "break");
-const debuggerStatement = $.def(T.DebuggerStatement, "debugger");
+const emptyStatement = $.def(EmptyStatement, $.seq(["[\\s\\n;]*"]));
+const breakStatement = $.def(BreakStatement, "break");
+const debuggerStatement = $.def(DebuggerStatement, "debugger");
 
 const returnStatement = $.def(
-  T.ReturnStatement,
-  $.seq(["(return|yield)", $.opt($.seq([__, T.AnyExpression]))])
+  ReturnStatement,
+  $.seq(["(return|yield)", $.opt($.seq([__, AnyExpression]))])
 );
 
 const throwStatement = $.def(
-  T.ThrowStatement,
-  $.seq(["throw", __, T.AnyExpression])
+  ThrowStatement,
+  $.seq(["throw", __, AnyExpression])
 );
 
-const blockOrStatement = $.or([T.Block, T.AnyStatement]);
-const blockOrNonEmptyStatement = $.or([T.Block, T.NonEmptyStatement]);
+const blockOrStatement = $.or([Block, AnyStatement]);
+const blockOrNonEmptyStatement = $.or([Block, NonEmptyStatement]);
 
-const blockStatement = $.def(T.BlockStatement, T.Block);
+const blockStatement = $.def(BlockStatement, Block);
 
-const LabeledStatement = $.def(
-  T.LabeledStatement,
-  $.seq([T.Identifier, _, "\\:", _, blockOrNonEmptyStatement])
+const labeledStatement = $.def(
+  LabeledStatement,
+  $.seq([Identifier, _, "\\:", _, blockOrNonEmptyStatement])
 );
 
 const _importRightSide = $.seq([
   $.or([
     // default only
-    T.Identifier,
-    $.seq(["\\*", __, "as", __, T.Identifier]),
+    Identifier,
+    $.seq(["\\*", __, "as", __, Identifier]),
     // TODO: * as b
     $.seq([
       "\\{",
       _,
       $.repeat_seq([
-        T.Identifier,
-        $.opt($.seq([__, "as", __, T.Identifier])),
+        Identifier,
+        $.opt($.seq([__, "as", __, Identifier])),
         _,
         ",",
         _,
       ]),
       // last item
       $.opt(
-        $.seq([
-          T.Identifier,
-          $.opt($.seq([__, "as", __, T.Identifier, _, ",?"])),
-        ])
+        $.seq([Identifier, $.opt($.seq([__, "as", __, Identifier, _, ",?"]))])
       ),
       _,
       "\\}",
@@ -61,14 +93,14 @@ const _importRightSide = $.seq([
   __,
   "from",
   __,
-  T.StringLiteral,
+  StringLiteral,
 ]);
 
 const importStatement = $.def(
-  T.ImportStatement,
+  ImportStatement,
   $.or([
     // import 'specifier';
-    $.seq(["import", __, T.StringLiteral]),
+    $.seq(["import", __, StringLiteral]),
     // import type
     $.seq([$.skip($.seq(["import", __, "type", __, _importRightSide]))]),
     // import pattern
@@ -76,10 +108,10 @@ const importStatement = $.def(
   ])
 );
 
-const defaultOrIdentifer = $.or(["default", T.Identifier]);
+const defaultOrIdentifer = $.or(["default", Identifier]);
 
 const exportStatement = $.def(
-  T.ExportStatement,
+  ExportStatement,
   $.or([
     // TODO: skip: export type|interface
     // export clause
@@ -106,19 +138,19 @@ const exportStatement = $.def(
       _,
       "\\}",
       _,
-      $.opt($.seq(["from", __, T.StringLiteral])),
+      $.opt($.seq(["from", __, StringLiteral])),
     ]),
     // export named expression
     $.seq([
       "export",
       __,
-      $.or([T.VariableStatement, T.FunctionExpression, T.ClassExpression]),
+      $.or([VariableStatement, FunctionExpression, ClassExpression]),
     ]),
   ])
 );
 
 const ifStatement = $.def(
-  T.IfStatement,
+  IfStatement,
   // $.or([
   $.seq([
     // if
@@ -126,7 +158,7 @@ const ifStatement = $.def(
     _,
     "\\(",
     _,
-    T.AnyExpression,
+    AnyExpression,
     _,
     "\\)",
     _,
@@ -137,14 +169,14 @@ const ifStatement = $.def(
 );
 
 const switchStatement = $.def(
-  T.SwitchStatement,
+  SwitchStatement,
   $.or([
     $.seq([
       "switch",
       _,
       "\\(",
       _,
-      T.AnyExpression,
+      AnyExpression,
       _,
       "\\)",
       _,
@@ -153,7 +185,7 @@ const switchStatement = $.def(
       $.repeat_seq([
         "case",
         __,
-        T.AnyExpression,
+        AnyExpression,
         _,
         "\\:",
         _,
@@ -171,9 +203,9 @@ const switchStatement = $.def(
   ])
 );
 
-const __assignSeq = $.seq(["=", _, T.AnyExpression]);
+const __assignSeq = $.seq(["=", _, AnyExpression]);
 export const variableStatement = $.def(
-  T.VariableStatement,
+  VariableStatement,
   $.or([
     $.seq([
       // single
@@ -181,7 +213,7 @@ export const variableStatement = $.def(
       __,
       // x, y=1,
       $.repeat_seq([
-        T.DestructivePattern,
+        DestructivePattern,
         _,
         $.skip_opt(_typeAnnotation),
         _,
@@ -191,7 +223,7 @@ export const variableStatement = $.def(
         _,
       ]),
       _,
-      T.DestructivePattern,
+      DestructivePattern,
       _,
       $.skip_opt(_typeAnnotation),
       _,
@@ -201,29 +233,29 @@ export const variableStatement = $.def(
 );
 
 const declareVariableStatement = $.def(
-  T.DeclareVariableStatement,
+  DeclareVariableStatement,
   $.seq([$.skip($.seq(["declare", __, variableStatement]))])
 );
 
 const typeStatement = $.def(
-  T.TypeStatement,
+  TypeStatement,
   $.seq([
     $.skip(
       $.seq([
         $.opt($.seq(["export\\s+"])),
         "type",
         __,
-        T.Identifier,
+        Identifier,
         _,
         "=",
         _,
-        T.TypeExpression,
+        TypeExpression,
       ])
     ),
   ])
 );
 const interfaceStatement = $.def(
-  T.InterfaceStatement,
+  InterfaceStatement,
   $.seq([
     // skip all
     $.skip(
@@ -231,33 +263,33 @@ const interfaceStatement = $.def(
         $.opt($.seq(["export\\s+"])),
         "interface",
         __,
-        T.Identifier,
-        $.opt($.seq([__, "extends", __, T.TypeExpression])),
+        Identifier,
+        $.opt($.seq([__, "extends", __, TypeExpression])),
         _,
-        T.TypeObjectLiteral,
+        TypeObjectLiteral,
       ])
     ),
   ])
 );
 
 export const forStatement = $.def(
-  T.ForStatement,
+  ForStatement,
   $.seq([
     "for",
     _,
     "\\(",
     _,
     // start
-    $.or([variableStatement, T.AnyExpression, _]),
+    $.or([variableStatement, AnyExpression, _]),
     _,
     "\\;",
     // condition
     _,
-    $.opt(T.AnyExpression),
+    $.opt(AnyExpression),
     _,
     "\\;",
     // step end
-    $.opt(T.AnyExpression),
+    $.opt(AnyExpression),
     "\\)",
     _,
     blockOrNonEmptyStatement,
@@ -266,7 +298,7 @@ export const forStatement = $.def(
 
 // include for in / for of
 const forItemStatement = $.def(
-  T.ForItemStatement,
+  ForItemStatement,
   $.seq([
     "for",
     _,
@@ -274,11 +306,11 @@ const forItemStatement = $.def(
     _,
     "(var|const|let)",
     __,
-    T.DestructivePattern,
+    DestructivePattern,
     __,
     "(of|in)",
     __,
-    T.AnyExpression,
+    AnyExpression,
     _,
     "\\)",
     _,
@@ -287,14 +319,14 @@ const forItemStatement = $.def(
 );
 
 export const whileStatement = $.def(
-  T.WhileStatement,
+  WhileStatement,
   $.or([
     $.seq([
       "while",
       _,
       "\\(",
       _,
-      T.AnyExpression,
+      AnyExpression,
       _,
       "\\)",
       _,
@@ -304,7 +336,7 @@ export const whileStatement = $.def(
 );
 
 const doWhileStatement = $.def(
-  T.DoWhileStatement,
+  DoWhileStatement,
   $.or([
     $.seq([
       "do",
@@ -315,7 +347,7 @@ const doWhileStatement = $.def(
       _,
       "\\(",
       _,
-      T.AnyExpression,
+      AnyExpression,
       _,
       "\\)",
     ]),
@@ -323,12 +355,12 @@ const doWhileStatement = $.def(
 );
 
 const expressionStatement = $.def(
-  T.ExpressionStatement,
-  $.seq([anyExpression, $.repeat_seq([",", _, T.AnyExpression])])
+  ExpressionStatement,
+  $.seq([anyExpression, $.repeat_seq([",", _, AnyExpression])])
 );
 
 const nonEmptyStatement = $.def(
-  T.NonEmptyStatement,
+  NonEmptyStatement,
   $.or([
     debuggerStatement,
     breakStatement,
@@ -344,14 +376,14 @@ const nonEmptyStatement = $.def(
     doWhileStatement,
     whileStatement,
     switchStatement,
-    LabeledStatement,
+    labeledStatement,
     blockStatement,
     expressionStatement,
   ])
 );
 
 export const anyStatement = $.def(
-  T.AnyStatement,
+  AnyStatement,
   $.or([nonEmptyStatement, emptyStatement])
 );
 
@@ -367,8 +399,8 @@ const statementLine = $.or([
       blockStatement,
       forItemStatement,
       interfaceStatement,
-      T.FunctionExpression,
-      T.ClassExpression,
+      FunctionExpression,
+      ClassExpression,
     ]),
     _,
     "(\\;?\\n?|\\n)",
@@ -379,12 +411,12 @@ const statementLine = $.or([
 ]);
 
 export const block = $.def(
-  T.Block,
+  Block,
   $.seq(["{", _, $.repeat(statementLine), _, "}"])
 );
 
 export const program = $.def(
-  T.Program,
+  Program,
   $.seq([$.repeat(statementLine), _, $.eof()])
 );
 

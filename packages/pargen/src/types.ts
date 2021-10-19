@@ -101,7 +101,6 @@ export type Compiler<ID extends number> = {
   composeTokens: boolean;
   patterns: PatternsMap;
   pairs: string[];
-  refs: any;
   rules: RulesMap<any>;
   compile: RootCompiler<ID>;
 };
