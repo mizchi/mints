@@ -1,14 +1,9 @@
 # TODO
 
-- Array/Object Rest Spread
+- Switch Case: Multi label
 - Literal
   - RegExp Literal
   - Template Literal
-- Object
-  - Destructive Assign Default `{ a = 1} = {}`
-  - Object Shorthand
-  - Object Function shorthand
-  - Object getter, setter
 - `this.#xxx`
 
 ## TS
@@ -19,7 +14,7 @@
 - type
 - ArrowFunction
 - Function
-- Class
+- Class Implements
 
 ## Advanced Transform
 
@@ -28,4 +23,4 @@
 
 ## Perf
 
-- Not(Reserved) Identifier 
+- enum => const

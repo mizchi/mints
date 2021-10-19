@@ -303,6 +303,11 @@ if (process.env.NODE_ENV === "test") {
       `switch (x) {}`,
       `switch(true){ default: 1 }`,
       `switch(x){ case 1: 1 }`,
+      // `switch(x){
+      //   case 1:
+      //   case 2:
+      //     return
+      // }`,
     ]);
   });
 
@@ -326,9 +331,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("anyStatement", () => {
     const parse = compile(anyStatement);
-    // is(parseEmpty("").result, "");
     expectSame(parse, ["debugger", "{ a=1; }"]);
-    // is(parseEmpty(" ").result, " ");
   });
 
   test("program:multiline", () => {

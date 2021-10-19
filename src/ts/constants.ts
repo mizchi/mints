@@ -37,11 +37,14 @@ export enum NodeTypes {
   BinaryExpression,
   FunctionExpression,
   ArrowFunctionExpression,
+  // TaggedTemplateExpression,
 
   // Literal
   AnyLiteral,
   StringLiteral,
+  RegExpLiteral,
   NumberLiteral,
+  TemplateLiteral,
   BooleanLiteral,
   NullLiteral,
   ArrayLiteral,
@@ -60,6 +63,7 @@ export const __ = "\\s+";
 export const SYMBOL = "([a-zA-Z_$][a-zA-Z0-9_$]*)";
 export const PAIRED_CHARS = ["(", ")", "{", "}", "[", "]", "<", ">"] as const;
 
+export const REST_SPREAD = "\\.\\.\\.";
 export const OPERATORS = [
   // relation
   "instanceof",
