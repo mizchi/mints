@@ -1,5 +1,3 @@
-import "./expression";
-import "./type";
 import { program } from "./statements";
 
 import { compile } from "./ctx";
