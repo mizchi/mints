@@ -23,6 +23,11 @@ const blockOrNonEmptyStatement = $.or([T.Block, T.NonEmptyStatement]);
 
 const blockStatement = $.def(T.BlockStatement, T.Block);
 
+const LabeledStatement = $.def(
+  T.LabeledStatement,
+  $.seq([T.Identifier, _, "\\:", _, blockOrNonEmptyStatement])
+);
+
 const ifStatement = $.def(
   T.IfStatement,
   $.or([
@@ -47,7 +52,6 @@ const switchStatement = $.def(
   T.SwitchStatement,
   $.or([
     $.seq([
-      // switch() { case 1: break; }
       "switch",
       _,
       "\\(",
@@ -66,7 +70,9 @@ const switchStatement = $.def(
         "\\:",
         _,
         // include empty statement
-        blockOrNonEmptyStatement,
+        blockOrStatement,
+        _,
+        "(\\;)?", // optional closing semicolon
         _,
       ]),
       _,
@@ -195,6 +201,7 @@ const nonEmptyStatement = $.def(
     doWhileStatement,
     whileStatement,
     switchStatement,
+    LabeledStatement,
     blockStatement,
     expressionStatement,
   ])
@@ -303,11 +310,19 @@ if (process.env.NODE_ENV === "test") {
       `switch (x) {}`,
       `switch(true){ default: 1 }`,
       `switch(x){ case 1: 1 }`,
-      // `switch(x){
-      //   case 1:
-      //   case 2:
-      //     return
-      // }`,
+      `switch(x){
+        case 1:
+        case 2:
+      }`,
+      `switch(x){
+        case 1:
+        case 2:
+          return
+      }`,
+      `switch(x){
+        case 1: {}
+        case 2: {}
+      }`,
     ]);
   });
 
@@ -331,7 +346,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("anyStatement", () => {
     const parse = compile(anyStatement);
-    expectSame(parse, ["debugger", "{ a=1; }"]);
+    expectSame(parse, ["debugger", "{ a=1; }", "foo: {}", "foo: 1"]);
   });
 
   test("program:multiline", () => {

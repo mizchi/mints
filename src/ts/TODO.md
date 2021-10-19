@@ -4,28 +4,32 @@
 
 - Import
 - Export
-- Switch Case: Multi label
 
 ## TS
 
 - [x] Class Keywords / private public abstract
 - [x] AsExpression
+- [x] non-null `!` suffix
 - TypeAnnotation Expression
 - interface
-- type
+- import type
 - ArrowFunction
 - Function
 - Class: Implements
 - Class: Generics
-- non-null `!` suffix
 
 ## Advanced Transform
 
-- [ ] constructor's private / public initialization
+- [ ] constructor's initialization(private/public/protected)
 - [ ] Enum
 - [ ] JSX
-- [ ] namespace (maybe not supported)
+- [ ] namespace (may not support)
+- [ ] decorator (may not support)
 
 ## Perf
 
 - enum => const
+- optimize: flat or
+- optimize: flat seq
+- optimize: recursive compose
+- optimize: dump syntax definition and load

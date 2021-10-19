@@ -226,10 +226,13 @@ const anyLiteral = $.def(
 );
 
 /* Class */
+const accessModifier = "(private|public|protected)\\s+";
+const staticModifier = "static\\s+";
+const asyncModifier = "async\\s+";
+
 const classField = $.or([
   $.seq([
-    $.skip_opt($.seq(["(private|public)", __])),
-    // $.or(["constructor", identifier]),
+    $.skip_opt(accessModifier),
     "constructor",
     _,
     "\\(",
@@ -242,10 +245,9 @@ const classField = $.or([
   ]),
   // class member
   $.seq([
-    $.skip_opt("(private|public|protected)\\s+"),
-    // "((private|public|protected)\\s+)?",
-    "(static\\s+)?",
-    "(async\\s+)?",
+    $.skip_opt(accessModifier),
+    `(${staticModifier})?`,
+    `(${asyncModifier})?`,
     "\\*?", // generator
     "\\#?", // private
     identifier,
@@ -254,8 +256,8 @@ const classField = $.or([
   ]),
   // field
   $.seq([
-    $.skip_opt($.seq(["(private|public)", __])),
-    $.opt($.seq(["static", __])),
+    $.skip_opt(accessModifier),
+    `(${staticModifier})?`,
     $.opt($.seq(["\\#"])),
     identifier,
     _,
@@ -287,7 +289,7 @@ const classExpression = $.def(
 const functionExpression = $.def(
   T.FunctionExpression,
   $.seq([
-    $.opt("async\\s"),
+    $.opt(asyncModifier),
     "function",
     _,
     "(\\*)?\\s+",
@@ -306,7 +308,7 @@ const functionExpression = $.def(
 const arrowFunctionExpression = $.def(
   T.ArrowFunctionExpression,
   $.seq([
-    $.opt("async\\s+"),
+    $.opt(asyncModifier),
     "(\\*)?",
     _,
     $.or([$.seq(["\\(", _, functionArguments, _, "\\)"]), identifier]),
@@ -342,15 +344,11 @@ const memberAccess = $.or([
 
 const memberable = $.def(
   T.MemberExpression,
-  $.or([
-    $.seq([primary, $.repeat(memberAccess)]),
-    // single
-    anyLiteral,
-  ])
+  $.or([$.seq([primary, $.repeat(memberAccess)]), anyLiteral])
 );
 
 // call chain access and member access
-const callable = $.def(
+const accessible = $.def(
   T.CallExpression,
   $.or([
     // call chain
@@ -376,16 +374,18 @@ const unary = $.def(
       ]),
       T.UnaryExpression,
     ]),
-    $.seq([$.or([callable, paren]), templateLiteral]),
+    $.seq([$.or([accessible, paren]), templateLiteral]),
     $.seq([
       $.or([
         classExpression,
         functionExpression,
         arrowFunctionExpression,
-        callable,
+        accessible,
         paren,
       ]),
       $.opt($.or(["\\+\\+", "\\-\\-"])),
+      // ts bang operator
+      $.skip_opt("\\!"),
     ]),
   ])
 );
@@ -537,7 +537,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("callExpression", () => {
-    const parse = compile($.seq([callable, $.eof()]));
+    const parse = compile($.seq([accessible, $.eof()]));
     expectSame(parse, ["a().a()"]);
     expectSame(parse, ["a().a.b()", "new X().b()"]);
   });
@@ -595,7 +595,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("callExpression", () => {
-    const parse = compile(callable);
+    const parse = compile(accessible);
     is(parse("func()").result, "func()");
     is(parse("func([])").result, "func([])");
     is(parse("func(1,2)").result, "func(1,2)");
@@ -650,6 +650,9 @@ if (process.env.NODE_ENV === "test") {
       "(x)`bbb`",
       "a.b().c``",
     ]);
+    is(parse("a!"), { result: "a" });
+    // remove typescript bang operator
+    is(parse("(a.b)!"), { result: "(a.b)" });
   });
 
   test("identifier", () => {

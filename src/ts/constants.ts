@@ -6,6 +6,7 @@ export enum NodeTypes {
   // Statements
   Block,
   BlockStatement,
+  LabeledStatement,
   DebuggerStatement,
   ReturnStatement,
   yieldStatement,
