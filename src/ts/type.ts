@@ -61,6 +61,7 @@ const typeIdentifier = $.def(
 );
 
 const typePrimary = $.or([
+  typeParen,
   T.TypeObjectLiteral,
   T.TypeArrayLiteral,
   typeIdentifier,
@@ -123,9 +124,53 @@ const typeArrayLiteral = $.def(
   ])
 );
 
+const typeFunctionArgs = $.seq([
+  $.repeat_seq([
+    // args
+    T.Identifier,
+    _,
+    "\\:",
+    _,
+    T.TypeExpression,
+    _,
+    ",",
+    _,
+  ]),
+  $.or([
+    // last
+    $.seq([REST_SPREAD, _, T.Identifier, _, "\\:", _, T.TypeExpression]),
+    $.seq([T.Identifier, _, "\\:", _, T.TypeExpression, _, ",?"]),
+    _,
+  ]),
+]);
+
 const _typeObjectItem = $.or([
-  // $.seq([T.Identifier, _, "\\:", _, T.TypeExpression]),
-  $.seq([T.Identifier, _, "\\:", _, T.TypeExpression]),
+  $.seq([
+    // async foo<T>(arg: any): void;
+    $.opt($.seq(["async", __])),
+    T.Identifier,
+    _,
+    $.opt(typeDeclareParameters),
+    _,
+    "\\(",
+    _,
+    typeFunctionArgs,
+    _,
+    "\\)",
+    _,
+    "\\:",
+    _,
+    T.TypeExpression,
+  ]),
+  // member
+  $.seq([
+    $.opt($.seq(["readonly", __])),
+    T.Identifier,
+    _,
+    "\\:",
+    _,
+    T.TypeExpression,
+  ]),
 ]);
 
 const typeObjectLiteral = $.def(
@@ -154,26 +199,6 @@ const typeLiteral = $.or([
   T.NullLiteral,
 ]);
 
-const typeFunctionArgs = $.seq([
-  $.repeat_seq([
-    // args
-    T.Identifier,
-    _,
-    "\\:",
-    _,
-    typeDeclareParameter,
-    _,
-    ",",
-    _,
-  ]),
-  $.or([
-    // last
-    $.seq([REST_SPREAD, _, T.Identifier, _, "\\:", _, T.TypeExpression]),
-    $.seq([T.Identifier, _, "\\:", _, T.TypeExpression, _, ",?"]),
-    _,
-  ]),
-]);
-
 const typeFunctionExpression = $.def(
   T.TypeFunctionExpression,
   $.seq([
@@ -190,12 +215,6 @@ const typeFunctionExpression = $.def(
     _,
     // return type
     T.TypeExpression,
-    // $.repeat_seq([_typeObjectItem, _, "(,|;)", _]),
-    // $.opt(_typeNameableItem),
-    // _,
-    // "(,|;)?",
-    // _,
-    // "\\}",
   ])
 );
 
@@ -268,6 +287,16 @@ if (process.env.NODE_ENV === "test") {
       "{ a: number, b: number }",
       "{ a: number, b: { x: 1; } }",
       "{ a: number; }['a']",
+      "{ a: () => void; }",
+      "{ f(): void; }",
+      "{ async f(): void; }",
+      "{ f(arg: any): void; }",
+      "{ f(arg: any,): void; }",
+      "{ f(a1: any, a2: any): void; }",
+      "{ f(a1: any, a2: any, ...args: any): void; }",
+      "{ f(...args: any): void; }",
+      "{ f(...args: any): void; b: 1; }",
+      "{ readonly b: number; }",
       "[] & {}",
       "[number]",
       "[number,number]",
@@ -284,6 +313,7 @@ if (process.env.NODE_ENV === "test") {
       "(a: A, b: B) => void",
       "(...args: any[]) => void",
       "(...args: any[]) => A | B",
+      "((...args: any[]) => A | B) | () => void",
       "infer U",
     ]);
   });

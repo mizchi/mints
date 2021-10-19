@@ -2,8 +2,10 @@
 
 ## JavaScript
 
-- Dynamic Import Function
-- Ternary Operator
+- `import()`
+- `import.meta`
+- Ternary Operator: `a ? b : c`
+- class getter/setter
 
 ## TS
 
@@ -14,11 +16,11 @@
 - [x] non-null `!` suffix
 - [x] import type
 - [x] TypeParameters
-- TypeFunctionExpression
+- [x] TypeFunctionExpression
 - Class: Implements
 - Class: Generics
+- TernaryOperator: `T extends U ? A : B`
 - infer
-- TernaryOperator
 - (Study other syntaxes for myself)
 
 ### TypeAnnotation
