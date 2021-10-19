@@ -4,15 +4,17 @@
 
 - Import
 - Export
+- Dynamic Import Function
 
 ## TS
 
 - [x] Class Keywords / private public abstract
 - [x] AsExpression
 - [x] non-null `!` suffix
-- TypeAnnotation Expression
-- interface
 - import type
+- TypeAnnotation: Expression
+- TypeAnnotation: Function
+- interface
 - ArrowFunction
 - Function
 - Class: Implements

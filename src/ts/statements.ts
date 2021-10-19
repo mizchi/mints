@@ -1,3 +1,4 @@
+import { ParseError } from "./../types";
 // TODO: use symbol
 import "./expression";
 
@@ -28,23 +29,75 @@ const LabeledStatement = $.def(
   $.seq([T.Identifier, _, "\\:", _, blockOrNonEmptyStatement])
 );
 
+const _importRightSide = $.seq([
+  $.or([
+    // default only
+    T.Identifier,
+    $.seq(["\\*", __, "as", __, T.Identifier]),
+    // TODO: * as b
+    $.seq([
+      "\\{",
+      _,
+      $.repeat_seq([
+        T.Identifier,
+        $.opt($.seq([__, "as", __, T.Identifier])),
+        _,
+        ",",
+        _,
+      ]),
+      // last item
+      $.opt($.seq([T.Identifier, $.opt($.seq([__, "as", __, T.Identifier]))])),
+      _,
+      ",?",
+      _,
+      "\\}",
+    ]),
+  ]),
+  __,
+  "from",
+  __,
+  T.StringLiteral,
+]);
+
+const importStatement = $.def(
+  T.ImportStatement,
+  $.or([
+    // import 'specifier';
+    $.seq(["import", __, T.StringLiteral]),
+    // import type
+    $.seq([
+      $.skip(
+        $.seq([
+          // import ... from "";
+          "import",
+          __,
+          "type",
+          __,
+          _importRightSide,
+        ])
+      ),
+    ]),
+    // import pattern
+    $.seq(["import", __, _importRightSide]),
+  ])
+);
+
 const ifStatement = $.def(
   T.IfStatement,
-  $.or([
-    $.seq([
-      // if
-      "if",
-      _,
-      "\\(",
-      _,
-      T.AnyExpression,
-      _,
-      "\\)",
-      _,
-      blockOrNonEmptyStatement,
-      _,
-      $.opt($.seq(["else", __, blockOrStatement])),
-    ]),
+  // $.or([
+  $.seq([
+    // if
+    "if",
+    _,
+    "\\(",
+    _,
+    T.AnyExpression,
+    _,
+    "\\)",
+    _,
+    blockOrNonEmptyStatement,
+    _,
+    $.opt($.seq(["else", __, blockOrStatement])),
   ])
 );
 
@@ -196,6 +249,7 @@ const nonEmptyStatement = $.def(
     returnStatement,
     variableStatement,
     ifStatement,
+    importStatement,
     forItemStatement,
     forStatement,
     doWhileStatement,
@@ -228,7 +282,7 @@ export const program = $.def(
 );
 
 import { test, run, is } from "@mizchi/test";
-import { expectError, expectSame } from "./_testHelpers";
+import { expectError, expectSame, formatError } from "./_testHelpers";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
   test("empty", () => {
@@ -344,19 +398,41 @@ if (process.env.NODE_ENV === "test") {
     ]);
   });
 
+  test("importStatement", () => {
+    const parse = compile(importStatement, { end: true });
+    expectSame(parse, [
+      "import 'foo'",
+      "import * as b from 'xx'",
+      "import a from 'b'",
+      'import {} from "b"',
+      'import {a} from "x"',
+      'import {a, b} from "x"',
+      'import {a as b} from "x"',
+      'import {a as b, d as c,} from "x"',
+    ]);
+    // drop import type
+    is(parse("import type a from 'xxx'").result, "");
+    is(parse("import type * as b from 'xxx'").result, "");
+    is(parse("import type {a as b} from 'xxx'").result, "");
+  });
+
   test("anyStatement", () => {
     const parse = compile(anyStatement);
     expectSame(parse, ["debugger", "{ a=1; }", "foo: {}", "foo: 1"]);
   });
 
-  test("program:multiline", () => {
-    const parse = compile(program);
+  test("program", () => {
+    const parse = compile(program, { end: true });
     expectSame(parse, [
       "debugger;",
       "debugger; debugger;   debugger   ;",
       ";;;",
       "",
+      "import a from 'b';",
     ]);
+    // const ret = parse("import type x from 'b';");
+    // formatError("import type xxxx;", ret as ParseError);
+    // is(ret, { result: ";" });
   });
 
   test("program:with as", () => {
