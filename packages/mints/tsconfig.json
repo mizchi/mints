@@ -1,6 +1,12 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "rootDir": "."
-  }
+    "rootDir": "src",
+    "declaration": true,
+    "target": "ESNext",
+    "module": "ESNext",
+    "outDir": "types",
+    "noUnusedLocals": false
+  },
+  "include": ["src"]
 }

@@ -5,9 +5,7 @@
     "target": "ESNext",
     "module": "ESNext",
     "rootDir": "src",
-    "outDir": "types",
-    "noUnusedLocals": true,
-    "noImplicitReturns": true
+    "outDir": "types"
   },
   "include": ["src"]
 }

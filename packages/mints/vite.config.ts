@@ -9,7 +9,7 @@ export default defineConfig({
     target: "esnext",
     // @ts-ignore
     lib: {
-      entry: "index",
+      entry: "src/index",
       formats: ["es", "cjs"],
       fileName: (format) => {
         if (format === "cjs") {
