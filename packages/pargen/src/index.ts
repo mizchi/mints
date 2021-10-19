@@ -160,18 +160,15 @@ export function compileParser(
   compiler: Compiler<any>
 ): InternalPerser {
   const reshape = rule.reshape ?? defaultReshape;
-
   if (!rule.primitive && compiler.rules[rule.kind]) {
     // @ts-ignore
     const parse = compiler.rules[rule.kind](rule, compiler);
     return ((input, ctx) => {
       return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
-        // @ts-ignore
         return parse(input, ctx);
       });
     }) as InternalPerser;
   }
-
   switch (rule.kind) {
     case NodeKind.NOT: {
       const childParser = compileParser((rule as Not).child, compiler);
@@ -190,7 +187,6 @@ export function compileParser(
         });
       };
     }
-
     case NodeKind.REF: {
       return (input, ctx) => {
         const resolved = compiler.patterns[(rule as Ref).ref];
@@ -202,7 +198,6 @@ export function compileParser(
         );
       };
     }
-
     case NodeKind.ATOM: {
       // const node = node as Atom;
       const parse = (rule as Atom).parse({} as any, compiler);
@@ -980,14 +975,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("b"), { result: "" });
     is(parser(""), { result: "" });
   });
-
-  // test("skip with eof", () => {
-  //   const { compile, builder: $ } = createContext();
-  //   const parserNoEof = compile($.seq(["a", $.skip("b"), "c"]));
-  //   is(parserNoEof("abc"), { result: "ac" });
-  //   const parser = compile($.seq(["a", $.skip("b"), "c", $.eof()]));
-  //   is(parser("abc"), { result: "ac" });
-  // });
 
   test("skip with repeat", () => {
     const { compile, builder: $ } = createContext();
