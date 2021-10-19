@@ -114,7 +114,7 @@ const Or = $.def(
       }
       return {
         type: "or",
-        items: [input.head, ...input.tail.map((item) => item.item)],
+        items: [input.head, ...input.tail.map((item: any) => item.item)],
       } as Ast;
     }
   )
@@ -277,10 +277,9 @@ export function initGrammerParser(): RootParser {
 }
 
 import { run, test, is } from "@mizchi/test";
-import { RootParser } from "../types";
+import { RootParser } from "@mizchi/pargen/src/types";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
-  const opts = { pairs: ["{", "}"], contextRoot: Symbol() };
   test("Seq with or", () => {
     const parse = compile(Sequence);
     is(parse("a (b)"), {

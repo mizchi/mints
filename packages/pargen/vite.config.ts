@@ -7,9 +7,9 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
+    // @ts-ignore
     lib: process.env.LIB && {
-      // entry: "src/index",
-      entry: "src/ts/index",
+      entry: "src/index",
       formats: ["es", "cjs"],
       fileName: (format) => {
         if (format === "cjs") {

@@ -1,5 +1,5 @@
-import { createContext } from "..";
-import { Builder } from "../types";
+import { createContext } from "@mizchi/pargen/src";
+import { Builder } from "@mizchi/pargen/src/types";
 import { Ast, initGrammerParser, Program } from "./index";
 
 const example = `

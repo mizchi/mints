@@ -1,7 +1,5 @@
-// import {} from "./";
-import { transform } from "../src/ts";
+import { transform } from "@mizchi/mints";
 import { expose } from "comlink";
-
 const api = {
   transform,
 };

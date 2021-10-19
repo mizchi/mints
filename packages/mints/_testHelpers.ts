@@ -1,4 +1,4 @@
-import { ErrorType, ParseError } from "../types";
+import { ErrorType, ParseError } from "@mizchi/pargen/src/types";
 
 export function formatError(
   input: string,

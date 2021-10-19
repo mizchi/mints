@@ -1,16 +1,9 @@
 {
-  "name": "@mizchi/pargen",
-  "module": "dist/index.js",
-  "main": "dist/index.cjs",
-  "version": "0.0.1",
-  "types": "types/index.d.ts",
-  "scripts": {
-    "dev": "vite",
-    "build": "LIB=1 vite build && yarn tsc",
-    "typecheck": "tsc -p . --noEmit --emitDeclarationOnly false",
-    "test": "NODE_ENV=test node -r esbuild-register src/index.ts",
-    "test:ts": "NODE_ENV=test node -r esbuild-register src/ts/index.ts"
-  },
+  "name": "@mizchi/parser",
+  "private": true,
+  "repository": "git@github.com:mizchi/pargen.git",
+  "author": "mizchi <miz404@gmail.com>",
+  "license": "MIT",
   "devDependencies": {
     "@mizchi/test": "^0.1.1",
     "@types/node": "^16.9.1",
@@ -26,9 +19,7 @@
     "vite": "^2.4.2",
     "zx": "^4.2.0"
   },
-  "files": [
-    "src",
-    "types",
-    "dist"
+  "workspaces": [
+    "packages/*"
   ]
 }
