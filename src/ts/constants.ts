@@ -5,19 +5,23 @@ export enum NodeTypes {
 
   // Statements
   Block,
+  BlockStatement,
   DebuggerStatement,
   ReturnStatement,
+  yieldStatement,
   VariableStatement,
   ThrowStatement,
   BreakStatement,
   EmptyStatement,
   ExpressionStatement,
+  NonEmptyStatement,
   AnyStatement,
   IfStatement,
   DoWhileStatement,
   WhileStatement,
   ForStatement,
   ForItemStatement,
+  SwitchStatement,
 
   // Expression
   Expression,

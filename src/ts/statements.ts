@@ -6,12 +6,12 @@ import { _, __, NodeTypes as T } from "./constants";
 import { compile, builder as $ } from "./ctx";
 
 const emptyStatement = $.def(T.EmptyStatement, $.seq(["[\\s\\n;]*"]));
-const breakStatement = $.def(T.BreakStatement, $.tok("break"));
-const debuggerStatement = $.def(T.DebuggerStatement, $.tok("debugger"));
+const breakStatement = $.def(T.BreakStatement, "break");
+const debuggerStatement = $.def(T.DebuggerStatement, "debugger");
 
 const returnStatement = $.def(
   T.ReturnStatement,
-  $.seq(["return", $.opt($.seq([__, T.AnyExpression]))])
+  $.seq(["(return|yield)", $.opt($.seq([__, T.AnyExpression]))])
 );
 const throwStatement = $.def(
   T.ThrowStatement,
@@ -19,6 +19,10 @@ const throwStatement = $.def(
 );
 
 const blockOrStatement = $.or([T.Block, T.AnyStatement]);
+const blockOrNonEmptyStatement = $.or([T.Block, T.NonEmptyStatement]);
+
+const blockStatement = $.def(T.BlockStatement, T.Block);
+
 const ifStatement = $.def(
   T.IfStatement,
   $.or([
@@ -32,9 +36,43 @@ const ifStatement = $.def(
       _,
       "\\)",
       _,
-      blockOrStatement,
+      blockOrNonEmptyStatement,
       _,
       $.opt($.seq(["else", __, blockOrStatement])),
+    ]),
+  ])
+);
+
+const switchStatement = $.def(
+  T.SwitchStatement,
+  $.or([
+    $.seq([
+      // switch() { case 1: break; }
+      "switch",
+      _,
+      "\\(",
+      _,
+      T.AnyExpression,
+      _,
+      "\\)",
+      _,
+      "\\{",
+      _,
+      $.repeat_seq([
+        "case",
+        __,
+        T.AnyExpression,
+        _,
+        "\\:",
+        _,
+        // include empty statement
+        blockOrNonEmptyStatement,
+        _,
+      ]),
+      _,
+      $.opt($.seq(["default", _, "\\:", _, blockOrStatement])),
+      _,
+      "\\}",
     ]),
   ])
 );
@@ -77,12 +115,12 @@ export const forStatement = $.def(
     $.opt(T.AnyExpression),
     "\\)",
     _,
-    blockOrStatement,
+    blockOrNonEmptyStatement,
   ])
 );
 
 // include for in / for of
-export const forItemStatement = $.def(
+const forItemStatement = $.def(
   T.ForItemStatement,
   $.seq([
     "for",
@@ -99,7 +137,7 @@ export const forItemStatement = $.def(
     _,
     "\\)",
     _,
-    blockOrStatement,
+    blockOrNonEmptyStatement,
   ])
 );
 
@@ -115,7 +153,7 @@ export const whileStatement = $.def(
       _,
       "\\)",
       _,
-      blockOrStatement,
+      blockOrNonEmptyStatement,
     ]),
   ])
 );
@@ -144,21 +182,27 @@ const expressionStatement = $.def(
   $.seq([anyExpression, $.repeat_seq([",", _, anyExpression])])
 );
 
-export const anyStatement = $.def(
-  T.AnyStatement,
+const nonEmptyStatement = $.def(
+  T.NonEmptyStatement,
   $.or([
     debuggerStatement,
     breakStatement,
     returnStatement,
+    variableStatement,
     ifStatement,
     forItemStatement,
     forStatement,
     doWhileStatement,
     whileStatement,
-    variableStatement,
+    switchStatement,
+    blockStatement,
     expressionStatement,
-    emptyStatement,
   ])
+);
+
+export const anyStatement = $.def(
+  T.AnyStatement,
+  $.or([nonEmptyStatement, emptyStatement])
 );
 
 const statementLine = $.or([
@@ -221,6 +265,7 @@ if (process.env.NODE_ENV === "test") {
       "for(;;) {}",
       "for(;x;x) {}",
     ]);
+    expectError(parse, ["for(;;)"]);
   });
 
   test("for-item", () => {
@@ -232,10 +277,12 @@ if (process.env.NODE_ENV === "test") {
       "for(let {} in []) x",
       "for(let [] in xs) {}",
     ]);
+    expectError(parse, ["for(const i of t)"]);
   });
   test("while", () => {
     const parse = compile($.seq([whileStatement, $.eof()]));
     expectSame(parse, ["while(1) 1", "while(1) { break; }"]);
+    expectError(parse, ["while(1)"]);
   });
 
   test("if", () => {
@@ -247,6 +294,15 @@ if (process.env.NODE_ENV === "test") {
       `if (1) 1 else if (1) return`,
       `if (1) 1 else if (1) return else 1`,
       `if (1) { if(2) return; }`,
+    ]);
+  });
+
+  test("switch", () => {
+    const parse = compile($.seq([switchStatement, $.eof()]));
+    expectSame(parse, [
+      `switch (x) {}`,
+      `switch(true){ default: 1 }`,
+      `switch(x){ case 1: 1 }`,
     ]);
   });
 
@@ -269,8 +325,10 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("anyStatement", () => {
-    const parseEmpty = compile(anyStatement);
-    is(parseEmpty(" ").result, " ");
+    const parse = compile(anyStatement);
+    // is(parseEmpty("").result, "");
+    expectSame(parse, ["debugger", "{ a=1; }"]);
+    // is(parseEmpty(" ").result, " ");
   });
 
   test("program:multiline", () => {

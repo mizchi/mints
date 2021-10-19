@@ -9,20 +9,13 @@ import {
   SYMBOL,
 } from "./constants";
 
-const reserved = "(" + RESERVED_WORDS.join("|") + ")";
+// const reserved = "(" + RESERVED_WORDS.join("|") + ")";
 const identifier = $.def(
   T.Identifier,
-  $.seq([
-    // not reserved word
-    $.not(reserved),
-    "([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)",
-    // not arrow function
-    // $.not("\\s*\\=\\>"),
-  ])
+  $.seq([`(?!${RESERVED_WORDS.join("|")})`, "([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)"])
 );
 
 const ThisKeyword = $.tok("this");
-
 const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 
 /* Expression */
@@ -35,36 +28,47 @@ export const stringLiteral = $.def(
     // single
     `('[^'\\n]*')`,
     // backtick
+    // TODO: handle it as template literal
     "(`[^`]*`)",
   ])
 );
 
 // TODO: 111_000
 // TODO: 0b1011
-const numberLiteral = $.def(T.NumberLiteral, `([1-9][0-9]*|[0-9])`);
+const numberLiteral = $.def(
+  T.NumberLiteral,
+  $.or([
+    `(0(x|X)[0-9a-fA-F]+)`,
+    `(0(o|O)[0-7]+)`,
+    `(0(b|B)[0-1]+)`,
+    `([1-9][0-9_]*\\.\\d+|[1-9][0-9_]*|\\d)(e\\-?\\d+)?`,
+  ])
+);
+
 const booleanLiteral = $.def(T.BooleanLiteral, `(true|false)`);
 const nullLiteral = $.def(T.NullLiteral, `null`);
+
+const restSpread = $.seq(["\\.\\.\\.", _, T.AnyExpression]);
+
 const arrayLiteral = $.def(
   T.ArrayLiteral,
   $.or([
     $.seq([
       "\\[",
-      _,
-      T.AnyExpression,
-      _,
       $.repeat(
         $.seq([
           // , item
           _,
-          ",",
+          $.opt(T.AnyExpression),
           _,
-          T.AnyExpression,
+          ",",
         ])
       ),
       _,
+      $.or([$.opt<any>(restSpread), T.AnyExpression, _]),
+      _,
       "\\]",
     ]),
-    $.seq(["\\[", _, "\\]"], () => ({ type: "array", values: [] })),
   ])
 );
 
@@ -86,15 +90,11 @@ const objectLiteral = $.def(
       "\\{",
       _,
       objectKeyPair,
-      $.repeat(
-        $.seq([_, ",", objectKeyPair]),
-        undefined,
-        (input) => input.item
-      ),
+      $.repeat($.seq([_, ",", objectKeyPair])),
       _,
       "\\}",
     ]),
-    $.seq(["\\{", _, "\\}"], () => ({ type: "object", values: [] })),
+    $.seq(["\\{", _, "\\}"]),
   ])
 );
 
@@ -173,10 +173,11 @@ const classField = $.or([
   ]),
   // class member
   $.seq([
-    $.opt($.seq(["(private|public)", __])),
-    $.opt($.seq(["static", __])),
-    $.opt($.seq(["\\*"])),
-    $.opt($.seq(["\\#"])),
+    "((private|public|protected)\\s+)?",
+    "(static\\s+)?",
+    "(async\\s+)?",
+    "\\*?", // generator
+    "\\#?", // private
     identifier,
     _,
     $.seq(["\\(", _, functionArgs, _, "\\)", _, T.Block]),
@@ -193,14 +194,10 @@ const classField = $.or([
   ]),
 ]);
 
-// class X {
-//   #x = 1;
-//   static #y = 2;
-// }
-
 const classExpression = $.def(
   T.ClassExpression,
   $.seq([
+    $.opt($.seq(["abstract", __])),
     "class",
     __,
     $.opt($.seq([identifier, __])),
@@ -223,7 +220,8 @@ const functionExpression = $.def(
   $.seq([
     $.opt("async\\s"),
     "function",
-    __,
+    _,
+    "(\\*)?\\s+",
     $.opt(identifier),
     _,
     "\\(",
@@ -240,6 +238,8 @@ const arrowFunctionExpression = $.def(
   T.ArrowFunctionExpression,
   $.seq([
     $.opt("async\\s+"),
+    "(\\*)?",
+    _,
     $.or([$.seq(["\\(", _, functionArgs, _, "\\)"]), identifier]),
     _,
     "\\=\\>",
@@ -284,8 +284,7 @@ const __call = $.or([
 ]);
 
 const memberAccess = $.or([
-  $.seq(["\\?\\.", identifier]),
-  $.seq(["\\.", identifier]),
+  $.seq(["(\\?|\\#)?\\.", identifier]),
   $.seq(["\\[", _, T.AnyExpression, _, "\\]"]),
   __call,
 ]);
@@ -309,7 +308,7 @@ const callable = $.def(
   T.CallExpression,
   $.or([
     // call chain
-    $.seq([memberable, _, __call, $.repeat_seq([memberAccess])]),
+    $.seq([memberable, _, __call, _, $.repeat_seq([memberAccess])]),
     memberable,
   ])
 );
@@ -329,22 +328,16 @@ const unary = $.def(
         "\\~",
         "\\!",
       ]),
-      $.or([
-        paren,
-        classExpression,
-        functionExpression,
-        arrowFunctionExpression,
-        callable,
-      ]),
+      T.UnaryExpression,
     ]),
     // with optional postfix
     $.seq([
       $.or([
-        paren,
         classExpression,
         functionExpression,
         arrowFunctionExpression,
         callable,
+        paren,
       ]),
       $.opt($.or(["\\+\\+", "\\-\\-"])),
     ]),
@@ -379,10 +372,36 @@ if (process.env.NODE_ENV === "test") {
     const parseString = compile(stringLiteral);
     is(parseString('"hello"').result, '"hello"');
   });
+  test("number", () => {
+    const parse = compile(numberLiteral);
+    expectSame(parse, [
+      "1",
+      "11",
+      "11.1e5",
+      "1.1",
+      "111_111",
+      "0xfff",
+      "0x435",
+      "0b1001",
+    ]);
+    // expectError(parse, ["0o8", "0b2"]);
+  });
 
   test("array", () => {
     const parseArray = compile(arrayLiteral);
-    expectSame(parseArray, ["[null]", "[1,2]", "[1, a, {}]"]);
+    expectSame(parseArray, [
+      "[]",
+      "[  ]",
+      "[,,]",
+      "[,,a]",
+      "[,a,]",
+      "[1,2]",
+      "[1, a, {}]",
+      "[...a]",
+      "[a,...b]",
+      "[,...b]",
+      "[a,]",
+    ]);
   });
 
   test("object", () => {
@@ -393,10 +412,10 @@ if (process.env.NODE_ENV === "test") {
     ]);
   });
 
-  test("identExpression", () => {
+  test("identifier", () => {
     const parse = compile(identifier);
     expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1"]);
-    expectError(parse, ["1", "1_", "const"]);
+    expectError(parse, ["1", "1_", "const", "public"]);
   });
 
   test("newExpression", () => {
@@ -405,8 +424,25 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("memberExpression", () => {
-    const parse = compile(memberable);
+    const parse = compile(memberable, { end: true });
     expectSame(parse, ["a.b", "a", "a.b.c", "a[1]", "new X().b", "a?.b"]);
+    expectError(parse, ["a.new X()", "a.this", "(a).(b)"]);
+  });
+
+  test("unaryExpression", () => {
+    const parse = compile(unary);
+    expectSame(parse, [
+      "typeof x",
+      "await x",
+      "void x",
+      "++x",
+      "--x",
+      "~x",
+      "!x",
+      "~~x",
+      "!!x",
+      "++x++",
+    ]);
     // expectError(parse, ["a.new X()", "a.this"]);
   });
 
@@ -439,6 +475,8 @@ if (process.env.NODE_ENV === "test") {
       "a => 1",
       "({}) => 1",
       "async () => {}",
+      "async () => await p",
+      "async () => await new Promise(r => setTimeout(r))",
     ]);
   });
 
@@ -446,17 +484,20 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(classExpression);
     expectSame(parse, ["class X {}", "class {}", "class X extends Y {}"]);
     expectSame(parse, [
+      "class {}",
+      "class extends A {}",
+      "abstract class {}",
       "class { x; }",
       "class { x = 1;}",
       "class { private x; }",
       "class { private x = 1; #y = 2;  }",
       "class { constructor() {} }",
+      "class { constructor() { this.val = 1; } }",
+      "class { foo() {} }",
+      "class { async foo() {} }",
+      "class { private async foo() {} }",
+      "class { public static async foo() {} }",
     ]);
-
-    // is(parse("func()").result, "func()");
-    // is(parse("func([])").result, "func([])");
-    // is(parse("func(1,2)").result, "func(1,2)");
-    // is(parse("func(1,2,)").result, "func(1,2,)");
   });
 
   test("callExpression", () => {
@@ -513,9 +554,12 @@ if (process.env.NODE_ENV === "test") {
       "((1 + 1) + (1 * 2))",
       "await 1",
       "await foo()",
-      // TODO:
-      // "(a).x",
-      // "(await x).x",
+      "(a).x",
+      "(await x).foo",
+      "typeof x",
+      "await x",
+      "await x++",
+      "await await x",
     ]);
   });
 

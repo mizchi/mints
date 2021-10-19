@@ -1,17 +1,15 @@
 # TODO
 
-- class / abstract
-- Switch
-- Destructive Assign Default
 - Array/Object Rest Spread
-- RegExp Literal
-- Generator
-- Template Literal
-- Object Shorthand
-- Object Function shorthand
-- Object getter, setter
-- await
-- `foo?.()`
+- Literal
+  - RegExp Literal
+  - Template Literal
+- Object
+  - Destructive Assign Default `{ a = 1} = {}`
+  - Object Shorthand
+  - Object Function shorthand
+  - Object getter, setter
+- `this.#xxx`
 
 ## TS
 

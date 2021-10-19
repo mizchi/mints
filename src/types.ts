@@ -80,7 +80,7 @@ export type Builder<ID = number> = {
   pair(pair: { open: string; close: string }, reshape?: Reshape): Rule;
   not(child: InputNodeExpr, reshape?: Reshape): Not;
   atom(fn: Parser): Atom;
-  opt<T extends Rule>(node: InputNodeExpr): T;
+  opt<T extends Rule = any>(node: InputNodeExpr): T;
   skip_opt<T extends Rule>(node: InputNodeExpr): T;
   param<T extends Rule>(key: string, node: InputNodeExpr, reshape?: Reshape): T;
   skip<T extends Rule>(node: T | string): T;

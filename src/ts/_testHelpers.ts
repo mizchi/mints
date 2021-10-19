@@ -18,6 +18,10 @@ export function formatError(
   if (error.errorType === ErrorType.Token_Unmatch && error.detail) {
     console.log(prefix, ">", error.detail);
   }
+  if (error.errorType === ErrorType.Not_IncorrectMatch) {
+    console.log(prefix, "matche", error);
+  }
+
   if (error.errorType === ErrorType.Seq_Stop) {
     formatError(input, error.detail.child, depth + 1);
   }
