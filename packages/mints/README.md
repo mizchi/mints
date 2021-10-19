@@ -2,7 +2,7 @@
 
 5kb(gzip) typescript compiler
 
-WIP
+WIP. Lightweight but slow on runtime and imperfect, yet.
 
 ## Example
 
