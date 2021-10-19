@@ -375,20 +375,7 @@ const unary = $.def(
       ]),
       T.UnaryExpression,
     ]),
-    // with optional postfix
-    // $.or([
-
-    // tagged template literal,
-    $.seq([
-      $.or([
-        // classExpression,
-        // functionExpression,
-        // arrowFunctionExpression,
-        callable,
-        paren,
-      ]),
-      templateLiteral,
-    ]),
+    $.seq([$.or([callable, paren]), templateLiteral]),
     $.seq([
       $.or([
         classExpression,
@@ -397,15 +384,7 @@ const unary = $.def(
         callable,
         paren,
       ]),
-      $.opt(
-        $.or([
-          // tagged
-          // templateLiteral,
-          "\\+\\+",
-          "\\-\\-",
-          // _,
-        ])
-      ),
+      $.opt($.or(["\\+\\+", "\\-\\-"])),
     ]),
   ])
 );
@@ -648,12 +627,16 @@ if (process.env.NODE_ENV === "test") {
       "await 1",
       "await foo()",
       "(a).x",
+      "(a + b).x",
       "(await x).foo",
       "typeof x",
       "await x",
       "await x++",
       "await await x",
       "aaa`bbb`",
+      "f()`bbb`",
+      "(x)`bbb`",
+      "a.b().c``",
     ]);
   });
 
@@ -667,6 +650,7 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(destructivePattern, { end: true });
     expectSame(parse, [
       "a",
+      "a = 1",
       `{a}`,
       `{a: b}`,
       `{a:{b,c}}`,
@@ -675,9 +659,19 @@ if (process.env.NODE_ENV === "test") {
       "{a: b = 1}",
       "{a, ...b}",
       "[]",
+      "[ ]",
+      "[,,,]",
+      "[a]",
+      "[,a]",
       "[a, ...b]",
       "[a = 1, ...b]",
-      // "[[a], ...aaa]",
+      "[,...b]",
+      "[[]]",
+      "[{}]",
+      "[{} = {}]",
+      "[[a]]",
+      "[[a], ...x]",
+      "[[a,b, [c, d, e], [, g]],, [{x, y}], ...x]",
     ]);
     expectSame(parse, ["[]", `[a]`, `[[a,b]]`]);
     expectError(parse, ["a.b"]);

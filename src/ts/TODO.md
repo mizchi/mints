@@ -1,9 +1,6 @@
 # TODO
 
 - Switch Case: Multi label
-- Literal
-  - RegExp Literal
-  - Template Literal
 - `this.#xxx`
 
 ## TS
