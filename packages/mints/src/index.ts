@@ -1,4 +1,4 @@
-import { program } from "./statements";
+import { program } from "./grammar";
 
 import { compile } from "./ctx";
 
