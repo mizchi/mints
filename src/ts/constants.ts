@@ -39,7 +39,6 @@ export enum NodeTypes {
   BinaryExpression,
   FunctionExpression,
   ArrowFunctionExpression,
-  // TaggedTemplateExpression,
 
   // Literal
   AnyLiteral,
@@ -52,6 +51,20 @@ export enum NodeTypes {
   ArrayLiteral,
   ObjectLiteral,
 
+  // Type
+  TypeExpression,
+  TypeUnaryExpression,
+  TypeBinaryExpression,
+  TypeLiteral,
+  TypeReference,
+  TypeFunction,
+  TypeAnnotation,
+  TypeObjectLiteral,
+  TypeArrayLiteral,
+  TypeParameters,
+  TypeDeclareParameters,
+  TypeIdentifier,
+  TypeFunctionExpression,
   // Patterns
   Argument,
   Arguments,

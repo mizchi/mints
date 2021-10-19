@@ -1,4 +1,4 @@
-import { ErrorType, NodeKind, ParseError } from "../types";
+import { ErrorType, ParseError } from "../types";
 
 export function formatError(
   input: string,

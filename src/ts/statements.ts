@@ -1,4 +1,3 @@
-import { ParseError } from "./../types";
 // TODO: use symbol
 import "./expression";
 
@@ -14,6 +13,7 @@ const returnStatement = $.def(
   T.ReturnStatement,
   $.seq(["(return|yield)", $.opt($.seq([__, T.AnyExpression]))])
 );
+
 const throwStatement = $.def(
   T.ThrowStatement,
   $.seq(["throw", __, T.AnyExpression])
@@ -284,7 +284,7 @@ const doWhileStatement = $.def(
 
 const expressionStatement = $.def(
   T.ExpressionStatement,
-  $.seq([anyExpression, $.repeat_seq([",", _, anyExpression])])
+  $.seq([anyExpression, $.repeat_seq([",", _, T.AnyExpression])])
 );
 
 const nonEmptyStatement = $.def(

@@ -1,3 +1,4 @@
+// import "./type";
 import { compile, builder as $ } from "./ctx";
 // import * as Literal from "./literal";
 import {
@@ -394,12 +395,14 @@ const binaryExpression = $.def(
   $.seq([unary, $.repeat_seq([_, BINARY_OPS, _, unary])])
 );
 
+/* TypeExpression */
+
 const asExpression = $.def(
   T.AsExpression,
   $.seq([
     // foo as Type
     binaryExpression,
-    $.skip_opt<any>($.seq([__, "as", __, identifier])),
+    $.skip_opt<any>($.seq([__, "as", __, T.TypeExpression])),
   ])
 );
 
@@ -412,6 +415,7 @@ const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
   // require statements initialize for block
   require("./statements");
+  require("./type");
 
   test("string", () => {
     const parse = compile(stringLiteral, { end: true });
@@ -701,6 +705,26 @@ if (process.env.NODE_ENV === "test") {
     is(parse("(a) as number"), { result: "(a)" });
     is(parse("(a as number)"), { result: "(a)" });
   });
+  // test("typeExpression", () => {
+  //   const parse = compile(typeExpression, { end: true });
+  //   // const parse = compile(asExpression, { end: true });
+  //   expectSame(parse, [
+  //     "number",
+  //     "string",
+  //     "a | b",
+  //     "a | b | c",
+  //     "a & b",
+  //     "a & b & c",
+  //     "(a)",
+  //     "(a) | (b)",
+  //     "(a & b) & c",
+  //   ]);
+  //   // is(parse("1"), { result: "1" });
+  //   // is(parse("1 as number"), { result: "1" });
+  //   // is(parse("1 + 1 as number"), { result: "1 + 1" });
+  //   // is(parse("(a) as number"), { result: "(a)" });
+  //   // is(parse("(a as number)"), { result: "(a)" });
+  // });
 
   run({ stopOnFail: true, isMain });
 }
