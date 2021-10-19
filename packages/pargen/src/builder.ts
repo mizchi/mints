@@ -98,10 +98,12 @@ export function createBuilder<ID extends number = number>(
 
   const createPair = defineRule(compiler, pairRule);
   // const createNot = defineRule(compiler, notRule);
-  function def<T extends ID | Symbol>(id: T | symbol, node: InputNodeExpr): T {
-    // if (typeof id === "symbol") {
-    //   refSet.add(id);
-    // }
+
+  function def<T extends ID | Symbol>(
+    id: T | symbol,
+    nodeCreator: () => InputNodeExpr
+  ): T {
+    const node = nodeCreator();
     if (compiler.patterns[id as any]) {
       throw new Error(`Symbol:${id.toString()} is already defined`);
     }

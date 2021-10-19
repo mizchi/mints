@@ -593,7 +593,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       _,
     }
     const { compile, builder: $ } = createContext({});
-    $.def(T._, $.tok("\\s"));
+    $.def(T._, () => $.tok("\\s"));
 
     const seq = $.seq(["a", T._, "b", T._, "c"]);
     const parser = compile(seq);
@@ -881,8 +881,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   test("reuse recursive with suffix", () => {
     const Paren = 1000;
     const { compile, builder: $ } = createContext({});
-    const paren = $.def(
-      Paren,
+    const paren = $.def(Paren, () =>
       $.seq([
         "\\(",
         $.or([

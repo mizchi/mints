@@ -56,7 +56,9 @@ export type InputNodeExpr<RefId extends number | string = number> =
   | RefId;
 
 export type Builder<ID = number> = {
-  def(refId: ID | symbol, node: InputNodeExpr, reshape?: Reshape): ID;
+  // def(refId: ID | symbol, node: InputNodeExpr, reshape?: Reshape): ID;
+  def(refId: ID | symbol, node: () => InputNodeExpr, reshape?: Reshape): ID;
+
   ref(refId: ID, reshape?: Reshape): Ref;
   tok(expr: string, reshape?: Reshape): Token;
   repeat(

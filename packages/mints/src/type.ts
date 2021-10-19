@@ -34,8 +34,7 @@ const typeDeclareParameter = $.seq([
 ]);
 
 // declare parameters
-const typeDeclareParameters = $.def(
-  TypeDeclareParameters,
+const typeDeclareParameters = $.def(TypeDeclareParameters, () =>
   $.seq([
     "\\<",
     _,
@@ -47,8 +46,7 @@ const typeDeclareParameters = $.def(
 );
 
 // apply parameters
-const typeParameters = $.def(
-  TypeParameters,
+const typeParameters = $.def(TypeParameters, () =>
   $.seq([
     "\\<",
     _,
@@ -69,8 +67,7 @@ const typeParen = $.seq([
   $.opt(typeParameters),
 ]);
 
-const typeIdentifier = $.def(
-  TypeIdentifier,
+const typeIdentifier = $.def(TypeIdentifier, () =>
   $.or([
     // type's reserved words
     "void",
@@ -87,8 +84,7 @@ const typePrimary = $.or([
   typeIdentifier,
 ]);
 
-const typeReference = $.def(
-  TypeReference,
+const typeReference = $.def(TypeReference, () =>
   $.seq([
     typePrimary,
     $.repeat_seq([
@@ -114,8 +110,7 @@ const _typeNameableItem = $.or([
   TypeExpression,
 ]);
 
-const typeArrayLiteral = $.def(
-  TypeArrayLiteral,
+const typeArrayLiteral = $.def(TypeArrayLiteral, () =>
   $.seq([
     // array
     "\\[",
@@ -193,8 +188,7 @@ const _typeObjectItem = $.or([
   ]),
 ]);
 
-const typeObjectLiteral = $.def(
-  TypeObjectLiteral,
+const typeObjectLiteral = $.def(TypeObjectLiteral, () =>
   $.seq([
     // object
     "\\{",
@@ -219,8 +213,7 @@ const typeLiteral = $.or([
   NullLiteral,
 ]);
 
-const typeFunctionExpression = $.def(
-  TypeFunctionExpression,
+const typeFunctionExpression = $.def(TypeFunctionExpression, () =>
   $.seq([
     // function
     $.opt(typeDeclareParameters),
@@ -238,8 +231,7 @@ const typeFunctionExpression = $.def(
   ])
 );
 
-const typeUnaryExpression = $.def(
-  TypeUnaryExpression,
+const typeUnaryExpression = $.def(TypeUnaryExpression, () =>
   $.seq([
     $.opt($.seq(["(keyof|typeof|infer)", __])),
     $.or([typeFunctionExpression, typeParen, typeReference, typeLiteral]),
@@ -247,16 +239,14 @@ const typeUnaryExpression = $.def(
   ])
 );
 
-const typeBinaryExpression = $.def(
-  TypeBinaryExpression,
+const typeBinaryExpression = $.def(TypeBinaryExpression, () =>
   $.seq([
     $.repeat_seq([typeUnaryExpression, _, $.or(["\\|", "\\&"]), _]),
     typeUnaryExpression,
   ])
 );
 
-export const typeExpression = $.def(
-  TypeExpression,
+export const typeExpression = $.def(TypeExpression, () =>
   $.or([typeBinaryExpression])
 );
 

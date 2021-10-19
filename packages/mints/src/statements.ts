@@ -42,27 +42,24 @@ import { compile, builder as $ } from "./ctx";
 
 const _typeAnnotation = $.seq([":", _, TypeExpression]);
 
-const emptyStatement = $.def(EmptyStatement, $.seq(["[\\s\\n;]*"]));
-const breakStatement = $.def(BreakStatement, "break");
-const debuggerStatement = $.def(DebuggerStatement, "debugger");
+const emptyStatement = $.def(EmptyStatement, () => $.seq(["[\\s\\n;]*"]));
+const breakStatement = $.def(BreakStatement, () => "break");
+const debuggerStatement = $.def(DebuggerStatement, () => "debugger");
 
-const returnStatement = $.def(
-  ReturnStatement,
+const returnStatement = $.def(ReturnStatement, () =>
   $.seq(["(return|yield)", $.opt($.seq([__, AnyExpression]))])
 );
 
-const throwStatement = $.def(
-  ThrowStatement,
+const throwStatement = $.def(ThrowStatement, () =>
   $.seq(["throw", __, AnyExpression])
 );
 
 const blockOrStatement = $.or([Block, AnyStatement]);
 const blockOrNonEmptyStatement = $.or([Block, NonEmptyStatement]);
 
-const blockStatement = $.def(BlockStatement, Block);
+const blockStatement = $.def(BlockStatement, () => Block);
 
-const labeledStatement = $.def(
-  LabeledStatement,
+const labeledStatement = $.def(LabeledStatement, () =>
   $.seq([Identifier, _, "\\:", _, blockOrNonEmptyStatement])
 );
 
@@ -96,8 +93,7 @@ const _importRightSide = $.seq([
   StringLiteral,
 ]);
 
-const importStatement = $.def(
-  ImportStatement,
+const importStatement = $.def(ImportStatement, () =>
   $.or([
     // import 'specifier';
     $.seq(["import", __, StringLiteral]),
@@ -110,8 +106,7 @@ const importStatement = $.def(
 
 const defaultOrIdentifer = $.or(["default", Identifier]);
 
-const exportStatement = $.def(
-  ExportStatement,
+const exportStatement = $.def(ExportStatement, () =>
   $.or([
     // TODO: skip: export type|interface
     // export clause
@@ -149,8 +144,7 @@ const exportStatement = $.def(
   ])
 );
 
-const ifStatement = $.def(
-  IfStatement,
+const ifStatement = $.def(IfStatement, () =>
   // $.or([
   $.seq([
     // if
@@ -168,8 +162,7 @@ const ifStatement = $.def(
   ])
 );
 
-const switchStatement = $.def(
-  SwitchStatement,
+const switchStatement = $.def(SwitchStatement, () =>
   $.or([
     $.seq([
       "switch",
@@ -204,8 +197,7 @@ const switchStatement = $.def(
 );
 
 const __assignSeq = $.seq(["=", _, AnyExpression]);
-export const variableStatement = $.def(
-  VariableStatement,
+export const variableStatement = $.def(VariableStatement, () =>
   $.or([
     $.seq([
       // single
@@ -232,13 +224,11 @@ export const variableStatement = $.def(
   ])
 );
 
-const declareVariableStatement = $.def(
-  DeclareVariableStatement,
+const declareVariableStatement = $.def(DeclareVariableStatement, () =>
   $.seq([$.skip($.seq(["declare", __, variableStatement]))])
 );
 
-const typeStatement = $.def(
-  TypeStatement,
+const typeStatement = $.def(TypeStatement, () =>
   $.seq([
     $.skip(
       $.seq([
@@ -254,8 +244,7 @@ const typeStatement = $.def(
     ),
   ])
 );
-const interfaceStatement = $.def(
-  InterfaceStatement,
+const interfaceStatement = $.def(InterfaceStatement, () =>
   $.seq([
     // skip all
     $.skip(
@@ -272,8 +261,7 @@ const interfaceStatement = $.def(
   ])
 );
 
-export const forStatement = $.def(
-  ForStatement,
+export const forStatement = $.def(ForStatement, () =>
   $.seq([
     "for",
     _,
@@ -297,8 +285,7 @@ export const forStatement = $.def(
 );
 
 // include for in / for of
-const forItemStatement = $.def(
-  ForItemStatement,
+const forItemStatement = $.def(ForItemStatement, () =>
   $.seq([
     "for",
     _,
@@ -318,8 +305,7 @@ const forItemStatement = $.def(
   ])
 );
 
-export const whileStatement = $.def(
-  WhileStatement,
+export const whileStatement = $.def(WhileStatement, () =>
   $.or([
     $.seq([
       "while",
@@ -335,8 +321,7 @@ export const whileStatement = $.def(
   ])
 );
 
-const doWhileStatement = $.def(
-  DoWhileStatement,
+const doWhileStatement = $.def(DoWhileStatement, () =>
   $.or([
     $.seq([
       "do",
@@ -354,13 +339,11 @@ const doWhileStatement = $.def(
   ])
 );
 
-const expressionStatement = $.def(
-  ExpressionStatement,
+const expressionStatement = $.def(ExpressionStatement, () =>
   $.seq([anyExpression, $.repeat_seq([",", _, AnyExpression])])
 );
 
-const nonEmptyStatement = $.def(
-  NonEmptyStatement,
+const nonEmptyStatement = $.def(NonEmptyStatement, () =>
   $.or([
     debuggerStatement,
     breakStatement,
@@ -382,8 +365,7 @@ const nonEmptyStatement = $.def(
   ])
 );
 
-export const anyStatement = $.def(
-  AnyStatement,
+export const anyStatement = $.def(AnyStatement, () =>
   $.or([nonEmptyStatement, emptyStatement])
 );
 
@@ -410,13 +392,11 @@ const statementLine = $.or([
   $.seq([_, ";", _]),
 ]);
 
-export const block = $.def(
-  Block,
+export const block = $.def(Block, () =>
   $.seq(["{", _, $.repeat(statementLine), _, "}"])
 );
 
-export const program = $.def(
-  Program,
+export const program = $.def(Program, () =>
   $.seq([$.repeat(statementLine), _, $.eof()])
 );
 
