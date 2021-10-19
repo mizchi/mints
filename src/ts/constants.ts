@@ -24,9 +24,7 @@ export enum NodeTypes {
   ForItemStatement,
   SwitchStatement,
   ImportStatement,
-  ImportTypeStatement,
   ExportStatement,
-  ExportTypeStatement,
   // Expression
   Expression,
   AsExpression,

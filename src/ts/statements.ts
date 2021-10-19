@@ -46,9 +46,12 @@ const _importRightSide = $.seq([
         _,
       ]),
       // last item
-      $.opt($.seq([T.Identifier, $.opt($.seq([__, "as", __, T.Identifier]))])),
-      _,
-      ",?",
+      $.opt(
+        $.seq([
+          T.Identifier,
+          $.opt($.seq([__, "as", __, T.Identifier, _, ",?"])),
+        ])
+      ),
       _,
       "\\}",
     ]),
@@ -65,20 +68,63 @@ const importStatement = $.def(
     // import 'specifier';
     $.seq(["import", __, T.StringLiteral]),
     // import type
+    $.seq([$.skip($.seq(["import", __, "type", __, _importRightSide]))]),
+    // import pattern
+    $.seq(["import", __, _importRightSide]),
+  ])
+);
+
+const defaultOrIdentifer = $.or(["default", T.Identifier]);
+
+const exportStatement = $.def(
+  T.ExportStatement,
+  $.or([
+    // TODO: skip: export type|interface
     $.seq([
       $.skip(
         $.seq([
           // import ... from "";
-          "import",
+          "export",
           __,
           "type",
           __,
-          _importRightSide,
+          // _importRightSide,
         ])
       ),
     ]),
-    // import pattern
-    $.seq(["import", __, _importRightSide]),
+
+    // export clause
+    $.seq([
+      "export",
+      __,
+      "\\{",
+      _,
+      $.repeat_seq([
+        defaultOrIdentifer,
+        $.opt($.seq([__, "as", __, defaultOrIdentifer])),
+        _,
+        ",",
+        _,
+      ]),
+      // last item
+      $.opt(
+        $.seq([
+          defaultOrIdentifer,
+          $.opt($.seq([__, "as", __, defaultOrIdentifer])),
+          ",?",
+        ])
+      ),
+      _,
+      "\\}",
+      _,
+      $.opt($.seq(["from", __, T.StringLiteral])),
+    ]),
+    // export named expression
+    $.seq([
+      "export",
+      __,
+      $.or([T.VariableStatement, T.FunctionExpression, T.ClassExpression]),
+    ]),
   ])
 );
 
@@ -415,6 +461,22 @@ if (process.env.NODE_ENV === "test") {
     is(parse("import type * as b from 'xxx'").result, "");
     is(parse("import type {a as b} from 'xxx'").result, "");
   });
+  test("exportStatement", () => {
+    const parse = compile(exportStatement, { end: true });
+    expectSame(parse, [
+      "export {}",
+      "export {a}",
+      "export {a,b}",
+      "export {a as b}",
+      "export {a as default}",
+      "export {default as default}",
+      "export {} from 'a'",
+      "export {default as x} from 'a'",
+      "export const x = 1",
+      "export function f(){}",
+      "export class C {}",
+    ]);
+  });
 
   test("anyStatement", () => {
     const parse = compile(anyStatement);
@@ -430,9 +492,6 @@ if (process.env.NODE_ENV === "test") {
       "",
       "import a from 'b';",
     ]);
-    // const ret = parse("import type x from 'b';");
-    // formatError("import type xxxx;", ret as ParseError);
-    // is(ret, { result: ";" });
   });
 
   test("program:with as", () => {

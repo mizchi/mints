@@ -271,10 +271,9 @@ const classExpression = $.def(
   $.seq([
     $.skip_opt($.seq(["abstract", __])),
     "class",
-    $.opt($.seq([__, identifier, __])),
-    _,
+    $.opt($.seq([__, identifier])),
     // TODO: generics
-    $.opt($.seq(["extends", __, T.AnyExpression])),
+    $.opt($.seq([__, "extends", __, T.AnyExpression])),
     // TODO: implements
     _,
     "\\{",
