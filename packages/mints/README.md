@@ -36,6 +36,8 @@ console.log(out);
 - optimize: recursive token compose
 - optimize: dump syntax definition and load
 - cache clear on next statement
+- Profiler: Token
+- Profiler: Def Rules
 
 ## LICENSE
 

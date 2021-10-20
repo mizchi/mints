@@ -8,5 +8,6 @@
     "outDir": "types",
     "noUnusedLocals": false
   },
-  "include": ["src"]
+  "include": ["src"],
+  "exclude": ["benchmark/cases"]
 }
