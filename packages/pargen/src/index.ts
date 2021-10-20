@@ -26,17 +26,17 @@ import { buildTokenMap, findPatternAt, isRegExp, startStringAt } from "./utils";
 // impl
 function createPackratCache(): PackratCache {
   const cache: CacheMap = {};
-  const keygen = (id: Rule["id"], pos: number): `${number}@${string}` =>
+  const keygen = (id: number, pos: number): `${number}@${string}` =>
     `${pos}@${id}`;
   return {
     export(): CacheMap {
       return cache;
     },
-    add(id: Rule["id"], pos: number, result: ParseResult) {
+    add(id: number, pos: number, result: ParseResult) {
       // @ts-ignore
       cache[keygen(id, pos)] = result;
     },
-    get(id: Rule["id"], pos: number): ParseResult | void {
+    get(id: number, pos: number): ParseResult | void {
       const key = keygen(id, pos);
       return cache[key];
     },
@@ -44,9 +44,9 @@ function createPackratCache(): PackratCache {
 }
 
 export function createCompiler<ID extends number>(
-  partial: Partial<Compiler<ID>>
-): Compiler<ID> {
-  const compiler: Compiler<ID> = {
+  partial: Partial<Compiler>
+): Compiler {
+  const compiler: Compiler = {
     pairs: [],
     composeTokens: true,
     rules: {},
@@ -56,7 +56,7 @@ export function createCompiler<ID extends number>(
   };
 
   // internal
-  const compile: RootCompiler<ID> = (node) => {
+  const compile: RootCompiler = (node) => {
     const resolved = typeof node === "number" ? createRef(node) : node;
     const parse = compileParser(resolved, compiler);
     const parser: RootParser = (input: string) => {
@@ -78,7 +78,7 @@ export function createCompiler<ID extends number>(
     return parser;
   };
 
-  const rootCompiler: RootCompiler<ID> = (node, rootOpts) => {
+  const rootCompiler: RootCompiler = (node, rootOpts) => {
     const end = rootOpts?.end ?? false;
     const resolved = typeof node === "number" ? createRef(node) : node;
     const out = end
@@ -134,11 +134,11 @@ export const printPerfResult = () => {
 };
 
 export function createContext<ID extends number = number>(
-  partialOpts: Partial<Compiler<ID>> = {}
+  partialOpts: Partial<Compiler> = {}
 ) {
   const ctx = createCompiler(partialOpts);
   const builder = createBuilder(ctx);
-  const compile: RootCompiler<any> = (...args) => {
+  const compile: RootCompiler = (...args) => {
     builder.close();
     const rootParser = ctx.compile(...args);
     return rootParser;
@@ -164,7 +164,7 @@ export function createContext<ID extends number = number>(
 
 const getOrCreateCache = (
   cache: PackratCache,
-  id: string,
+  id: number | string,
   pos: number,
   creator: () => ParseResult
 ): ParseResult => {
@@ -211,10 +211,7 @@ export const createParseError = <ET extends ErrorType>(
   };
 };
 
-export function compileParser(
-  rule: Rule,
-  compiler: Compiler<any>
-): InternalPerser {
+export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
   // console.log("rule", rule);
   const reshape = rule.reshape ?? defaultReshape;
   if (!rule.primitive && compiler.rules[rule.kind]) {

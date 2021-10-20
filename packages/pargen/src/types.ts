@@ -37,8 +37,8 @@ export const defaultReshape: Reshape<any, any> = <T>(i: T): T => i;
 
 // ==== public interface
 
-export type RootCompiler<ID extends number> = (
-  node: Rule | ID,
+export type RootCompiler = (
+  node: Rule | number,
   opts?: { end: boolean }
 ) => RootParser;
 
@@ -50,16 +50,13 @@ export type RuleDefinition<T, Args extends Array<any> = [T]> = {
   builder?: (...args: Args) => T;
 };
 
-export type InputNodeExpr<RefId extends number | string = number> =
-  | Rule<any>
-  | string
-  | RefId;
+export type InputNodeExpr = Rule | string | number;
 
-export type Builder<ID = number> = {
+export type Builder = {
   close(): void;
   // def(refId: ID | symbol, node: InputNodeExpr, reshape?: Reshape): ID;
-  def(node: () => InputNodeExpr, reshape?: Reshape): ID;
-  ref(refId: ID, reshape?: Reshape): Ref;
+  def(node: () => InputNodeExpr, reshape?: Reshape): number;
+  ref(refId: number, reshape?: Reshape): Ref;
   tok(expr: string, reshape?: Reshape): Token;
   repeat(
     pattern: InputNodeExpr,
@@ -72,7 +69,7 @@ export type Builder<ID = number> = {
     reshape?: Reshape
   ): Repeat;
   or: (
-    patterns: Array<Seq | Token | Ref | Or | Eof | string | ID>,
+    patterns: Array<Seq | Token | Ref | Or | Eof | string | number>,
     reshape?: Reshape
   ) => Rule;
   seq(
@@ -99,12 +96,12 @@ export type Builder<ID = number> = {
 
 // compiler internal
 
-export type Compiler<ID extends number> = {
+export type Compiler = {
   composeTokens: boolean;
   patterns: PatternsMap;
   pairs: string[];
   rules: RulesMap<any>;
-  compile: RootCompiler<ID>;
+  compile: RootCompiler;
   preprocess?: (input: string) => { out: string; data: any };
   postprocess?: (input: string, data: any) => string;
 };
@@ -113,13 +110,13 @@ export type PatternsMap = Record<string | symbol, InternalPerser | void>;
 
 export type RulesMap<T> = Record<
   any,
-  (node: T, opts: Compiler<any>) => InternalPerser
+  (node: T, opts: Compiler) => InternalPerser
 >;
 
 export type PackratCache = {
   export(): CacheMap;
-  add(id: Rule["id"], pos: number, result: any): void;
-  get(id: Rule["id"], pos: number): ParseResult | void;
+  add(id: number | string, pos: number, result: any): void;
+  get(id: number | string, pos: number): ParseResult | void;
 };
 
 // internal
@@ -137,7 +134,7 @@ export type ParseContext = {
 
 export type Parser<T = any> = (
   node: T,
-  opts: Compiler<any>
+  opts: Compiler
 ) => (ctx: ParseContext) => number | [output: any, len: number] | void;
 
 export type InternalPerser = (ctx: ParseContext) => ParseResult;

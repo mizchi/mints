@@ -37,11 +37,8 @@ export function createRef(refId: string | number, reshape?: Reshape): Ref {
 
 // inline define
 
-function defineRule<X extends {}>(
-  compiler: Compiler<any>,
-  rule: RuleDefinition<X>
-) {
-  const newRuleDef = <T extends RuleBase>(node: T, opts: Compiler<any>) => {
+function defineRule<X extends {}>(compiler: Compiler, rule: RuleDefinition<X>) {
+  const newRuleDef = <T extends RuleBase>(node: T, opts: Compiler) => {
     const parse = rule.compile(node as any, opts);
     return (ctx: ParseContext) => {
       const ret = parse(ctx);
@@ -75,14 +72,9 @@ function defineRule<X extends {}>(
   return astBuilder;
 }
 
-export function createBuilder<ID extends number = number>(
-  compiler: Compiler<ID>
-) {
+export function createBuilder(compiler: Compiler) {
   let cnt = 0;
   const genId = () => (cnt++).toString();
-  const exprCache: { [key: string]: Token } = {};
-  // const refSet = new Set(Object.values(compiler.refs)) as Set<ID | symbol>;
-
   const toNode = (input: InputNodeExpr): Rule => {
     if (typeof input === "object") {
       return input;
@@ -99,7 +91,7 @@ export function createBuilder<ID extends number = number>(
   const createPair = defineRule(compiler, pairRule);
   // const createNot = defineRule(compiler, notRule);
 
-  const registeredPatterns: Array<[ID, () => InputNodeExpr]> = [];
+  const registeredPatterns: Array<[number, () => InputNodeExpr]> = [];
   const _hydratePatterns = () => {
     registeredPatterns.forEach(([id, nodeCreator]) => {
       const node = nodeCreator();
@@ -113,11 +105,10 @@ export function createBuilder<ID extends number = number>(
   };
 
   let _cnt = 1024;
-  function def<T extends ID | Symbol>(nodeCreator: () => InputNodeExpr): T {
-    // const id = Math.random();
+  function def(nodeCreator: () => InputNodeExpr): number {
     const id = _cnt++;
     registeredPatterns.push([id as any, nodeCreator]);
-    return id as any;
+    return id;
   }
 
   function ref(refId: string | number, reshape?: Reshape): Ref {
@@ -202,7 +193,7 @@ export function createBuilder<ID extends number = number>(
   }
 
   function or(
-    patterns: Array<Seq | Token | Ref | Or | Eof | string | ID>,
+    patterns: Array<Seq | Token | Ref | Or | Eof | string | number>,
     reshape?: Reshape
   ): Or | Rule {
     if (patterns.length === 1) {
@@ -237,10 +228,9 @@ export function createBuilder<ID extends number = number>(
     };
   }
 
+  const exprCache: { [key: string]: Token } = {};
   function token(expr: string, reshape?: Reshape<any, any>): Token {
-    if (exprCache[expr]) {
-      return exprCache[expr];
-    }
+    if (exprCache[expr]) return exprCache[expr];
     return (exprCache[expr] = {
       ...nodeBaseDefault,
       primitive: true,
@@ -275,7 +265,7 @@ export function createBuilder<ID extends number = number>(
     return { ...toNode(node), key } as T;
   }
 
-  const builder: Builder<ID> = {
+  const builder: Builder = {
     close: _hydratePatterns,
     def,
     ref,
