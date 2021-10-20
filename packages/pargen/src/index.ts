@@ -47,10 +47,10 @@ export function createCompiler<ID extends number>(
   partial: Partial<Compiler>
 ): Compiler {
   const compiler: Compiler = {
-    pairs: [],
+    // pairs: [],
     composeTokens: true,
     rules: {},
-    patterns: {},
+    defs: {},
     ...partial,
     compile: null as any,
   };
@@ -61,14 +61,14 @@ export function createCompiler<ID extends number>(
     const parse = compileParser(resolved, compiler);
     const parser: RootParser = (input: string) => {
       const cache = createPackratCache();
-      const tokenMap = buildTokenMap(input, compiler.pairs);
+      // const tokenMap = buildTokenMap(input, compiler.pairs);
       if (typeof input === "string") {
         return parse({
           raw: input,
           chars: Array.from(input),
           cache: cache,
           pos: 0,
-          tokenMap,
+          // tokenMap,
           // ...ctx,
         });
       } else {
@@ -243,7 +243,7 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
     }
     case NodeKind.REF: {
       return (ctx) => {
-        const resolved = compiler.patterns[(rule as Ref).ref];
+        const resolved = compiler.defs[(rule as Ref).ref];
         if (!resolved) {
           throw new Error(`symbol not found: ${(rule as Ref).ref}`);
         }
@@ -963,18 +963,18 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("((1)").error, true);
   });
 
-  test("pair", () => {
-    const { compile, builder: $ } = createContext({
-      pairs: ["<", ">"],
-    });
-    const parser = compile($.pair({ open: "<", close: ">" }));
-    is(parser("<>").result, "<>");
-    is(parser("<<>>").result, "<<>>");
-    is(parser("<<>").error, true);
-    is(parser("<<a>").error, true);
-    is(parser(">").error, true);
-    is(parser("").error, true);
-  });
+  // test("pair", () => {
+  //   const { compile, builder: $ } = createContext({
+  //     // pairs: ["<", ">"],
+  //   });
+  //   const parser = compile($.pair({ open: "<", close: ">" }));
+  //   is(parser("<>").result, "<>");
+  //   is(parser("<<>>").result, "<<>>");
+  //   is(parser("<<>").error, true);
+  //   is(parser("<<a>").error, true);
+  //   is(parser(">").error, true);
+  //   is(parser("").error, true);
+  // });
 
   test("atom", () => {
     const { compile, builder: $ } = createContext();

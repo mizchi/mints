@@ -1,25 +1,25 @@
 import { RuleDefinition, Rule } from "./types";
-import { readPairedBlock } from "./utils";
+// import { readPairedBlock } from "./utils";
 
 export type Pair = { open: string; close: string };
 
-export const pairRule: RuleDefinition<Pair> = {
-  kind: "pair",
-  compile(node, _compiler) {
-    return (ctx) => {
-      const pairedEnd = readPairedBlock(
-        ctx.tokenMap,
-        ctx.pos,
-        ctx.chars.length,
-        [node.open, node.close]
-      );
-      if (pairedEnd) {
-        return pairedEnd - ctx.pos;
-      }
-      return;
-    };
-  },
-};
+// export const pairRule: RuleDefinition<Pair> = {
+//   kind: "pair",
+//   compile(node, _compiler) {
+//     return (ctx) => {
+//       const pairedEnd = readPairedBlock(
+//         ctx.tokenMap,
+//         ctx.pos,
+//         ctx.chars.length,
+//         [node.open, node.close]
+//       );
+//       if (pairedEnd) {
+//         return pairedEnd - ctx.pos;
+//       }
+//       return;
+//     };
+//   },
+// };
 
 // wip
 export type Not = { child: Rule };

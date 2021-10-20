@@ -23,7 +23,7 @@ import {
   NewRule,
 } from "./types";
 import { createParseError, createParseSuccess } from "./index";
-import { pairRule } from "./rules";
+// import { pairRule } from "./rules";
 
 export function createRef(refId: string | number, reshape?: Reshape): Ref {
   return {
@@ -80,26 +80,22 @@ export function createBuilder(compiler: Compiler) {
       return input;
     }
     if (typeof input === "number") {
-      // if (!refSet.has(input as ID)) {
-      // throw new Error(`[pargen:convert-expr-to-node] Ref ${input} not found`);
-      // }
       return ref(input);
     }
     return typeof input === "string" ? token(input) : input;
   };
 
-  const createPair = defineRule(compiler, pairRule);
-  // const createNot = defineRule(compiler, notRule);
+  // const createPair = defineRule(compiler, pairRule);
 
   const registeredPatterns: Array<[number, () => InputNodeExpr]> = [];
   const _hydratePatterns = () => {
     registeredPatterns.forEach(([id, nodeCreator]) => {
       const node = nodeCreator();
-      compiler.patterns[id as any] = () => {
+      compiler.defs[id as any] = () => {
         throw new Error("Override me");
       };
       const parser = compiler.compile(toNode(node));
-      compiler.patterns[id as any] = parser as any;
+      compiler.defs[id as any] = parser as any;
     });
     registeredPatterns.length = 0;
   };
@@ -274,7 +270,7 @@ export function createBuilder(compiler: Compiler) {
     atom,
     or,
     seq,
-    pair: createPair as any,
+    // pair: createPair as any,
     not,
     param,
     eof,

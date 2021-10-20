@@ -76,7 +76,7 @@ export type Builder = {
     children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
     reshape?: Reshape
   ): Seq;
-  pair(pair: { open: string; close: string }, reshape?: Reshape): Rule;
+  // pair(pair: { open: string; close: string }, reshape?: Reshape): Rule;
   not(child: InputNodeExpr, reshape?: Reshape): Not;
   atom(fn: Parser): Atom;
   opt<T extends Rule = any>(node: InputNodeExpr): T;
@@ -98,15 +98,13 @@ export type Builder = {
 
 export type Compiler = {
   composeTokens: boolean;
-  patterns: PatternsMap;
-  pairs: string[];
+  defs: DefsMap;
+  // pairs: string[];
   rules: RulesMap<any>;
   compile: RootCompiler;
-  preprocess?: (input: string) => { out: string; data: any };
-  postprocess?: (input: string, data: any) => string;
 };
 
-export type PatternsMap = Record<string | symbol, InternalPerser | void>;
+export type DefsMap = Record<string | symbol, InternalPerser | void>;
 
 export type RulesMap<T> = Record<
   any,
@@ -129,7 +127,7 @@ export type ParseContext = {
   chars: string[];
   cache: PackratCache;
   pos: number;
-  tokenMap: TokenMap<string>;
+  // tokenMap: TokenMap<string>;
 };
 
 export type Parser<T = any> = (

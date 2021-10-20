@@ -3,10 +3,10 @@ import { createContext } from "@mizchi/pargen/src";
 import { preprocessLight } from "./preprocess";
 const { compile, builder } = createContext<number>({
   composeTokens: true,
-  pairs: ["{", "}"],
+  // pairs: ["{", "}"],
 });
 
-const compileWithPreprocess: RootCompiler<any> = (input, opts) => {
+const compileWithPreprocess: RootCompiler = (input, opts) => {
   const parser = compile(input, opts);
   const newParser: RootParser = (input, ctx) => {
     const pre = preprocessLight(input);
