@@ -105,6 +105,8 @@ export type Compiler<ID extends number> = {
   pairs: string[];
   rules: RulesMap<any>;
   compile: RootCompiler<ID>;
+  preprocess?: (input: string) => { out: string; data: any };
+  postprocess?: (input: string, data: any) => string;
 };
 
 export type PatternsMap = Record<string | symbol, InternalPerser | void>;
@@ -126,6 +128,8 @@ export type CacheMap = { [key: `${number}@${string}`]: ParseSuccess };
 // parser api
 
 export type ParseContext = {
+  raw: string;
+  chars: string[];
   cache: PackratCache;
   pos: number;
   tokenMap: TokenMap<string>;
@@ -134,13 +138,9 @@ export type ParseContext = {
 export type Parser<T = any> = (
   node: T,
   opts: Compiler<any>
-) => (
-  input: string,
-  ctx: ParseContext
-) => number | [output: any, len: number] | void;
+) => (ctx: ParseContext) => number | [output: any, len: number] | void;
 
-/* compild from rule parser with cache */
-export type InternalPerser = (input: string, ctx: ParseContext) => ParseResult;
+export type InternalPerser = (ctx: ParseContext) => ParseResult;
 export type ParseResult = ParseSuccess | ParseError;
 
 export type Reshape<In = any, Out = any> = (

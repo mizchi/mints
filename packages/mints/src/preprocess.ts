@@ -40,13 +40,12 @@ export function preprocess(input: string) {
     .replace(/\/\*([.\n]*?)\*\//gmu, "")
     // delete line comments
     .replace(/(.*)(\/\/.*)/gu, "$1");
-  const tokenized = escapeWhistespace(modified);
-  // TODO: return tokenized and handle it direct
-  return restoreEscaped(tokenized, literals);
+  const escaped2 = escapeWhistespace(modified);
+  return { out: escaped2, data: literals };
 }
 
-export function postprocess(input: string, literals: Map<string, string>) {
-  return restoreEscaped(input, literals);
+export function postprocess(out: string, literals: Map<string, string>) {
+  return restoreEscaped(out, literals);
 }
 
 import { is, run, test } from "@mizchi/test";

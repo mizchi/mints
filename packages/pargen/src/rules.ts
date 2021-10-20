@@ -6,11 +6,13 @@ export type Pair = { open: string; close: string };
 export const pairRule: RuleDefinition<Pair> = {
   kind: "pair",
   compile(node, _compiler) {
-    return (input, ctx) => {
-      const pairedEnd = readPairedBlock(ctx.tokenMap, ctx.pos, input.length, [
-        node.open,
-        node.close,
-      ]);
+    return (ctx) => {
+      const pairedEnd = readPairedBlock(
+        ctx.tokenMap,
+        ctx.pos,
+        ctx.chars.length,
+        [node.open, node.close]
+      );
       if (pairedEnd) {
         return pairedEnd - ctx.pos;
       }
@@ -30,8 +32,8 @@ export const notRule: RuleDefinition<Not, [child: Rule]> = {
   },
   compile(node, compiler) {
     const childParser = compiler.compile(node.child);
-    return (input, ctx) => {
-      const result = childParser(input, ctx);
+    return (ctx) => {
+      const result = childParser(ctx.raw, ctx);
       if (result.error === true) {
         return [result, 0];
       }

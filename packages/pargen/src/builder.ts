@@ -43,14 +43,14 @@ function defineRule<X extends {}>(
 ) {
   const newRuleDef = <T extends RuleBase>(node: T, opts: Compiler<any>) => {
     const parse = rule.compile(node as any, opts);
-    return (input: string, ctx: ParseContext) => {
-      const ret = parse(input, ctx);
+    return (ctx: ParseContext) => {
+      const ret = parse(ctx);
       if (ret == null) {
         return createParseError(rule.kind, ErrorType.Atom_ParseError, ctx.pos);
       }
       if (typeof ret === "number") {
         return createParseSuccess(
-          input.slice(ctx.pos, ctx.pos + ret),
+          ctx.raw.slice(ctx.pos, ctx.pos + ret),
           ctx.pos,
           ret
         );

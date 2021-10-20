@@ -61,17 +61,24 @@ export function createCompiler<ID extends number>(
     const resolved = typeof node === "number" ? createRef(node) : node;
     const parse = compileParser(resolved, compiler);
     const parser: RootParser = (
-      input: string,
-      ctx: Partial<ParseContext> = {}
+      input: string
+      // ctx: Partial<ParseContext> = {}
     ) => {
       const cache = createPackratCache();
       const tokenMap = buildTokenMap(input, compiler.pairs);
-      return parse(input, {
-        cache: cache,
-        pos: 0,
-        tokenMap,
-        ...ctx,
-      });
+
+      if (typeof input === "string") {
+        return parse({
+          raw: input,
+          chars: Array.from(input),
+          cache: cache,
+          pos: 0,
+          tokenMap,
+          // ...ctx,
+        });
+      } else {
+        return parse(input);
+      }
     };
     return parser;
   };
@@ -100,6 +107,37 @@ export function createCompiler<ID extends number>(
   return compiler;
 }
 
+const perfTimes = new Map<string, { sum: number; count: number }>();
+let cacheHitCount = 0;
+let cacheMissCount = 0;
+const addPerfTime = (id: string, time: number) => {
+  const prev = perfTimes.get(id);
+  if (prev) {
+    perfTimes.set(id, { sum: prev.count + time, count: prev.count + 1 });
+  } else {
+    perfTimes.set(id, { sum: time, count: 1 });
+  }
+};
+
+const measurePerf = <Fn extends (...args: any[]) => any>(
+  id: string,
+  fn: Fn
+): ReturnType<Fn> => {
+  const start = Date.now();
+  const ret = fn();
+  addPerfTime(id, Date.now() - start);
+  return ret;
+};
+
+export const printPerfResult = () => {
+  console.log("========= perf ============");
+  console.log("cache hit", cacheHitCount, "cache miss", cacheMissCount);
+  const ts = [...perfTimes.entries()].sort((a, b) => b[1].sum - a[1].sum);
+  for (const [id, ret] of ts) {
+    console.log(`[${id}] total:${ret.sum} count:${ret.count}`);
+  }
+};
+
 export function createContext<ID extends number = number>(
   partialOpts: Partial<Compiler<ID>> = {}
 ) {
@@ -107,7 +145,24 @@ export function createContext<ID extends number = number>(
   const builder = createBuilder(ctx);
   const compile: RootCompiler<any> = (...args) => {
     builder.close();
-    return ctx.compile(...args);
+    const rootParser = ctx.compile(...args);
+    return rootParser;
+    // const newRootParser: RootParser = (input, ctx) => {
+    //   if (partialOpts.preprocess && partialOpts.postprocess) {
+    //     const { out, data } = partialOpts.preprocess(input);
+    //     // const ret = rootParser(out, ctx);
+    //     // if (!ret.error) {
+    //     //   const post = partialOpts.postprocess(ret.result, data);
+    //     //   return {
+    //     //     ...ret,
+    //     //     result: post,
+    //     //   };
+    //     // }
+    //     return ret;
+    //   }
+    //   return rootParser(input, ctx);
+    // };
+    // return newRootParser;
   };
   return { builder, compile };
 }
@@ -118,11 +173,17 @@ const getOrCreateCache = (
   pos: number,
   creator: () => ParseResult
 ): ParseResult => {
-  const cached = cache.get(id, pos);
-  if (cached) return cached;
-  const result = creator();
-  cache.add(id, pos, result);
-  return result;
+  return measurePerf("cache-" + id, () => {
+    const cached = cache.get(id, pos);
+    if (cached) {
+      cacheHitCount++;
+      return cached;
+    }
+    cacheMissCount++;
+    const result = creator();
+    cache.add(id, pos, result);
+    return result;
+  });
 };
 
 export const createParseSuccess = (
@@ -159,22 +220,23 @@ export function compileParser(
   rule: Rule,
   compiler: Compiler<any>
 ): InternalPerser {
+  // console.log("rule", rule);
   const reshape = rule.reshape ?? defaultReshape;
   if (!rule.primitive && compiler.rules[rule.kind]) {
     // @ts-ignore
     const parse = compiler.rules[rule.kind](rule, compiler);
-    return ((input, ctx) => {
+    return ((ctx) => {
       return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
-        return parse(input, ctx);
+        return parse(ctx);
       });
     }) as InternalPerser;
   }
   switch (rule.kind) {
     case NodeKind.NOT: {
       const childParser = compileParser((rule as Not).child, compiler);
-      return (input, ctx) => {
+      return (ctx) => {
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
-          const result = childParser(input, ctx);
+          const result = childParser(ctx);
           if (result.error === true) {
             return createParseSuccess(result, ctx.pos, 0);
           }
@@ -188,22 +250,22 @@ export function compileParser(
       };
     }
     case NodeKind.REF: {
-      return (input, ctx) => {
+      return (ctx) => {
         const resolved = compiler.patterns[(rule as Ref).ref];
         if (!resolved) {
           throw new Error(`symbol not found: ${(rule as Ref).ref}`);
         }
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () =>
-          resolved!(input, ctx)
+          resolved!(ctx)
         );
       };
     }
     case NodeKind.ATOM: {
       // const node = node as Atom;
       const parse = (rule as Atom).parse({} as any, compiler);
-      return (input, ctx) => {
+      return (ctx) => {
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
-          const ret = parse(input, ctx);
+          const ret = parse(ctx);
           if (ret == null) {
             return createParseError(
               rule.kind,
@@ -213,7 +275,7 @@ export function compileParser(
           }
           if (typeof ret === "number") {
             return createParseSuccess(
-              input.slice(ctx.pos, ctx.pos + ret),
+              ctx.raw.slice(ctx.pos, ctx.pos + ret),
               ctx.pos,
               ret
             );
@@ -225,8 +287,8 @@ export function compileParser(
     }
 
     case NodeKind.EOF: {
-      return (input: string, ctx) => {
-        const ended = Array.from(input).length === ctx.pos;
+      return (ctx) => {
+        const ended = ctx.chars.length === ctx.pos;
         if (ended) {
           return createParseSuccess("", ctx.pos, 0);
         }
@@ -235,11 +297,11 @@ export function compileParser(
     }
 
     case NodeKind.TOKEN: {
-      return (input: string, ctx) => {
+      return (ctx) => {
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
           const cached = ctx.cache.get(rule.id, ctx.pos);
           if (cached) return cached;
-          const matched = findPatternAt(input, (rule as Token).expr, ctx.pos);
+          const matched = findPatternAt(ctx.raw, (rule as Token).expr, ctx.pos);
           // console.log("[eat] matched", {
           //   input: input.slice(ctx.pos),
           //   expr: node.expr,
@@ -254,9 +316,7 @@ export function compileParser(
                 rule.kind,
                 ErrorType.Token_Unmatch,
                 ctx.pos,
-                `"${input.slice(ctx.pos)}" does not fill: ${
-                  (rule as Token).expr
-                }`
+                (rule as Token).expr
               );
             }
           }
@@ -275,11 +335,11 @@ export function compileParser(
           node: p,
         };
       });
-      return (input: string, ctx) => {
+      return (ctx) => {
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
           const errors: ParseError[] = [];
           for (const next of compiledPatterns) {
-            const parsed = next.parse(input, ctx);
+            const parsed = next.parse(ctx);
             if (parsed.error === true) {
               if (rule.optional) {
                 return createParseSuccess(null, ctx.pos, 0);
@@ -290,7 +350,7 @@ export function compileParser(
             return parsed as ParseResult;
           }
           return createParseError(rule.kind, ErrorType.Or_UnmatchAll, ctx.pos, {
-            message: `"${input.slice(ctx.pos)}" does not match any pattern`,
+            // message: `"${ctx.raw.slice(ctx.pos)}" does not match any pattern`,
             children: errors,
           });
         });
@@ -298,14 +358,14 @@ export function compileParser(
     }
     case NodeKind.REPEAT: {
       const parser = compileParser((rule as Repeat).pattern, compiler);
-      return (input: string, opts) => {
-        return getOrCreateCache(opts.cache, rule.id, opts.pos, () => {
+      return (ctx) => {
+        return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
           const repeat = rule as Repeat;
           const xs: string[] = [];
           let ranges: Range[] = [];
-          let cursor = opts.pos;
-          while (cursor < input.length) {
-            const parseResult = parser(input, { ...opts, pos: cursor });
+          let cursor = ctx.pos;
+          while (cursor < ctx.chars.length) {
+            const parseResult = parser({ ...ctx, pos: cursor });
             // console.log("[eat]", match);
             if (parseResult.error === true) break;
             // stop infinite loop
@@ -326,7 +386,7 @@ export function compileParser(
             return createParseError(
               rule.kind,
               ErrorType.Repeat_RangeError,
-              opts.pos,
+              ctx.pos,
               `not fill range: ${xs.length} in [${repeat.min}, ${
                 repeat.max ?? ""
               }] `
@@ -334,8 +394,8 @@ export function compileParser(
           }
           return createParseSuccess(
             xs.map(reshape as any),
-            opts.pos,
-            cursor - opts.pos,
+            ctx.pos,
+            cursor - ctx.pos,
             ranges
           );
         });
@@ -348,13 +408,15 @@ export function compileParser(
         if (c.key) isObjectMode = true;
         return { parse, node: c };
       });
-      return (input: string = "", ctx) => {
+      return (ctx) => {
+        // console.log("seq-root", ctx);
+
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
           let cursor = ctx.pos;
           if (isObjectMode) {
             const result: any = {};
             for (const parser of parsers) {
-              const parseResult = parser.parse(input, { ...ctx, pos: cursor });
+              const parseResult = parser.parse({ ...ctx, pos: cursor });
               if (parseResult.error) {
                 if (parser.node.optional) continue;
                 return createParseError(
@@ -377,10 +439,9 @@ export function compileParser(
             return createParseSuccess(reshaped, ctx.pos, cursor - ctx.pos);
           } else {
             // string mode
-            // let eaten = "";
             let ranges: Range[] = [];
             for (const parser of parsers) {
-              const parseResult = parser.parse(input, { ...ctx, pos: cursor });
+              const parseResult = parser.parse({ ...ctx, pos: cursor });
               if (parseResult.error) {
                 if (parser.node.optional) continue;
                 return createParseError(
@@ -399,7 +460,7 @@ export function compileParser(
               cursor += parseResult.len;
             }
             const text = ranges
-              .map(([start, end]) => input.slice(start, end))
+              .map(([start, end]) => ctx.raw.slice(start, end))
               .join("");
             // console.log("input", text);
             return createParseSuccess(
@@ -413,7 +474,6 @@ export function compileParser(
       };
     }
     default: {
-      console.log(rule);
       throw new Error("WIP expr and parser");
     }
   }
@@ -497,7 +557,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       detail: {
         child: {
           pos: 1,
-          detail: '"z" does not fill: y',
+          // detail: '"z" does not fill: y',
           error: true,
           errorType: ErrorType.Token_Unmatch,
         },
@@ -512,7 +572,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
           error: true,
           pos: 0,
           errorType: ErrorType.Token_Unmatch,
-          detail: '" xy" does not fill: x',
+          // detail: '" xy" does not fill: x',
         },
       },
     });
@@ -581,7 +641,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
           pos: 0,
           error: true,
           errorType: ErrorType.Token_Unmatch,
-          detail: `"x" does not fill: a`,
+          // detail: `"x" does not fill: a`,
         },
       },
     });
@@ -791,7 +851,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
   test("or", () => {
     const { compile, builder: $ } = createContext();
-
     const seq = $.or(["x", "y"]);
     const parser = compile(seq);
     is(parser("x"), {
@@ -807,19 +866,19 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       errorType: ErrorType.Or_UnmatchAll,
       pos: 0,
       detail: {
-        message: '"z" does not match any pattern',
+        // message: '"z" does not match any pattern',
         children: [
           {
             error: true,
             pos: 0,
             errorType: ErrorType.Token_Unmatch,
-            detail: '"z" does not fill: x',
+            // detail: "x",
           },
           {
             error: true,
             pos: 0,
             errorType: ErrorType.Token_Unmatch,
-            detail: '"z" does not fill: y',
+            // detail: "y",
           },
         ],
       },
@@ -841,7 +900,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       pos: 0,
       errorType: ErrorType.Or_UnmatchAll,
       detail: {
-        message: '"xyb" does not match any pattern',
+        // message: '"xyb" does not match any pattern',
         children: [
           {
             error: true,
@@ -852,7 +911,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
                 error: true,
                 pos: 0,
                 errorType: ErrorType.Token_Unmatch,
-                detail: '"xyb" does not fill: xyz',
+                // detail: "xyz",
               },
             },
           },
@@ -865,7 +924,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
                 error: true,
                 pos: 0,
                 errorType: ErrorType.Token_Unmatch,
-                detail: '"xyb" does not fill: xya',
+                // detail: "xya",
               },
             },
           },
@@ -928,8 +987,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     // read next >
     const parser = compile(
       $.atom((_node, _opts) => {
-        return (input, ctx) => {
-          const char = input.indexOf(">", ctx.pos);
+        return (ctx) => {
+          const char = ctx.raw.indexOf(">", ctx.pos);
           if (char === -1) {
             return;
           }
@@ -945,8 +1004,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const { compile, builder: $ } = createContext();
     const parser = compile(
       $.atom((_node, _opts) => {
-        return (input, ctx) => {
-          const char = input.indexOf(">", ctx.pos);
+        return (ctx) => {
+          const char = ctx.raw.indexOf(">", ctx.pos);
           if (char === -1) {
             return;
           }
