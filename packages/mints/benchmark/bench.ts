@@ -2,6 +2,7 @@ import { transform } from "../src/index";
 import ts from "typescript";
 import fs from "fs";
 import { printPerfResult } from "@mizchi/pargen/src";
+import { preprocessLight } from "../src/preprocess";
 
 const code = fs.readFileSync(__dirname + "/cases/example0.ts", "utf-8");
 
@@ -15,7 +16,8 @@ function compileTsc(input: string) {
 }
 
 function compileMints(input: string) {
-  const out = transform(input);
+  const pre = preprocessLight(input);
+  const out = transform(pre);
   if (out.error) {
     throw out;
   }

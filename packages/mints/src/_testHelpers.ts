@@ -1,5 +1,6 @@
 // @ts-ignore
 import { ErrorType, ParseError } from "@mizchi/pargen";
+import { preprocessLight } from "./preprocess";
 
 export function formatError(
   input: string,
@@ -35,7 +36,8 @@ export function formatError(
 }
 
 export const expectSame = (parse: any, inputs: string[]) => {
-  inputs.forEach((input) => {
+  inputs.forEach((raw) => {
+    const input = preprocessLight(raw);
     const result = parse(input);
     if (result.error) {
       formatError(input, result);

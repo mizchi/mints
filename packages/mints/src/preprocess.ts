@@ -33,6 +33,19 @@ export function escapeLiteral(input: string) {
   return { escaped, literals };
 }
 
+export function preprocessLight(input: string) {
+  const { escaped, literals } = escapeLiteral(input);
+  const out = escaped
+    .replace(/[ ]+/gmu, " ")
+    .replace(/\n+/gmu, "\n")
+    // delete inline comments
+    .replace(/\/\*([.\n]*?)\*\//gmu, "")
+    // delete line comments
+    .replace(/(.*)(\/\/.*)/gu, "$1");
+  // const escaped2 = escapeWhistespace(modified);
+  // return
+  return restoreEscaped(out, literals);
+}
 export function preprocess(input: string) {
   const { escaped, literals } = escapeLiteral(input);
   const modified = escaped
@@ -52,22 +65,6 @@ import { is, run, test } from "@mizchi/test";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
   const now = Date.now();
-  test("strip inline comment", () => {
-    is(preprocess("/**/"), "");
-    is(preprocess("/**/a/**/"), "a");
-    is(preprocess("/*\n*/ax/**/"), "ax");
-  });
-
-  test("line comment", () => {
-    is(preprocess("a"), "a");
-    is(preprocess("//a"), "");
-    is(preprocess(" //a"), " ");
-    is(preprocess("//a\n//b"), "\n");
-    is(preprocess("a//a\n//b"), "a\n");
-    is(preprocess("a//a\n//b"), "a\n");
-    is(preprocess("a\n//xxx\n"), "a\n\n");
-  });
-
   test("escape literal", () => {
     is(escapeLiteral(`"x"`), { escaped: `@L1}` });
     is(escapeLiteral(`"x" "y"`), { escaped: `@L1} @L2}` });
@@ -81,6 +78,26 @@ if (process.env.NODE_ENV === "test") {
     is(escapeWhistespace(`  a`), `@W2}a`);
     is(escapeWhistespace(`  a `), `@W2}a@W1}`);
     is(restoreEscaped(escapeWhistespace(`  a  `), new Map()), `  a  `);
+  });
+
+  test("preprocess light", () => {
+    is(preprocessLight(`  a  \n`), ` a \n`);
+    is(preprocessLight(`  a  \nb`), ` a \nb`);
+  });
+  test("strip inline comment", () => {
+    is(preprocess("/**/").out, "");
+    is(preprocess("/**/a/**/").out, "a");
+    is(preprocess("/*\n*/ax/**/").out, "ax");
+  });
+
+  test("line comment", () => {
+    is(preprocess("a").out, "a");
+    is(preprocess("//a").out, "");
+    is(preprocess(" //a").out, "@W1}");
+    is(preprocess("//a\n//b").out, "@N1}");
+    is(preprocess("a//a\n//b").out, "a@N1}");
+    is(preprocess("a//a\n//b").out, "a@N1}");
+    is(preprocess("a\n//xxx\n").out, "a@N2}");
   });
 
   run({ stopOnFail: true, stub: true, isMain }).then(() => {

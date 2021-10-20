@@ -1047,7 +1047,7 @@ if (process.env.NODE_ENV === "test") {
     is(parseEmpty(";").result, ";");
     is(parseEmpty(";;;").result, ";;;");
     is(parseEmpty("\n").result, "\n");
-    is(parseEmpty("\n\n").result, "\n\n");
+    is(parseEmpty("\n\n").result, "\n");
   });
   test("debugger", () => {
     const parse = compile(debuggerStatement);
