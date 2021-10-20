@@ -1,5 +1,4 @@
-// @ts-ignore
-import { ErrorType, ParseError } from "@mizchi/pargen";
+import { ErrorType, ParseError } from "@mizchi/pargen/src/types";
 import { preprocessLight } from "./preprocess";
 
 export function formatError(

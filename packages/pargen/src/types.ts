@@ -74,7 +74,7 @@ export type Builder<ID = number> = {
   or: (
     patterns: Array<Seq | Token | Ref | Or | Eof | string | ID>,
     reshape?: Reshape
-  ) => Or;
+  ) => Rule;
   seq(
     children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
     reshape?: Reshape

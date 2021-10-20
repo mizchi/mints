@@ -204,7 +204,10 @@ export function createBuilder<ID extends number = number>(
   function or(
     patterns: Array<Seq | Token | Ref | Or | Eof | string | ID>,
     reshape?: Reshape
-  ): Or {
+  ): Or | Rule {
+    if (patterns.length === 1) {
+      return toNode(patterns[0]);
+    }
     return {
       ...nodeBaseDefault,
       primitive: true,

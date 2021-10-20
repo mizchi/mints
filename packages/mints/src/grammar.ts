@@ -9,9 +9,6 @@ export const identifier = $.def(() =>
 const ThisKeyword = $.tok("this");
 const ImportKeyword = $.tok("import");
 
-// const _ = $.tok(_c);
-// const __ = $.tok(__c);
-
 const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 
 /* TypeExpression */

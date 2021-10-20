@@ -27,17 +27,17 @@ function compileMints(input: string) {
 export function main() {
   const compilers = [
     // xx
-    // compileTsc,
+    compileTsc,
     compileMints,
   ];
 
   for (const compiler of compilers) {
-    for (let i = 0; i < 1; i++) {
+    for (let i = 0; i < 5; i++) {
       const now = Date.now();
       const out = compiler(code);
       console.log(compiler.name, `[${i}]`, Date.now() - now);
       // printPerfResult();
-      console.log(out);
+      // console.log(out);
     }
   }
 }
