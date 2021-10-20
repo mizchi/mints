@@ -1,5 +1,7 @@
-export const _ = "([\\s\\n]+)?";
-export const __ = "\\s+";
+export const _ = "((\\s|\\n)+)?";
+export const __ = `(\\s|\\n)+`;
+
+// "(?!.*@N).*?"
 export const PAIRED_CHARS = ["(", ")", "{", "}", "[", "]", "<", ">"] as const;
 export const REST_SPREAD = "\\.\\.\\.";
 export const OPERATORS = [

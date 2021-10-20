@@ -13,7 +13,7 @@ export function formatError(
   const prefix = " ".repeat(depth * 2);
   console.log(
     prefix,
-    `${ErrorType[error.errorType]}[${error.pos}]`,
+    `${ErrorType?.[error.errorType]}[${error.pos}]`,
     `<$>`,
     input.substr(error.pos).split("\n")[0] + " ..."
   );

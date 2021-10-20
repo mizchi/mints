@@ -16,8 +16,8 @@ function compileTsc(input: string) {
 }
 
 function compileMints(input: string) {
-  const pre = preprocessLight(input);
-  const out = transform(pre);
+  // const pre = preprocessLight(input);
+  const out = transform(input);
   if (out.error) {
     throw out;
   }
@@ -36,7 +36,7 @@ export function main() {
       const now = Date.now();
       const out = compiler(code);
       console.log(compiler.name, `[${i}]`, Date.now() - now);
-      printPerfResult();
+      // printPerfResult();
       console.log(out);
     }
   }

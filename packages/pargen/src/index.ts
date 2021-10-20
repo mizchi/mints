@@ -4,7 +4,6 @@ import {
   ParseResult,
   Compiler,
   RootParser,
-  ParseContext,
   ErrorType,
   NodeKind,
   ParseSuccess,
@@ -22,7 +21,7 @@ import {
   defaultReshape,
   Range,
 } from "./types";
-import { buildTokenMap, findPatternAt } from "./utils";
+import { buildTokenMap, findPatternAt, isRegExp, startStringAt } from "./utils";
 
 // impl
 function createPackratCache(): PackratCache {
@@ -60,13 +59,9 @@ export function createCompiler<ID extends number>(
   const compile: RootCompiler<ID> = (node) => {
     const resolved = typeof node === "number" ? createRef(node) : node;
     const parse = compileParser(resolved, compiler);
-    const parser: RootParser = (
-      input: string
-      // ctx: Partial<ParseContext> = {}
-    ) => {
+    const parser: RootParser = (input: string) => {
       const cache = createPackratCache();
       const tokenMap = buildTokenMap(input, compiler.pairs);
-
       if (typeof input === "string") {
         return parse({
           raw: input,
@@ -298,16 +293,18 @@ export function compileParser(
 
     case NodeKind.TOKEN: {
       return (ctx) => {
+        let expr = (rule as Token).expr;
+        const isReg = isRegExp(expr);
+        expr = isReg ? expr : expr.replace(/\\/g, "");
+        // console.log("[token-is-regexp?]", { isReg, expr });
+        // const isNonRegExp = false;
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
-          const cached = ctx.cache.get(rule.id, ctx.pos);
-          if (cached) return cached;
-          const matched = findPatternAt(ctx.raw, (rule as Token).expr, ctx.pos);
-          // console.log("[eat] matched", {
-          //   input: input.slice(ctx.pos),
-          //   expr: node.expr,
-          //   // pos: ctx.pos,
-          //   matched,
-          // });
+          let matched: string | null;
+          if (isReg) {
+            matched = findPatternAt(ctx.raw, (rule as Token).expr, ctx.pos);
+          } else {
+            matched = startStringAt(ctx.raw, expr, ctx.pos) ? expr : null;
+          }
           if (matched == null) {
             if (rule.optional) {
               return createParseSuccess(null, ctx.pos, 0);
@@ -585,9 +582,9 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq:skip_opt", () => {
-    const { compile, builder: $ } = createContext();
+    const { compile, builder: $ } = createContext({ composeTokens: false });
     const parser = compile(
-      $.seq(["a", $.skip_opt($.seq(["\\:", "@"])), "=", "b"])
+      $.seq(["a", $.skip_opt($.seq([":", "@"])), "=", "b"])
       // { end: true }
     );
     is(parser("a=b"), { result: "a=b" });

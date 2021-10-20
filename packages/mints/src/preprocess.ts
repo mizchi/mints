@@ -36,14 +36,12 @@ export function escapeLiteral(input: string) {
 export function preprocessLight(input: string) {
   const { escaped, literals } = escapeLiteral(input);
   const out = escaped
-    .replace(/[ ]+/gmu, " ")
-    .replace(/\n+/gmu, "\n")
     // delete inline comments
     .replace(/\/\*([.\n]*?)\*\//gmu, "")
+    .replace(/[ ]+/gmu, " ")
     // delete line comments
-    .replace(/(.*)(\/\/.*)/gu, "$1");
-  // const escaped2 = escapeWhistespace(modified);
-  // return
+    .replace(/(.*)(\/\/.*)/gu, "$1")
+    .replace(/\n+/gmu, "\n");
   return restoreEscaped(out, literals);
 }
 export function preprocess(input: string) {

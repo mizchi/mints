@@ -1,4 +1,5 @@
 import { OPERATORS, RESERVED_WORDS, REST_SPREAD, _, __ } from "./constants";
+
 import { compile, builder as $ } from "./ctx";
 
 export const identifier = $.def(() =>
@@ -7,6 +8,10 @@ export const identifier = $.def(() =>
 
 const ThisKeyword = $.tok("this");
 const ImportKeyword = $.tok("import");
+
+// const _ = $.tok(_c);
+// const __ = $.tok(__c);
+
 const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 
 /* TypeExpression */
@@ -81,7 +86,7 @@ const _typeNameableItem = $.def(() =>
       // start: number,
       identifier,
       _,
-      "\\:",
+      ":",
       _,
       typeExpression,
       _,
@@ -106,7 +111,7 @@ const typeArrayLiteral = $.def(() =>
         _,
         identifier,
         _,
-        "\\:",
+        ":",
         _,
         typeExpression,
         // _,
@@ -125,7 +130,7 @@ const typeFunctionArgs = $.def(() =>
       // args
       identifier,
       _,
-      "\\:",
+      ":",
       _,
       typeExpression,
       _,
@@ -134,8 +139,8 @@ const typeFunctionArgs = $.def(() =>
     ]),
     $.or([
       // last
-      $.seq([REST_SPREAD, _, identifier, _, "\\:", _, typeExpression]),
-      $.seq([identifier, _, "\\:", _, typeExpression, _, ",?"]),
+      $.seq([REST_SPREAD, _, identifier, _, ":", _, typeExpression]),
+      $.seq([identifier, _, ":", _, typeExpression, _, ",?"]),
       _,
     ]),
   ])
@@ -156,7 +161,7 @@ const _typeObjectItem = $.def(() =>
       _,
       "\\)",
       _,
-      "\\:",
+      ":",
       _,
       typeExpression,
     ]),
@@ -165,7 +170,7 @@ const _typeObjectItem = $.def(() =>
       $.opt($.seq(["readonly", __])),
       identifier,
       _,
-      "\\:",
+      ":",
       _,
       typeExpression,
     ]),
@@ -263,7 +268,7 @@ const destructiveObjectItem = $.def(() =>
       // a : b
       identifier,
       _,
-      $.opt($.seq(["\\:", _, destructivePattern])),
+      $.opt($.seq([":", _, destructivePattern])),
       // a: b = 1,
       $.opt($.seq([_, "=", _, anyExpression])),
     ]),
@@ -403,7 +408,7 @@ const objectItem = $.def(() =>
         identifier,
       ]),
       // value or shorthand
-      $.seq([_, "\\:", _, anyExpression]),
+      $.seq([_, ":", _, anyExpression]),
     ]),
     identifier,
   ])
@@ -670,7 +675,7 @@ const asExpression = $.def(() =>
 
 // a ? b: c
 const ternaryExpression = $.def(() =>
-  $.seq([asExpression, _, "\\?", _, anyExpression, _, "\\:", _, anyExpression])
+  $.seq([asExpression, _, "\\?", _, anyExpression, _, ":", _, anyExpression])
 );
 
 export const anyExpression = $.def(() =>
@@ -678,7 +683,7 @@ export const anyExpression = $.def(() =>
 );
 
 const _typeAnnotation = $.seq([":", _, typeExpression]);
-const emptyStatement = $.def(() => $.seq(["[\\s\\n;]*"]));
+const emptyStatement = $.def(() => $.seq(["(\\s|\\n|@N|;)*"]));
 const breakStatement = $.def(() => "break");
 const debuggerStatement = $.def(() => "debugger");
 
@@ -694,7 +699,7 @@ const blockOrNonEmptyStatement = $.def(() => $.or([block, nonEmptyStatement]));
 const blockStatement = $.def(() => block);
 
 const labeledStatement = $.def(() =>
-  $.seq([identifier, _, "\\:", _, blockOrNonEmptyStatement])
+  $.seq([identifier, _, ":", _, blockOrNonEmptyStatement])
 );
 
 const _importRightSide = $.def(() =>
@@ -809,14 +814,14 @@ const switchStatement = $.def(() =>
       _,
       "\\)",
       _,
-      "\\{",
+      "{",
       _,
       $.repeat_seq([
         "case",
         __,
         anyExpression,
         _,
-        "\\:",
+        ":",
         _,
         // include empty statement
         blockOrStatement,
@@ -825,9 +830,9 @@ const switchStatement = $.def(() =>
         _,
       ]),
       _,
-      $.opt($.seq(["default", _, "\\:", _, blockOrStatement])),
+      $.opt($.seq(["default", _, ":", _, blockOrStatement])),
       _,
-      "\\}",
+      "}",
     ]),
   ])
 );
@@ -906,12 +911,12 @@ export const forStatement = $.def(() =>
     // start
     $.or([variableStatement, anyExpression, _]),
     _,
-    "\\;",
+    ";",
     // condition
     _,
     $.opt(anyExpression),
     _,
-    "\\;",
+    ";",
     // step end
     $.opt(anyExpression),
     "\\)",
@@ -1351,7 +1356,7 @@ if (process.env.NODE_ENV === "test") {
   test("callExpression", () => {
     const parse = compile($.seq([accessible, $.eof()]));
     expectSame(parse, ["a().a()", "import('aaa')"]);
-    expectSame(parse, ["a().a.b()", "new X().b()"]);
+    // expectSame(parse, ["a().a.b()", "new X().b()"]);
   });
 
   test("functionExpression", () => {

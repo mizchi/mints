@@ -14,6 +14,14 @@ export const findPatternAt = (
   return match[0];
 };
 
+export const startStringAt = (
+  input: string,
+  str: string,
+  pos: number
+): boolean => {
+  return input.startsWith(str, pos);
+};
+
 export function buildTokenMap<T extends string>(
   text: string,
   readChars: Array<T>
@@ -61,6 +69,14 @@ export function readPairedBlock(
   }
 }
 
+const REGEX_CHAR =
+  /(?<!\\)[\(\)\[\]\+\?\+\^\*\.]|(\\[dDsSwWbB])|\{(\d*),?\d*\}/;
+
+// regex
+export function isRegExp(str: string) {
+  return REGEX_CHAR.test(str);
+}
+
 import { test, run } from "@mizchi/test";
 import assert from "assert";
 if (process.env.NODE_ENV === "test" && require.main === module) {
@@ -94,5 +110,39 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     eq(findPatternAt("a\nb", "\\nb", 1), "\nb");
     eq(findPatternAt("a\nb", "\\sb", 1), "\nb");
   });
+
+  test("isRegExp", () => {
+    eq(isRegExp(" "), false);
+    eq(isRegExp("a"), false);
+    eq(isRegExp("token_exp"), false);
+    eq(isRegExp("("), true);
+    eq(isRegExp(")"), true);
+    eq(isRegExp("."), true);
+    eq(isRegExp("+"), true);
+    eq(isRegExp("?"), true);
+    eq(isRegExp(":"), false);
+    eq(isRegExp("\\."), false);
+    eq(isRegExp("\\+"), false);
+    eq(isRegExp("\\a"), false);
+    eq(isRegExp("\\["), false);
+    eq(isRegExp("\\]"), false);
+    eq(isRegExp("\\d"), true);
+    eq(isRegExp("\\w"), true);
+    eq(isRegExp("\\W"), true);
+    eq(isRegExp("\\s"), true);
+    eq(isRegExp("\\S"), true);
+    eq(isRegExp("\\s"), true);
+    eq(isRegExp("{"), false);
+    eq(isRegExp("}"), false);
+    eq(isRegExp("{1}"), true);
+    eq(isRegExp("{1,}"), true);
+    eq(isRegExp("{1,2}"), true);
+    eq(isRegExp("{,3}"), true);
+    eq(isRegExp("{,3"), false);
+    eq(isRegExp("+"), true);
+    eq(isRegExp("\\s+"), true);
+    eq(isRegExp("\\+\\+"), false);
+  });
+
   run({ stopOnFail: true, stub: true });
 }
