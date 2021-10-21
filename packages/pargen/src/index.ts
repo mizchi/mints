@@ -13,9 +13,6 @@ import {
   RootCompiler,
   Not,
   Ref,
-  Atom,
-  Token,
-  Or,
   Repeat,
   Seq,
   defaultReshape,
@@ -70,7 +67,6 @@ export function createCompiler<ID extends number>(
   partial: Partial<Compiler>
 ): Compiler {
   const compiler: Compiler = {
-    // pairs: [],
     composeTokens: true,
     rules: {},
     defs: {},
@@ -197,24 +193,25 @@ export const createParseError = <ET extends ErrorType>(
   };
 };
 
-export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
+export function compileParserInternal(
+  rule: Rule,
+  compiler: Compiler
+): InternalPerser {
   const reshape = rule.reshape ?? defaultReshape;
   switch (rule.kind) {
     case NodeKind.NOT: {
       const childParser = compileParser((rule as Not).child, compiler);
       return (ctx) => {
-        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
-          const result = childParser(ctx);
-          if (result.error === true) {
-            return createParseSuccess(result, ctx.pos, 0);
-          }
-          return createParseError(
-            rule.kind,
-            ErrorType.Not_IncorrectMatch,
-            ctx.pos,
-            result.len
-          );
-        });
+        const result = childParser(ctx);
+        if (result.error === true) {
+          return createParseSuccess(result, ctx.pos, 0);
+        }
+        return createParseError(
+          rule.kind,
+          ErrorType.Not_IncorrectMatch,
+          ctx.pos,
+          result.len
+        );
       };
     }
     case NodeKind.REF: {
@@ -223,32 +220,30 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
         if (!resolved) {
           throw new Error(`symbol not found: ${(rule as Ref).ref}`);
         }
-        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => resolved!(ctx));
+        return resolved!(ctx);
       };
     }
     case NodeKind.ATOM: {
       // const node = node as Atom;
       const parse = rule.parse({} as any, compiler);
       return (ctx) => {
-        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
-          const ret = parse(ctx);
-          if (ret == null) {
-            return createParseError(
-              rule.kind,
-              ErrorType.Atom_ParseError,
-              ctx.pos
-            );
-          }
-          if (typeof ret === "number") {
-            return createParseSuccess(
-              ctx.raw.slice(ctx.pos, ctx.pos + ret),
-              ctx.pos,
-              ret
-            );
-          }
-          const [out, len] = ret;
-          return createParseSuccess(out, ctx.pos, len);
-        });
+        const ret = parse(ctx);
+        if (ret == null) {
+          return createParseError(
+            rule.kind,
+            ErrorType.Atom_ParseError,
+            ctx.pos
+          );
+        }
+        if (typeof ret === "number") {
+          return createParseSuccess(
+            ctx.raw.slice(ctx.pos, ctx.pos + ret),
+            ctx.pos,
+            ret
+          );
+        }
+        const [out, len] = ret;
+        return createParseSuccess(out, ctx.pos, len);
       };
     }
 
@@ -266,26 +261,24 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
       let expr = rule.expr;
       const matcher = createRegexMatcher(expr);
       return (ctx) => {
-        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
-          const matched: string | null = matcher(ctx.raw, ctx.pos);
-          if (matched == null) {
-            if (rule.optional) {
-              return createParseSuccess(null, ctx.pos, 0);
-            } else {
-              return createParseError(
-                rule.kind,
-                ErrorType.Token_Unmatch,
-                ctx.pos,
-                expr
-              );
-            }
+        const matched: string | null = matcher(ctx.raw, ctx.pos);
+        if (matched == null) {
+          if (rule.optional) {
+            return createParseSuccess(null, ctx.pos, 0);
+          } else {
+            return createParseError(
+              rule.kind,
+              ErrorType.Token_Unmatch,
+              ctx.pos,
+              expr
+            );
           }
-          return createParseSuccess(
-            reshape(matched),
-            ctx.pos,
-            Array.from(matched).length
-          );
-        });
+        }
+        return createParseSuccess(
+          reshape(matched),
+          ctx.pos,
+          Array.from(matched).length
+        );
       };
     }
 
@@ -293,26 +286,24 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
       let expr = rule.expr;
       const matcher = createMatcher(expr);
       return (ctx) => {
-        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
-          const matched: string | null = matcher(ctx.raw, ctx.pos);
-          if (matched == null) {
-            if (rule.optional) {
-              return createParseSuccess(null, ctx.pos, 0);
-            } else {
-              return createParseError(
-                rule.kind,
-                ErrorType.Token_Unmatch,
-                ctx.pos,
-                expr
-              );
-            }
+        const matched: string | null = matcher(ctx.raw, ctx.pos);
+        if (matched == null) {
+          if (rule.optional) {
+            return createParseSuccess(null, ctx.pos, 0);
+          } else {
+            return createParseError(
+              rule.kind,
+              ErrorType.Token_Unmatch,
+              ctx.pos,
+              expr
+            );
           }
-          return createParseSuccess(
-            reshape(matched),
-            ctx.pos,
-            Array.from(matched).length
-          );
-        });
+        }
+        return createParseSuccess(
+          reshape(matched),
+          ctx.pos,
+          Array.from(matched).length
+        );
       };
     }
     case NodeKind.OR: {
@@ -323,68 +314,63 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
         };
       });
       return (ctx) => {
-        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
-          const errors: ParseError[] = [];
-          for (const next of compiledPatterns) {
-            const parsed = next.parse(ctx);
-            if (parsed.error === true) {
-              if (rule.optional) {
-                return createParseSuccess(null, ctx.pos, 0);
-              }
-              errors.push(parsed);
-              continue;
+        const errors: ParseError[] = [];
+        for (const next of compiledPatterns) {
+          const parsed = next.parse(ctx);
+          if (parsed.error === true) {
+            if (rule.optional) {
+              return createParseSuccess(null, ctx.pos, 0);
             }
-            return parsed as ParseResult;
+            errors.push(parsed);
+            continue;
           }
-          return createParseError(rule.kind, ErrorType.Or_UnmatchAll, ctx.pos, {
-            children: errors,
-          });
+          return parsed as ParseResult;
+        }
+        return createParseError(rule.kind, ErrorType.Or_UnmatchAll, ctx.pos, {
+          children: errors,
         });
       };
     }
     case NodeKind.REPEAT: {
       const parser = compileParser(rule.pattern, compiler);
       return (ctx) => {
-        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
-          const repeat = rule as Repeat;
-          const xs: string[] = [];
-          let ranges: Range[] = [];
-          let cursor = ctx.pos;
-          while (cursor < ctx.chars.length) {
-            const parseResult = parser({ ...ctx, pos: cursor });
-            // console.log("[eat]", match);
-            if (parseResult.error === true) break;
-            // stop infinite loop
-            if (parseResult.len === 0) {
-              throw new Error(`Zero offset repeat item is not allowed`);
-            }
-            xs.push(parseResult.result);
-            ranges.push(...parseResult.ranges);
-            cursor += parseResult.len;
+        const repeat = rule as Repeat;
+        const xs: string[] = [];
+        let ranges: Range[] = [];
+        let cursor = ctx.pos;
+        while (cursor < ctx.chars.length) {
+          const parseResult = parser({ ...ctx, pos: cursor });
+          if (parseResult.error === true) break;
+          // stop infinite loop
+          if (parseResult.len === 0) {
+            throw new Error(`Zero offset repeat item is not allowed`);
           }
-          // size check
-          // TODO: detect max at adding
-          if (
-            xs.length < repeat.min ||
-            // @ts-ignore
-            (repeat.max && xs.length > repeat.max)
-          ) {
-            return createParseError(
-              rule.kind,
-              ErrorType.Repeat_RangeError,
-              ctx.pos,
-              `not fill range: ${xs.length} in [${repeat.min}, ${
-                repeat.max ?? ""
-              }] `
-            );
-          }
-          return createParseSuccess(
-            xs.map(reshape as any),
+          xs.push(parseResult.result);
+          ranges.push(...parseResult.ranges);
+          cursor += parseResult.len;
+        }
+        // size check
+        // TODO: detect max at adding
+        if (
+          xs.length < repeat.min ||
+          // @ts-ignore
+          (repeat.max && xs.length > repeat.max)
+        ) {
+          return createParseError(
+            rule.kind,
+            ErrorType.Repeat_RangeError,
             ctx.pos,
-            cursor - ctx.pos,
-            ranges
+            `not fill range: ${xs.length} in [${repeat.min}, ${
+              repeat.max ?? ""
+            }] `
           );
-        });
+        }
+        return createParseSuccess(
+          xs.map(reshape as any),
+          ctx.pos,
+          cursor - ctx.pos,
+          ranges
+        );
       };
     }
     case NodeKind.SEQ: {
@@ -395,73 +381,69 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
         return { parse, node: c };
       });
       return (ctx) => {
-        // console.log("seq-root", ctx);
-        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
-          let cursor = ctx.pos;
-          if (isObjectMode) {
-            const result: any = {};
-            for (const parser of parsers) {
-              const parseResult = parser.parse({ ...ctx, pos: cursor });
-              if (parseResult.error) {
-                if (parser.node.optional) continue;
-                return createParseError(
-                  rule.kind,
-                  ErrorType.Seq_Stop,
-                  ctx.pos,
-                  {
-                    child: parseResult,
-                  }
-                );
-              }
-              if (parser.node.key && !parser.node.skip) {
-                const reshaped = parseResult.result;
-                result[parser.node.key] = reshaped;
-              }
-              // step cursor
-              cursor += parseResult.len;
+        let cursor = ctx.pos;
+        if (isObjectMode) {
+          const result: any = {};
+          for (const parser of parsers) {
+            const parseResult = parser.parse({ ...ctx, pos: cursor });
+            if (parseResult.error) {
+              if (parser.node.optional) continue;
+              return createParseError(rule.kind, ErrorType.Seq_Stop, ctx.pos, {
+                child: parseResult,
+              });
             }
-            const reshaped = reshape(result);
-            return createParseSuccess(reshaped, ctx.pos, cursor - ctx.pos);
-          } else {
-            // string mode
-            let ranges: Range[] = [];
-            for (const parser of parsers) {
-              const parseResult = parser.parse({ ...ctx, pos: cursor });
-              if (parseResult.error) {
-                if (parser.node.optional) continue;
-                return createParseError(
-                  rule.kind,
-                  ErrorType.Seq_Stop,
-                  ctx.pos,
-                  {
-                    child: parseResult,
-                  }
-                );
-              }
-              // WIP: Skip
-              if (!parser.node.skip) {
-                ranges.push(...parseResult.ranges);
-              }
-              cursor += parseResult.len;
+            if (parser.node.key && !parser.node.skip) {
+              const reshaped = parseResult.result;
+              result[parser.node.key] = reshaped;
             }
-            const text = ranges
-              .map(([start, end]) => ctx.raw.slice(start, end))
-              .join("");
-            // console.log("input", text);
-            return createParseSuccess(
-              reshape(text),
-              ctx.pos,
-              cursor - ctx.pos,
-              ranges
-            );
+            // step cursor
+            cursor += parseResult.len;
           }
-        });
+          const reshaped = reshape(result);
+          return createParseSuccess(reshaped, ctx.pos, cursor - ctx.pos);
+        } else {
+          // string mode
+          let ranges: Range[] = [];
+          for (const parser of parsers) {
+            const parseResult = parser.parse({ ...ctx, pos: cursor });
+            if (parseResult.error) {
+              if (parser.node.optional) continue;
+              return createParseError(rule.kind, ErrorType.Seq_Stop, ctx.pos, {
+                child: parseResult,
+              });
+            }
+            if (!parser.node.skip) {
+              ranges.push(...parseResult.ranges);
+            }
+            cursor += parseResult.len;
+          }
+          const text = ranges
+            .map(([start, end]) => ctx.raw.slice(start, end))
+            .join("");
+          return createParseSuccess(
+            reshape(text),
+            ctx.pos,
+            cursor - ctx.pos,
+            ranges
+          );
+        }
       };
     }
     default: {
       throw new Error("[compile] Unknown Rule");
     }
   }
+}
+
+export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
+  const internalParser = compileParserInternal(rule, compiler);
+  // generic cache
+  const parser: InternalPerser = (ctx) => {
+    return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
+      return internalParser(ctx);
+    });
+  };
+  return parser;
 }
 
 import { test, run, is } from "@mizchi/test";
