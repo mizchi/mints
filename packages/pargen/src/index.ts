@@ -77,15 +77,18 @@ export function createCompiler<ID extends number>(
   // internal
   const compile: RootCompiler = (node) => {
     const resolved = typeof node === "number" ? createRef(node) : node;
-    const parse = compileParser(resolved, compiler);
+    const parse = compileFragment(resolved, compiler);
     const parser: RootParser = (input: string) => {
       const cache = createPackratCache();
-      return parse({
-        raw: input,
-        chars: Array.from(input),
-        cache,
-        pos: 0,
-      });
+      return parse(
+        {
+          raw: input,
+          chars: Array.from(input),
+          cache,
+          pos: 0,
+        },
+        0
+      );
     };
     return parser;
   };
@@ -188,16 +191,16 @@ export const createParseError = <ET extends ErrorType>(
   };
 };
 
-export function compileParserInternal(
+function compileFragmentInternal(
   rule: Rule,
   compiler: Compiler
 ): InternalParser {
   const reshape = rule.reshape ?? defaultReshape;
   switch (rule.kind) {
     case NodeKind.NOT: {
-      const childParser = compileParser((rule as Not).child, compiler);
-      return (ctx) => {
-        const result = childParser(ctx);
+      const childParser = compileFragment((rule as Not).child, compiler);
+      return (ctx, pos) => {
+        const result = childParser(ctx, pos);
         if (result.error === true) {
           return createParseSuccess(result, ctx.pos, 0);
         }
@@ -210,22 +213,22 @@ export function compileParserInternal(
       };
     }
     case NodeKind.REF: {
-      return (ctx) => {
+      return (ctx, pos) => {
         const resolved = compiler.defs[(rule as Ref).ref];
         if (!resolved) {
           throw new Error(`symbol not found: ${(rule as Ref).ref}`);
         }
-        return resolved!(ctx);
+        return resolved!(ctx, pos);
       };
     }
     case NodeKind.ATOM: {
-      return (ctx) => {
-        return rule.parse(ctx);
+      return (ctx, pos) => {
+        return rule.parse(ctx, pos);
       };
     }
 
     case NodeKind.EOF: {
-      return (ctx) => {
+      return (ctx, _pos) => {
         const ended = ctx.chars.length === ctx.pos;
         if (ended) {
           return createParseSuccess("", ctx.pos, 0);
@@ -262,7 +265,7 @@ export function compileParserInternal(
     case NodeKind.TOKEN: {
       let expr = rule.expr;
       const matcher = createMatcher(expr);
-      return (ctx) => {
+      return (ctx, pos) => {
         const matched: string | null = matcher(ctx.raw, ctx.pos);
         if (matched == null) {
           if (rule.optional) {
@@ -286,14 +289,14 @@ export function compileParserInternal(
     case NodeKind.OR: {
       const compiledPatterns = rule.patterns.map((p) => {
         return {
-          parse: compileParser(p, compiler),
+          parse: compileFragment(p, compiler),
           node: p,
         };
       });
-      return (ctx) => {
+      return (ctx, pos) => {
         const errors: ParseError[] = [];
         for (const next of compiledPatterns) {
-          const parsed = next.parse(ctx);
+          const parsed = next.parse(ctx, pos);
           if (parsed.error === true) {
             if (rule.optional) {
               return createParseSuccess(null, ctx.pos, 0);
@@ -309,14 +312,14 @@ export function compileParserInternal(
       };
     }
     case NodeKind.REPEAT: {
-      const parser = compileParser(rule.pattern, compiler);
+      const parser = compileFragment(rule.pattern, compiler);
       return (ctx) => {
         const repeat = rule as Repeat;
         const xs: string[] = [];
         let ranges: Range[] = [];
         let cursor = ctx.pos;
         while (cursor < ctx.chars.length) {
-          const parseResult = parser({ ...ctx, pos: cursor });
+          const parseResult = parser({ ...ctx, pos: cursor }, cursor);
           if (parseResult.error === true) break;
           // stop infinite loop
           if (parseResult.len === 0) {
@@ -353,7 +356,7 @@ export function compileParserInternal(
     case NodeKind.SEQ: {
       let isObjectMode = false;
       const parsers = (rule as Seq).children.map((c) => {
-        const parse = compileParser(c, compiler);
+        const parse = compileFragment(c, compiler);
         if (c.key) isObjectMode = true;
         return { parse, node: c };
       });
@@ -362,7 +365,7 @@ export function compileParserInternal(
         if (isObjectMode) {
           const result: any = {};
           for (const parser of parsers) {
-            const parseResult = parser.parse({ ...ctx, pos: cursor });
+            const parseResult = parser.parse({ ...ctx, pos: cursor }, cursor);
             if (parseResult.error) {
               if (parser.node.optional) continue;
               return createParseError(rule.kind, ErrorType.Seq_Stop, ctx.pos, {
@@ -382,7 +385,7 @@ export function compileParserInternal(
           // string mode
           let ranges: Range[] = [];
           for (const parser of parsers) {
-            const parseResult = parser.parse({ ...ctx, pos: cursor });
+            const parseResult = parser.parse({ ...ctx, pos: cursor }, cursor);
             if (parseResult.error) {
               if (parser.node.optional) continue;
               return createParseError(rule.kind, ErrorType.Seq_Stop, ctx.pos, {
@@ -412,12 +415,15 @@ export function compileParserInternal(
   }
 }
 
-export function compileParser(rule: Rule, compiler: Compiler): InternalParser {
-  const internalParser = compileParserInternal(rule, compiler);
+export function compileFragment(
+  rule: Rule,
+  compiler: Compiler
+): InternalParser {
+  const internalParser = compileFragmentInternal(rule, compiler);
   // generic cache
-  const parser: InternalParser = (ctx) => {
+  const parser: InternalParser = (ctx, pos) => {
     return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
-      return internalParser(ctx);
+      return internalParser(ctx, pos);
     });
   };
   return parser;

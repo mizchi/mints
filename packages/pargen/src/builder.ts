@@ -1,4 +1,4 @@
-import { compileParser } from ".";
+import { compileFragment } from ".";
 import {
   Rule,
   Compiler,
@@ -47,7 +47,7 @@ export function createBuilder(compiler: Compiler) {
   const _hydratePatterns = () => {
     registeredPatterns.forEach(([id, nodeCreator]) => {
       const node = nodeCreator();
-      const parser = compileParser(toNode(node), compiler);
+      const parser = compileFragment(toNode(node), compiler);
       compiler.defs[id] = parser;
     });
     registeredPatterns.length = 0;
@@ -231,7 +231,6 @@ export function createBuilder(compiler: Compiler) {
     atom,
     or,
     seq,
-    // pair: createPair as any,
     not,
     param,
     eof,

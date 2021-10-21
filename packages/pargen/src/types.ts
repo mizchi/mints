@@ -181,12 +181,7 @@ export type ParseContext = {
   pos: number;
 };
 
-export type Parser<T = any> = (
-  node: T,
-  opts: Compiler
-) => (ctx: ParseContext) => number | [output: any, len: number] | void;
-
-export type InternalParser = (ctx: ParseContext) => ParseResult;
+export type InternalParser = (ctx: ParseContext, pos: number) => ParseResult;
 export type ParseResult = ParseSuccess | ParseError;
 
 export type Reshape<In = any, Out = any> = (
