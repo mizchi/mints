@@ -690,12 +690,11 @@ const returnStatement = $.def(() =>
 const throwStatement = $.def(() => $.seq(["throw", __, anyExpression]));
 
 const blockOrStatement = $.def(() => $.or([block, anyStatement]));
-const blockOrNonEmptyStatement = $.def(() => $.or([block, nonEmptyStatement]));
 
 const blockStatement = $.def(() => block);
 
 const labeledStatement = $.def(() =>
-  $.seq([identifier, _, ":", _, blockOrNonEmptyStatement])
+  $.seq([identifier, _, ":", _, anyStatement])
 );
 
 const _importRightSide = $.def(() =>
@@ -794,7 +793,7 @@ const ifStatement = $.def(() =>
     _,
     ")",
     _,
-    blockOrNonEmptyStatement,
+    anyStatement,
     _,
     $.opt($.seq(["else", __, blockOrStatement])),
   ])
@@ -814,14 +813,14 @@ const switchStatement = $.def(() =>
       "{",
       _,
       $.repeat_seq([
-        "case",
-        __,
+        "case ",
+        _,
         anyExpression,
         _,
         ":",
         _,
         // include empty statement
-        blockOrStatement,
+        $.opt(blockOrStatement),
         _,
         $.opt(";"),
         _,
@@ -917,7 +916,7 @@ export const forStatement = $.def(() =>
     $.opt(anyExpression),
     ")",
     _,
-    blockOrNonEmptyStatement,
+    blockOrStatement,
   ])
 );
 
@@ -938,23 +937,13 @@ const forItemStatement = $.def(() =>
     _,
     ")",
     _,
-    blockOrNonEmptyStatement,
+    blockOrStatement,
   ])
 );
 
 export const whileStatement = $.def(() =>
   $.or([
-    $.seq([
-      "while",
-      _,
-      "(",
-      _,
-      anyExpression,
-      _,
-      ")",
-      _,
-      blockOrNonEmptyStatement,
-    ]),
+    $.seq(["while", _, "(", _, anyExpression, _, ")", _, blockOrStatement]),
   ])
 );
 
@@ -980,7 +969,23 @@ const expressionStatement = $.def(() =>
   $.seq([anyExpression, $.repeat_seq([",", _, anyExpression])])
 );
 
-const nonEmptyStatement = $.def(() =>
+const semicolonlessStatement = $.def(() =>
+  $.or([
+    classExpression,
+    functionExpression,
+    ifStatement,
+    whileStatement,
+    switchStatement,
+    doWhileStatement,
+    interfaceStatement,
+    typeStatement,
+    forStatement,
+    forItemStatement,
+    blockStatement,
+  ])
+);
+
+const anyStatement = $.def(() =>
   $.or([
     debuggerStatement,
     breakStatement,
@@ -1002,40 +1007,51 @@ const nonEmptyStatement = $.def(() =>
   ])
 );
 
-export const anyStatement = $.def(() =>
-  $.or([nonEmptyStatement, emptyStatement])
-);
-
-const statementLine = $.or([
-  // $.seq([
-  //   _,
-  //   $.or([
-  //     "\\/\\/[^\\n]*",
-  //     // semicolon less allowed statements
-  //     blockStatement,
-  //     ifStatement,
-  //     whileStatement,
-  //     blockStatement,
-  //     forItemStatement,
-  //     interfaceStatement,
-  //     functionExpression,
-  //     classExpression,
-  //   ]),
-  //   _,
-  //   "(\\;?\\n?|\\n)",
-  // ]),
-  // semicolon
-  // $.seq([_, anyStatement, _, "(\\;\\n?|\\n)"]),
-  $.seq([_, anyStatement, _, $.r`[;\n]`, _]),
-  // empty line
-  $.seq([_, ";", _]),
+const lines = $.seq([
+  $.repeat_seq([
+    $.or([
+      $.seq([semicolonlessStatement, _]),
+      // $.seq([$.opt(anyStatement), _, $.r`[;\\n]+`, _]),
+      $.seq([
+        // enter or semicolon end statements
+        $.opt(anyStatement),
+        $.r`[ ]*`,
+        $.or(["\n", $.r`[;\\n]+`]),
+        _,
+      ]),
+    ]),
+  ]),
+  $.opt(anyStatement),
+  $.opt(";"),
 ]);
+// const statementLine = $.or([
+//   // $.seq([
+//   //   _,
+//   //   $.or([
+//   //     "\\/\\/[^\\n]*",
+//   //     // semicolon less allowed statements
+//   //     blockStatement,
+//   //     ifStatement,
+//   //     whileStatement,
+//   //     blockStatement,
+//   //     forItemStatement,
+//   //     interfaceStatement,
+//   //     functionExpression,
+//   //     classExpression,
+//   //   ]),
+//   //   _,
+//   //   "(\\;?\\n?|\\n)",
+//   // ]),
+//   // semicolon
+//   // $.seq([_, anyStatement, _, "(\\;\\n?|\\n)"]),
+//   $.seq([_, anyStatement, _, $.r`[;\n]`, _]),
+//   // empty line
+//   $.seq([_, ";", _]),
+// ]);
 
-export const block = $.def(() =>
-  $.seq(["{", _, $.repeat(statementLine), _, "}"])
-);
+export const block = $.def(() => $.seq(["{", _, lines, _, "}"]));
 
-export const program = $.def(() => $.seq([$.repeat(statementLine), $.eof()]));
+export const program = $.def(() => $.seq([_, lines, _, $.eof()]));
 
 import { test, run, is } from "@mizchi/test";
 import { expectError, expectSame, formatError } from "./_testHelpers";
@@ -1659,14 +1675,11 @@ if (process.env.NODE_ENV === "test") {
   //     is(parse(code2), { error: false });
   //   });
 
-  //   test("long program", () => {
-  //     const parse = compile(program, { end: true });
-  //     const code = `a;
-  // class {};
-  // a;
-  // `;
-  //     is(parse(code), { error: false });
-  //   });
+  test("long program", () => {
+    const parse = compile(program, { end: true });
+    expectSame(parse, [`class {};\na;b`]);
+    // is(parse`class {};a;b`), { error: false });
+  });
 
   run({ stopOnFail: true, stub: true, isMain });
 }
