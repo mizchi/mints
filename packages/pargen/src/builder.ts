@@ -2,9 +2,6 @@ import {
   Rule,
   Compiler,
   InputNodeExpr,
-  ParseContext,
-  RuleBase,
-  ErrorType,
   Token,
   nodeBaseDefault,
   NodeKind,
@@ -17,13 +14,9 @@ import {
   Repeat,
   Atom,
   Builder,
-  RuleDefinition,
   defaultReshape,
   Parser,
-  NewRule,
 } from "./types";
-import { createParseError, createParseSuccess } from "./index";
-// import { pairRule } from "./rules";
 
 export function createRef(refId: string | number, reshape?: Reshape): Ref {
   return {
@@ -33,43 +26,6 @@ export function createRef(refId: string | number, reshape?: Reshape): Ref {
     ref: refId.toString(),
     reshape,
   } as Ref;
-}
-
-// inline define
-
-function defineRule<X extends {}>(compiler: Compiler, rule: RuleDefinition<X>) {
-  const newRuleDef = <T extends RuleBase>(node: T, opts: Compiler) => {
-    const parse = rule.compile(node as any, opts);
-    return (ctx: ParseContext) => {
-      const ret = parse(ctx);
-      if (ret == null) {
-        return createParseError(rule.kind, ErrorType.Atom_ParseError, ctx.pos);
-      }
-      if (typeof ret === "number") {
-        return createParseSuccess(
-          ctx.raw.slice(ctx.pos, ctx.pos + ret),
-          ctx.pos,
-          ret
-        );
-      }
-      const [out, len] = ret;
-      return createParseSuccess(out, ctx.pos, len);
-    };
-  };
-  compiler.rules[rule.kind] = newRuleDef as any;
-
-  /* return ast builder */
-  const astBuilder: RuleDefinition<X>["builder"] = (args) => {
-    const shaped = rule.builder ? rule.builder(args) : args;
-    return {
-      ...nodeBaseDefault,
-      primitive: false,
-      id: rule.kind + ":" + Math.random().toString(36).substr(2, 9),
-      kind: rule.kind,
-      ...shaped,
-    } as NewRule<X>;
-  };
-  return astBuilder;
 }
 
 export function createBuilder(compiler: Compiler) {
@@ -84,8 +40,6 @@ export function createBuilder(compiler: Compiler) {
     }
     return typeof input === "string" ? token(input) : input;
   };
-
-  // const createPair = defineRule(compiler, pairRule);
 
   const registeredPatterns: Array<[number, () => InputNodeExpr]> = [];
   const _hydratePatterns = () => {
@@ -168,7 +122,6 @@ export function createBuilder(compiler: Compiler) {
     }
     return {
       ...nodeBaseDefault,
-      primitive: true,
       reshape,
       id: "seq:" + genId(),
       kind: NodeKind.SEQ,
@@ -180,7 +133,6 @@ export function createBuilder(compiler: Compiler) {
     const childNode = toNode(child);
     return {
       ...nodeBaseDefault,
-      primitive: true,
       kind: NodeKind.NOT,
       child: childNode,
       reshape,
@@ -197,7 +149,6 @@ export function createBuilder(compiler: Compiler) {
     }
     return {
       ...nodeBaseDefault,
-      primitive: true,
       kind: NodeKind.OR,
       patterns: patterns.map(toNode) as Array<Seq | Token | Ref>,
       reshape,
@@ -213,8 +164,6 @@ export function createBuilder(compiler: Compiler) {
     const [min = 0, max = undefined] = minmax ?? [];
     return {
       ...nodeBaseDefault,
-      primitive: true,
-
       id: "repeat:" + genId(),
       kind: NodeKind.REPEAT,
       pattern: toNode(pattern),
@@ -229,7 +178,6 @@ export function createBuilder(compiler: Compiler) {
     if (exprCache[expr]) return exprCache[expr];
     return (exprCache[expr] = {
       ...nodeBaseDefault,
-      primitive: true,
       id: `expr:${expr}`,
       kind: NodeKind.TOKEN,
       expr,
@@ -240,7 +188,6 @@ export function createBuilder(compiler: Compiler) {
   function eof(): Eof {
     return {
       ...nodeBaseDefault,
-      primitive: true,
       id: "EOF",
       kind: NodeKind.EOF,
       reshape: undefined,
@@ -250,14 +197,13 @@ export function createBuilder(compiler: Compiler) {
   function atom(parser: Parser): Atom {
     return {
       ...nodeBaseDefault,
-      primitive: true,
       id: "atom:" + genId(),
       kind: NodeKind.ATOM,
       parse: parser,
     };
   }
 
-  function param<T extends Rule<{}>>(key: string, node: InputNodeExpr): T {
+  function param<T extends Rule>(key: string, node: InputNodeExpr): T {
     return { ...toNode(node), key } as T;
   }
 

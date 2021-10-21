@@ -681,7 +681,7 @@ export const anyExpression = $.def(() =>
 );
 
 const _typeAnnotation = $.seq([":", _, typeExpression]);
-const emptyStatement = $.def(() => $.seq(["(\\s|\\n|;)*"]));
+const emptyStatement = $.def(() => $.seq(["(\\s)*"]));
 const breakStatement = $.def(() => "break");
 const debuggerStatement = $.def(() => "debugger");
 
@@ -1028,7 +1028,8 @@ const statementLine = $.or([
   // ]),
   // semicolon
   // $.seq([_, anyStatement, _, "(\\;\\n?|\\n)"]),
-  $.seq([_, anyStatement, _, "[;\\n]+"]),
+  $.seq([_, anyStatement, _, "[;\n]", _]),
+  // empty line
   $.seq([_, ";", _]),
 ]);
 
@@ -1036,23 +1037,21 @@ export const block = $.def(() =>
   $.seq(["{", _, $.repeat(statementLine), _, "}"])
 );
 
-export const program = $.def(() =>
-  $.seq([$.repeat(statementLine), _, $.eof()])
-);
+export const program = $.def(() => $.seq([$.repeat(statementLine), $.eof()]));
 
 import { test, run, is } from "@mizchi/test";
 import { expectError, expectSame, formatError } from "./_testHelpers";
 
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
-  test("empty", () => {
-    const parseEmpty = compile(emptyStatement);
-    is(parseEmpty("").result, "");
-    is(parseEmpty(";").result, ";");
-    is(parseEmpty(";;;").result, ";;;");
-    is(parseEmpty("\n").result, "\n");
-    is(parseEmpty("\n\n").result, "\n");
-  });
+  // test("empty", () => {
+  //   const parseEmpty = compile(emptyStatement);
+  //   is(parseEmpty("").result, "");
+  //   is(parseEmpty(";").result, ";");
+  //   is(parseEmpty(";;;").result, ";;;");
+  //   is(parseEmpty("\n").result, "\n");
+  //   is(parseEmpty("\n\n").result, "\n");
+  // });
   test("debugger", () => {
     const parse = compile(debuggerStatement);
     is(parse("debugger").result, "debugger");
@@ -1672,14 +1671,14 @@ if (process.env.NODE_ENV === "test") {
   //     is(parse(code2), { error: false });
   //   });
 
-  //   test("long program", () => {
-  //     const parse = compile(program, { end: true });
-  //     const code = `a;
-  // class {};
-  // a;
-  // `;
-  //     is(parse(code), { error: false });
-  //   });
+  test("long program", () => {
+    const parse = compile(program, { end: true });
+    const code = `a;
+class {};
+a;
+`;
+    is(parse(code), { error: false });
+  });
 
   run({ stopOnFail: true, stub: true, isMain });
 }

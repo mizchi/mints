@@ -44,12 +44,6 @@ export type RootCompiler = (
 
 export type RootParser = (input: string, ctx?: ParseContext) => ParseResult;
 
-export type RuleDefinition<T, Args extends Array<any> = [T]> = {
-  kind: any;
-  compile: Parser<T>;
-  builder?: (...args: Args) => T;
-};
-
 export type InputNodeExpr = Rule | string | number;
 
 export type Builder = {
@@ -120,14 +114,11 @@ export type PackratCache = {
 // internal
 export type CacheMap = { [key: `${number}@${string}`]: ParseSuccess };
 
-// parser api
-
 export type ParseContext = {
   raw: string;
   chars: string[];
   cache: PackratCache;
   pos: number;
-  // tokenMap: TokenMap<string>;
 };
 
 export type Parser<T = any> = (
@@ -199,31 +190,13 @@ export type RuleBase = {
   kind: NodeKind;
   key?: string | void;
   optional?: boolean;
-  /* Skip self as sequence result */
   skip?: boolean;
-  /* Reshape result */
   reshape?: Reshape;
 };
 
-export type NewRule<T extends object = {}> = T &
-  RuleBase & {
-    primitive: false;
-  };
+export type Rule = Seq | Token | Or | Repeat | Ref | Eof | Not | Atom;
 
-export type Rule<T extends object = {}> =
-  | Seq
-  | Token
-  | Or
-  | Repeat
-  | Ref
-  | Eof
-  | Not
-  | Atom
-  | NewRule<T>;
-
-export type PrimitiveRule = RuleBase & {
-  primitive: true;
-};
+export type PrimitiveRule = RuleBase;
 
 export type Atom = PrimitiveRule & {
   kind: NodeKind.ATOM;
@@ -236,7 +209,7 @@ export type Eof = PrimitiveRule & {
 
 export type Not = PrimitiveRule & {
   kind: NodeKind.NOT;
-  child: Rule<any>;
+  child: Rule;
 };
 
 export type Seq = PrimitiveRule & {

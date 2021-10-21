@@ -47,19 +47,6 @@ const findPatternAt = (
   return match?.[0] ?? null;
 };
 
-// it works but is not very efficient
-const _findPatternAt_slow = (
-  input: string,
-  regex: string,
-  pos: number
-): string | null => {
-  const re = new RegExp(`(?<=.{${pos},${pos}})${regex}`, "ms");
-  const match = re.exec(input);
-  const notMatch = match == null || match.index !== pos;
-  if (notMatch) return null;
-  return match[0];
-};
-
 const startStringAt = (input: string, str: string, pos: number): boolean => {
   const match = input.startsWith(str, pos);
   if (match && input.length > 0) {

@@ -212,15 +212,6 @@ export const createParseError = <ET extends ErrorType>(
 export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
   // console.log("rule", rule);
   const reshape = rule.reshape ?? defaultReshape;
-  if (!rule.primitive && compiler.rules[rule.kind]) {
-    // @ts-ignore
-    const parse = compiler.rules[rule.kind](rule, compiler);
-    return ((ctx) => {
-      return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
-        return parse(ctx);
-      });
-    }) as InternalPerser;
-  }
   switch (rule.kind) {
     case NodeKind.NOT: {
       const childParser = compileParser((rule as Not).child, compiler);
@@ -252,7 +243,7 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
     }
     case NodeKind.ATOM: {
       // const node = node as Atom;
-      const parse = (rule as Atom).parse({} as any, compiler);
+      const parse = rule.parse({} as any, compiler);
       return (ctx) => {
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
           const ret = parse(ctx);
@@ -288,7 +279,7 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
 
     case NodeKind.TOKEN: {
       return (ctx) => {
-        let expr = (rule as Token).expr;
+        let expr = rule.expr;
         const matcher = createMatcher(expr);
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
           const matched: string | null = matcher(ctx.raw, ctx.pos);
@@ -313,7 +304,7 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
       };
     }
     case NodeKind.OR: {
-      const compiledPatterns = (rule as Or).patterns.map((p) => {
+      const compiledPatterns = rule.patterns.map((p) => {
         return {
           parse: compileParser(p, compiler),
           node: p,
@@ -951,19 +942,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
     is(parser("((1)").error, true);
   });
-
-  // test("pair", () => {
-  //   const { compile, builder: $ } = createContext({
-  //     // pairs: ["<", ">"],
-  //   });
-  //   const parser = compile($.pair({ open: "<", close: ">" }));
-  //   is(parser("<>").result, "<>");
-  //   is(parser("<<>>").result, "<<>>");
-  //   is(parser("<<>").error, true);
-  //   is(parser("<<a>").error, true);
-  //   is(parser(">").error, true);
-  //   is(parser("").error, true);
-  // });
 
   test("atom", () => {
     const { compile, builder: $ } = createContext();
