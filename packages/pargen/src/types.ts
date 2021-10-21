@@ -92,7 +92,7 @@ export type RootCompiler = (
   opts?: { end: boolean }
 ) => RootParser;
 
-export type RootParser = (input: string, ctx?: ParseContext) => ParseResult;
+export type RootParser = (input: string, pos?: number) => ParseResult;
 
 export type InputNodeExpr = Rule | string | number;
 
@@ -153,7 +153,7 @@ export type Compiler = {
   compile: RootCompiler;
 };
 
-export type DefsMap = Record<string | symbol, InternalParser | void>;
+export type DefsMap = Record<string | number, InternalParser>;
 
 export type RulesMap<T> = Record<
   any,

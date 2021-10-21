@@ -1,3 +1,4 @@
+import { compileParser } from ".";
 import {
   Rule,
   Compiler,
@@ -15,7 +16,6 @@ import {
   Atom,
   Builder,
   defaultReshape,
-  Parser,
   Regex,
   InternalParser,
 } from "./types";
@@ -47,11 +47,8 @@ export function createBuilder(compiler: Compiler) {
   const _hydratePatterns = () => {
     registeredPatterns.forEach(([id, nodeCreator]) => {
       const node = nodeCreator();
-      compiler.defs[id as any] = () => {
-        throw new Error("Override me");
-      };
-      const parser = compiler.compile(toNode(node));
-      compiler.defs[id as any] = parser as any;
+      const parser = compileParser(toNode(node), compiler);
+      compiler.defs[id] = parser;
     });
     registeredPatterns.length = 0;
   };

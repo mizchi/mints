@@ -80,17 +80,12 @@ export function createCompiler<ID extends number>(
     const parse = compileParser(resolved, compiler);
     const parser: RootParser = (input: string) => {
       const cache = createPackratCache();
-      // const tokenMap = buildTokenMap(input, compiler.pairs);
-      if (typeof input === "string") {
-        return parse({
-          raw: input,
-          chars: Array.from(input),
-          cache: cache,
-          pos: 0,
-        });
-      } else {
-        return parse(input);
-      }
+      return parse({
+        raw: input,
+        chars: Array.from(input),
+        cache,
+        pos: 0,
+      });
     };
     return parser;
   };
