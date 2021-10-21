@@ -21,7 +21,7 @@ import {
   defaultReshape,
   Range,
 } from "./types";
-import { createMatcher } from "./utils";
+import { createMatcher, createRegexMatcher } from "./utils";
 
 // impl
 function createPackratCache(): PackratCache {
@@ -163,22 +163,6 @@ export function createContext<ID extends number = number>(
     builder.close();
     const rootParser = ctx.compile(...args);
     return rootParser;
-    // const newRootParser: RootParser = (input, ctx) => {
-    //   if (partialOpts.preprocess && partialOpts.postprocess) {
-    //     const { out, data } = partialOpts.preprocess(input);
-    //     // const ret = rootParser(out, ctx);
-    //     // if (!ret.error) {
-    //     //   const post = partialOpts.postprocess(ret.result, data);
-    //     //   return {
-    //     //     ...ret,
-    //     //     result: post,
-    //     //   };
-    //     // }
-    //     return ret;
-    //   }
-    //   return rootParser(input, ctx);
-    // };
-    // return newRootParser;
   };
   return { builder, compile };
 }
@@ -214,7 +198,6 @@ export const createParseError = <ET extends ErrorType>(
 };
 
 export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
-  // console.log("rule", rule);
   const reshape = rule.reshape ?? defaultReshape;
   switch (rule.kind) {
     case NodeKind.NOT: {
@@ -276,6 +259,33 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
           return createParseSuccess("", ctx.pos, 0);
         }
         return createParseError(rule.kind, ErrorType.Eof_Unmatch, ctx.pos);
+      };
+    }
+
+    case NodeKind.REGEX: {
+      let expr = rule.expr;
+      const matcher = createRegexMatcher(expr);
+      return (ctx) => {
+        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
+          const matched: string | null = matcher(ctx.raw, ctx.pos);
+          if (matched == null) {
+            if (rule.optional) {
+              return createParseSuccess(null, ctx.pos, 0);
+            } else {
+              return createParseError(
+                rule.kind,
+                ErrorType.Token_Unmatch,
+                ctx.pos,
+                expr
+              );
+            }
+          }
+          return createParseSuccess(
+            reshape(matched),
+            ctx.pos,
+            Array.from(matched).length
+          );
+        });
       };
     }
 

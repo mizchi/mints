@@ -13,13 +13,13 @@ export enum NodeKind {
   ATOM,
   REPEAT,
   TOKEN,
+  REGEX,
   STRING,
   OR,
   REF,
   EOF,
   PAIR,
   NOT,
-  RECURSION,
 }
 
 export enum ErrorType {
@@ -34,6 +34,56 @@ export enum ErrorType {
 }
 
 export const defaultReshape: Reshape<any, any> = <T>(i: T): T => i;
+
+// basic parser rule
+
+export type Atom = RuleBase & {
+  kind: NodeKind.ATOM;
+  parse: Parser;
+};
+
+export type Eof = RuleBase & {
+  kind: NodeKind.EOF;
+};
+
+export type Not = RuleBase & {
+  kind: NodeKind.NOT;
+  child: Rule;
+};
+
+export type Seq = RuleBase & {
+  kind: NodeKind.SEQ;
+  children: Rule[];
+};
+
+export type Ref = RuleBase & {
+  kind: NodeKind.REF;
+  ref: string;
+};
+
+export type Repeat = RuleBase & {
+  kind: NodeKind.REPEAT;
+  pattern: Rule;
+  min: number;
+  max?: number | void;
+};
+
+export type Or = RuleBase & {
+  kind: NodeKind.OR;
+  patterns: Array<Seq | Token | Ref>;
+};
+
+export type Token = RuleBase & {
+  kind: NodeKind.TOKEN;
+  expr: string;
+};
+
+export type Regex = RuleBase & {
+  kind: NodeKind.REGEX;
+  expr: string;
+};
+
+export type Rule = Seq | Token | Or | Repeat | Ref | Eof | Not | Atom | Regex;
 
 // ==== public interface
 
@@ -51,6 +101,11 @@ export type Builder = {
   // def(refId: ID | symbol, node: InputNodeExpr, reshape?: Reshape): ID;
   def(node: () => InputNodeExpr, reshape?: Reshape): number;
   ref(refId: number, reshape?: Reshape): Ref;
+
+  regex(expr: string, reshape?: Reshape): Regex;
+  // regex shorthand
+  r(...args: string[]): Regex;
+
   tok(expr: string, reshape?: Reshape): Token;
   repeat(
     pattern: InputNodeExpr,
@@ -197,49 +252,4 @@ export type RuleBase = {
   optional?: boolean;
   skip?: boolean;
   reshape?: Reshape;
-};
-
-export type Rule = Seq | Token | Or | Repeat | Ref | Eof | Not | Atom;
-
-export type PrimitiveRule = RuleBase;
-
-export type Atom = PrimitiveRule & {
-  kind: NodeKind.ATOM;
-  parse: Parser;
-};
-
-export type Eof = PrimitiveRule & {
-  kind: NodeKind.EOF;
-};
-
-export type Not = PrimitiveRule & {
-  kind: NodeKind.NOT;
-  child: Rule;
-};
-
-export type Seq = PrimitiveRule & {
-  kind: NodeKind.SEQ;
-  children: Rule[];
-};
-
-export type Ref = PrimitiveRule & {
-  kind: NodeKind.REF;
-  ref: string;
-};
-
-export type Repeat = PrimitiveRule & {
-  kind: NodeKind.REPEAT;
-  pattern: Rule;
-  min: number;
-  max?: number | void;
-};
-
-export type Or = PrimitiveRule & {
-  kind: NodeKind.OR;
-  patterns: Array<Seq | Token | Ref>;
-};
-
-export type Token = PrimitiveRule & {
-  kind: NodeKind.TOKEN;
-  expr: string;
 };

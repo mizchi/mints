@@ -10,10 +10,14 @@ export function isRegExp(str: string) {
   return REGEX_CHAR.test(str);
 }
 
+export function createRegexMatcher(expr: string): StringMatcher {
+  const regex = new RegExp(`^(${expr})`, "ms");
+  return (input: string, pos: number) => findPatternAt(input, regex, pos);
+}
+
 export function createMatcher(expr: string): StringMatcher {
   if (isRegExp(expr)) {
-    const regex = new RegExp(`^(${expr})`, "ms");
-    return (input: string, pos: number) => findPatternAt(input, regex, pos);
+    return createRegexMatcher(expr);
   } else {
     const escapedExpr = expr
       .replace(/\\n/g, "\n")

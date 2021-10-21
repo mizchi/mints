@@ -16,6 +16,7 @@ import {
   Builder,
   defaultReshape,
   Parser,
+  Regex,
 } from "./types";
 
 export function createRef(refId: string | number, reshape?: Reshape): Ref {
@@ -185,6 +186,22 @@ export function createBuilder(compiler: Compiler) {
     });
   }
 
+  const regexCache: { [key: string]: Regex } = {};
+  function regex(expr: string, reshape?: Reshape<any, any>): Regex {
+    if (regexCache[expr]) return regexCache[expr];
+    return (regexCache[expr] = {
+      ...nodeBaseDefault,
+      id: `expr:${expr}`,
+      kind: NodeKind.REGEX,
+      expr,
+      reshape,
+    });
+  }
+  // regex sharthand
+  function r(...expr: string[]): Regex {
+    return regex(expr.join(""));
+  }
+
   function eof(): Eof {
     return {
       ...nodeBaseDefault,
@@ -220,6 +237,8 @@ export function createBuilder(compiler: Compiler) {
     not,
     param,
     eof,
+    regex,
+    r: r,
     repeat_seq(input, minmax, reshape) {
       return repeat(seq(input), minmax, reshape);
     },
