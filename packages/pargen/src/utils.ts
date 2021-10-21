@@ -37,16 +37,12 @@ const findPatternAt = (
   const sliced = input.slice(pos);
   const match = sliced.match(regex);
   if (match && match[0].length > 0) {
-    console.log(
-      "[eat:reg]",
-      `"${match[0]}"`,
-      "\t",
-      `/${
-        regex.toString().length > 10
-          ? regex.toString().slice(0, 10) + "..."
-          : regex
-      }/`
-    );
+    const regexSummary =
+      regex.toString().length > 10
+        ? regex.toString().slice(0, 10) + "..."
+        : regex;
+
+    console.log(`[eat:reg${regexSummary}]`, `"${match[0]}"`);
   }
   return match?.[0] ?? null;
 };
@@ -66,10 +62,10 @@ const _findPatternAt_slow = (
 
 const startStringAt = (input: string, str: string, pos: number): boolean => {
   const match = input.startsWith(str, pos);
-  if (match) {
-    console.log("[eat:str]", str.slice(0, 10));
+  if (match && input.length > 0) {
+    console.log("[eat:str]", `"${str.slice(0, 10)}"`);
   } else {
-    console.log("[eat:str_fail]", str);
+    // console.log("[eat:str_fail]", str);
   }
   return match;
 };

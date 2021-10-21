@@ -18,31 +18,31 @@ const typeDeclareParameter = $.def(() =>
     // extends T
     $.opt($.seq([_, "extends", __, typeExpression])),
     _,
-    $.opt($.seq(["\\=", _, typeExpression])),
+    $.opt($.seq(["=", _, typeExpression])),
   ])
 );
 
 // declare parameters
 const typeDeclareParameters = $.def(() =>
   $.seq([
-    "\\<",
+    "<",
     _,
     $.repeat_seq([typeDeclareParameter, _, ",", _]),
     $.seq([typeDeclareParameter, _, ",?"]),
     _,
-    "\\>",
+    ">",
   ])
 );
 
 // apply parameters
 const typeParameters = $.def(() =>
   $.seq([
-    "\\<",
+    "<",
     _,
     $.repeat_seq([typeExpression, _, ",", _]),
     $.seq([typeExpression, _, ",?"]),
     _,
-    "\\>",
+    ">",
   ])
 );
 
@@ -229,7 +229,7 @@ const typeUnaryExpression = $.def(() =>
 
 const typeBinaryExpression = $.def(() =>
   $.seq([
-    $.repeat_seq([typeUnaryExpression, _, $.or(["\\|", "\\&"]), _]),
+    $.repeat_seq([typeUnaryExpression, _, $.or(["\\|", "&"]), _]),
     typeUnaryExpression,
   ])
 );
@@ -389,7 +389,7 @@ const objectItem = $.def(() =>
   $.or([
     $.seq([
       // function
-      "((async|get|set)\\s+)?",
+      "((async|get|set) )?",
       $.or([
         stringLiteral,
         $.seq(["\\[", _, anyExpression, _, "\\]"]),
@@ -437,10 +437,10 @@ const anyLiteral = $.def(() =>
 );
 
 /* Class */
-const accessModifier = "(private|public|protected)\\s+";
-const staticModifier = "static\\s+";
-const asyncModifier = "async\\s+";
-const getOrSetModifier = "(get|set)\\s+";
+const accessModifier = "(private|public|protected) ";
+const staticModifier = "static\\ ";
+const asyncModifier = "async\\ ";
+const getOrSetModifier = "(get|set) ";
 const classField = $.def(() =>
   $.or([
     $.seq([
@@ -517,7 +517,8 @@ export const functionExpression = $.def(() =>
     $.opt(asyncModifier),
     "function",
     _,
-    "(\\*)?\\s+", // generator
+    "(\\*)?", // generator
+    _,
     $.opt(identifier),
     _,
     $.skip_opt(typeDeclareParameters),
@@ -680,7 +681,7 @@ export const anyExpression = $.def(() =>
 );
 
 const _typeAnnotation = $.seq([":", _, typeExpression]);
-const emptyStatement = $.def(() => $.seq(["(\\s|\\n|@N|;)*"]));
+const emptyStatement = $.def(() => $.seq(["(\\s|\\n|;)*"]));
 const breakStatement = $.def(() => "break");
 const debuggerStatement = $.def(() => "debugger");
 
@@ -870,7 +871,7 @@ const typeStatement = $.def(() =>
   $.seq([
     $.skip(
       $.seq([
-        $.opt($.seq(["export\\s+"])),
+        $.opt($.seq(["export "])),
         "type",
         __,
         identifier,
@@ -887,7 +888,7 @@ const interfaceStatement = $.def(() =>
     // skip all
     $.skip(
       $.seq([
-        $.opt($.seq(["export\\s+"])),
+        $.opt($.seq(["export "])),
         "interface",
         __,
         identifier,
@@ -1008,25 +1009,26 @@ export const anyStatement = $.def(() =>
 );
 
 const statementLine = $.or([
-  $.seq([
-    _,
-    $.or([
-      "\\/\\/[^\\n]*",
-      // semicolon less allowed statements
-      blockStatement,
-      ifStatement,
-      whileStatement,
-      blockStatement,
-      forItemStatement,
-      interfaceStatement,
-      functionExpression,
-      classExpression,
-    ]),
-    _,
-    "(\\;?\\n?|\\n)",
-  ]),
+  // $.seq([
+  //   _,
+  //   $.or([
+  //     "\\/\\/[^\\n]*",
+  //     // semicolon less allowed statements
+  //     blockStatement,
+  //     ifStatement,
+  //     whileStatement,
+  //     blockStatement,
+  //     forItemStatement,
+  //     interfaceStatement,
+  //     functionExpression,
+  //     classExpression,
+  //   ]),
+  //   _,
+  //   "(\\;?\\n?|\\n)",
+  // ]),
   // semicolon
-  $.seq([_, anyStatement, _, "(\\;\\n?|\\n)"]),
+  // $.seq([_, anyStatement, _, "(\\;\\n?|\\n)"]),
+  $.seq([_, anyStatement, _, "[;\\n]+"]),
   $.seq([_, ";", _]),
 ]);
 
@@ -1076,31 +1078,31 @@ if (process.env.NODE_ENV === "test") {
     is(parse("let x:number = 1,y:number=2"), { result: "let x= 1,y=2" });
   });
 
-  test("for", () => {
-    const parse = compile(forStatement, { end: true });
-    expectSame(parse, [
-      "for(x=0;x<1;x++) x",
-      "for(x=0;x<1;x++) {}",
-      "for(;;) x",
-      "for(let x = 1;x<6;x++) x",
-      "for(let x = 1;x<6;x++) {}",
-      "for(;;) {}",
-      "for(;x;x) {}",
-    ]);
-    expectError(parse, ["for(;;)"]);
-  });
+  // test("for", () => {
+  //   const parse = compile(forStatement, { end: true });
+  //   expectSame(parse, [
+  //     "for(x=0;x<1;x++) x",
+  //     "for(x=0;x<1;x++) {}",
+  //     "for(;;) x",
+  //     "for(let x = 1;x<6;x++) x",
+  //     "for(let x = 1;x<6;x++) {}",
+  //     "for(;;) {}",
+  //     "for(;x;x) {}",
+  //   ]);
+  //   expectError(parse, ["for(;;)"]);
+  // });
 
-  test("for-item", () => {
-    const parse = compile(forItemStatement, { end: true });
-    expectSame(parse, [
-      "for(const i of array) x",
-      "for(const k in array) x",
-      "for(let {} in array) x",
-      "for(let {} in []) x",
-      "for(let [] in xs) {}",
-    ]);
-    expectError(parse, ["for(const i of t)"]);
-  });
+  // test("for-item", () => {
+  //   const parse = compile(forItemStatement, { end: true });
+  //   expectSame(parse, [
+  //     "for(const i of array) x",
+  //     "for(const k in array) x",
+  //     "for(let {} in array) x",
+  //     "for(let {} in []) x",
+  //     "for(let [] in xs) {}",
+  //   ]);
+  //   expectError(parse, ["for(const i of t)"]);
+  // });
   test("while", () => {
     const parse = compile($.seq([whileStatement, $.eof()]));
     expectSame(parse, ["while(1) 1", "while(1) { break; }"]);
@@ -1198,26 +1200,6 @@ if (process.env.NODE_ENV === "test") {
   test("anyStatement", () => {
     const parse = compile(anyStatement);
     expectSame(parse, ["debugger", "{ a=1; }", "foo: {}", "foo: 1"]);
-  });
-
-  test("program", () => {
-    const parse = compile(program, { end: true });
-    expectSame(parse, [
-      "debugger;",
-      "debugger; debugger;   debugger   ;",
-      ";;;",
-      "",
-      "import a from 'b';",
-    ]);
-    is(parse("declare const x: number;"), { result: ";" });
-    is(parse("declare const x: number = 1;"), { result: ";" });
-    is(parse("type x = number;"), { result: ";" });
-    is(parse("type x = {};"), { result: ";" });
-    is(parse("export type x = number;"), { result: ";" });
-    is(parse("interface I {};"), { result: ";" });
-    is(parse("interface I extends T {};"), { result: ";" });
-    is(parse("interface I extends T { a: number; };"), { result: ";" });
-    is(parse("export interface I {};"), { result: ";" });
   });
 
   test("program:with as", () => {
@@ -1628,6 +1610,76 @@ if (process.env.NODE_ENV === "test") {
       "infer U",
     ]);
   });
+
+  test("program", () => {
+    const parse = compile(program, { end: true });
+    expectSame(parse, [
+      "debugger;",
+      "debugger; debugger;   debugger   ;",
+      ";;;",
+      "",
+      "import a from 'b';",
+    ]);
+    is(parse("declare const x: number;"), { result: ";" });
+    is(parse("declare const x: number = 1;"), { result: ";" });
+    is(parse("type x = number;"), { result: ";" });
+    is(parse("type x = {};"), { result: ";" });
+    is(parse("export type x = number;"), { result: ";" });
+    is(parse("interface I {};"), { result: ";" });
+    is(parse("interface I extends T {};"), { result: ";" });
+    is(parse("interface I extends T { a: number; };"), { result: ";" });
+    is(parse("export interface I {};"), { result: ";" });
+
+    // const code = `let a: number, b: number, c: Array<string>;
+    // const x:  number = 1;
+
+    // function square(x: number): number {
+    //   return x ** 2;
+    // }
+
+    // // type IPoint = {
+    // //   x: number;
+    // //   y: number;
+    // // };
+    // // interface X {}
+
+    // class Point<T extends IPoint = any> implements IPoint {
+    //   public x: number;
+    //   private y: number;
+    //   constructor() {
+    //     this.x = 1;
+    //     this.y = 2;
+    //   }
+    //   public static async foo(arg: number): number {
+    //     return arg;
+    //   }
+    // }
+
+    // // func<T>();
+    // `;
+    // is(parse(code), { error: false });
+  });
+
+  //   test("long program", () => {
+  //     const parse = compile(program, { end: true });
+  //     const code2 = `
+  // let a: number, b: number[], c: Array<string>;
+  // const x:  number = 1;
+  // function square(x: number): number {
+  //   return x ** 2;
+  // }
+  // interface X {}`;
+  //     is(parse(code2), { error: false });
+  //   });
+
+  //   test("long program", () => {
+  //     const parse = compile(program, { end: true });
+  //     const code = `a;
+  // class {};
+  // a;
+  // `;
+  //     is(parse(code), { error: false });
+  //   });
 
   run({ stopOnFail: true, stub: true, isMain });
 }
