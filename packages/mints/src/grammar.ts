@@ -679,7 +679,7 @@ export const anyExpression = $.def(() =>
 );
 
 const _typeAnnotation = $.seq([":", _, typeExpression]);
-const emptyStatement = $.def(() => $.seq([$.r`(\\s)*`]));
+// const emptyStatement = $.def(() => $.seq([$.r`(\\s)*`]));
 const breakStatement = $.def(() => "break");
 const debuggerStatement = $.def(() => "debugger");
 
@@ -1010,13 +1010,23 @@ const anyStatement = $.def(() =>
 const lines = $.seq([
   $.repeat_seq([
     $.or([
-      $.seq([semicolonlessStatement, _]),
+      $.seq([
+        // class{}(;\n)
+        semicolonlessStatement,
+        _,
+        // $.repeat($.r`[;\\n ]`),
+        // $.r`[^\n]*`,
+        // _,
+        // $.opt($.r`[;\\n ]*`),
+        $.r`[;\\n ]*`,
+        // $.r`[;\\n ]*`,
+      ]),
       // $.seq([$.opt(anyStatement), _, $.r`[;\\n]+`, _]),
       $.seq([
         // enter or semicolon end statements
         $.opt(anyStatement),
         $.r`[ ]*`,
-        $.or(["\n", $.r`[;\\n]+`]),
+        $.r`[;\\n\\r]+`,
         _,
       ]),
     ]),
@@ -1058,14 +1068,6 @@ import { expectError, expectSame, formatError } from "./_testHelpers";
 
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
-  test("empty", () => {
-    const parseEmpty = compile(emptyStatement);
-    is(parseEmpty("").result, "");
-    // is(parseEmpty(";").result, ";");
-    // is(parseEmpty(";;;").result, ";;;");
-    is(parseEmpty("\n").result, "\n");
-    is(parseEmpty("\n\n").result, "\n");
-  });
   test("identifier", () => {
     const parse = compile(identifier);
     expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1", "aAa"]);
@@ -1677,7 +1679,33 @@ if (process.env.NODE_ENV === "test") {
 
   test("long program", () => {
     const parse = compile(program, { end: true });
-    expectSame(parse, [`class {};\na;b`]);
+    expectSame(parse, [
+      // xxx,
+      `a`,
+      `a\n`,
+      `if(1){}`,
+      `if(1){}a`,
+      `1;class{}`,
+      `1;class{}class{}if(1){}`,
+      `a;b`,
+      `class {};a;b`,
+      `a\n\n`,
+      `;;;;;`,
+      `    a`,
+      ` \n \n a`,
+      ` \n \n a; \n b;`,
+      ` \n \n a; \n b`,
+      ` \n \n a; \n class{}\na`,
+      `class{}\na;class{}\n\nb`,
+      `class{};a;`,
+      `class{}a`,
+      `class{}\n`,
+      `class{}\n;`,
+      `class{};\n;`,
+      `class{}\na;`,
+      // `class{};\na;`,
+      // `class{}\n;\na`,
+    ]);
     // is(parse`class {};a;b`), { error: false });
   });
 
