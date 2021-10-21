@@ -1013,12 +1013,7 @@ const lines = $.seq([
       $.seq([
         // class{}(;\n)
         semicolonlessStatement,
-        _,
-        // $.repeat($.r`[;\\n ]`),
-        // $.r`[^\n]*`,
-        // _,
-        // $.opt($.r`[;\\n ]*`),
-        $.r`[;\\n ]*`,
+        $.or([$.seq([_, ";", _]), _]),
         // $.r`[;\\n ]*`,
       ]),
       // $.seq([$.opt(anyStatement), _, $.r`[;\\n]+`, _]),
@@ -1026,7 +1021,7 @@ const lines = $.seq([
         // enter or semicolon end statements
         $.opt(anyStatement),
         $.r`[ ]*`,
-        $.r`[;\\n\\r]+`,
+        $.r`[\\n;]`,
         _,
       ]),
     ]),
@@ -1246,8 +1241,8 @@ if (process.env.NODE_ENV === "test") {
       "class { static async foo() {} }",
     ]);
     is(parse("abstract class{}"), { result: "class{}" });
-    is(parse("class { private x; }"), { result: "class { x; }" });
-    is(parse("class { public x; }"), { result: "class { x; }" });
+    is(parse("class { private x; }"), { result: "class { x;}" });
+    is(parse("class { public x; }"), { result: "class { x;}" });
     is(parse("class<T>{}"), { result: "class{}" });
     is(parse("class<T> implements X{}"), { result: "class{}" });
     is(parse("class<T> extends C implements X{}"), {
@@ -1703,8 +1698,8 @@ if (process.env.NODE_ENV === "test") {
       `class{}\n;`,
       `class{};\n;`,
       `class{}\na;`,
-      // `class{};\na;`,
-      // `class{}\n;\na`,
+      `class{};\na;`,
+      `class{}\n;\na`,
     ]);
     // is(parse`class {};a;b`), { error: false });
   });

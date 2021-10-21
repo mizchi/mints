@@ -41,7 +41,8 @@ export function preprocessLight(input: string) {
     .replace(/[ ]+/gmu, " ")
     // delete line comments
     .replace(/(.*)(\/\/.*)/gu, "$1")
-    .replace(/[\n\r]+/gmu, "\n");
+    .replace(/[\n\r]+/gmu, "\n")
+    .replace(/(?<!for\s?\()([\n; ]*;[\n ;]*)(?!\))/gmu, ";");
   // .replace(/^/gmu, "\n")
   return restoreEscaped(out, literals);
 }
