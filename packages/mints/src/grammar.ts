@@ -179,10 +179,10 @@ const typeObjectLiteral = $.def(() =>
     // object
     "\\{",
     _,
-    $.repeat_seq([_typeObjectItem, _, "(,|;)", _]),
+    $.repeat_seq([_typeObjectItem, _, $.r`(,|;)`, _]),
     $.opt(_typeNameableItem),
     _,
-    "(,|;)?",
+    $.r`(,|;)?`,
     _,
     "\\}",
   ])
@@ -253,7 +253,7 @@ const destructiveArrayPattern = $.def(() =>
       _,
     ]),
     _,
-    ",?",
+    $.r`,?`,
     _,
     "\\]",
   ])
@@ -323,9 +323,9 @@ const callArguments = $.def(() =>
 export const stringLiteral = $.def(() =>
   $.or([
     // double quote
-    `("[^"\\n]*")`,
+    $.r`("[^"\\n]*")`,
     // single
-    `('[^'\\n]*')`,
+    $.r`('[^'\\n]*')`,
   ])
 );
 
@@ -335,8 +335,15 @@ export const templateLiteral = $.def(() =>
   $.seq([
     "`",
     // aaa${}
-    $.repeat_seq([nonBacktickChars, "\\$\\{", _, anyExpression, _, "\\}"]),
-    nonBacktickChars,
+    $.repeat_seq([
+      $.regex(nonBacktickChars),
+      "\\$\\{",
+      _,
+      anyExpression,
+      _,
+      "\\}",
+    ]),
+    $.regex(nonBacktickChars),
     "`",
   ])
 );
@@ -348,13 +355,13 @@ const regexpLiteral = $.def(() => $.seq(["\\/[^\\/]+\\/([igmsuy]*)?"]));
 export const numberLiteral = $.def(() =>
   $.or([
     // 16
-    `(0(x|X)[0-9a-fA-F]+)`,
+    $.r`(0(x|X)[0-9a-fA-F]+)`,
     // 8
-    `(0(o|O)[0-7]+)`,
+    $.r`(0(o|O)[0-7]+)`,
     // 2
-    `(0(b|B)[0-1]+)`,
+    $.r`(0(b|B)[0-1]+)`,
     // decimal
-    `([1-9][0-9_]*\\.\\d+|[1-9][0-9_]*|\\d)(e\\-?\\d+)?`,
+    $.r`([1-9][0-9_]*\\.\\d+|[1-9][0-9_]*|\\d)(e\\-?\\d+)?`,
   ])
 );
 
@@ -540,7 +547,7 @@ const arrowFunctionExpression = $.def(() =>
     $.opt(asyncModifier),
     $.skip_opt(typeDeclareParameters),
     _,
-    "(\\*)?",
+    $.r`(\\*)?`,
     _,
     $.or([
       $.seq([
@@ -606,8 +613,8 @@ const __call = $.def(() =>
 const memberAccess = $.def(() =>
   $.or([
     // ?. | .#a | .a
-    $.seq(["(\\?)?\\.", "\\#?", identifier]),
-    $.seq(["(\\?\\.)?", "\\[", _, anyExpression, _, "\\]"]),
+    $.seq([$.r`(\\?)?\\.`, $.r`\\#?`, identifier]),
+    $.seq([$.r`(\\?\\.)?`, "\\[", _, anyExpression, _, "\\]"]),
     __call,
   ])
 );
@@ -637,7 +644,7 @@ const unary = $.def(() =>
         "delete ",
         "await ",
         "\\~",
-        "\\!",
+        "!",
       ]),
       unary,
     ]),
@@ -652,7 +659,7 @@ const unary = $.def(() =>
       ]),
       $.opt($.or(["\\+\\+", "\\-\\-"])),
       // ts bang operator
-      $.skip_opt("\\!"),
+      $.skip_opt("!"),
     ]),
   ])
 );
@@ -719,7 +726,10 @@ const _importRightSide = $.def(() =>
         ]),
         // last item
         $.opt(
-          $.seq([identifier, $.opt($.seq([__, "as", __, identifier, _, ",?"]))])
+          $.seq([
+            identifier,
+            $.opt($.seq([__, "as", __, identifier, _, $.r`,?`])),
+          ])
         ),
         _,
         "\\}",
@@ -930,11 +940,11 @@ const forItemStatement = $.def(() =>
     _,
     "\\(",
     _,
-    "(var|const|let)",
+    $.r`(var|const|let)`,
     __,
     destructivePattern,
     __,
-    "(of|in)",
+    $.r`(of|in)`,
     __,
     anyExpression,
     _,
@@ -1671,14 +1681,14 @@ if (process.env.NODE_ENV === "test") {
   //     is(parse(code2), { error: false });
   //   });
 
-  test("long program", () => {
-    const parse = compile(program, { end: true });
-    const code = `a;
-class {};
-a;
-`;
-    is(parse(code), { error: false });
-  });
+  //   test("long program", () => {
+  //     const parse = compile(program, { end: true });
+  //     const code = `a;
+  // class {};
+  // a;
+  // `;
+  //     is(parse(code), { error: false });
+  //   });
 
   run({ stopOnFail: true, stub: true, isMain });
 }

@@ -140,7 +140,7 @@ export function createBuilder(compiler: Compiler) {
   }
 
   function or(
-    patterns: Array<Seq | Token | Ref | Or | Eof | string | number>,
+    patterns: Array<Seq | Token | Ref | Or | Eof | Regex | string | number>,
     reshape?: Reshape
   ): Or | Rule {
     if (patterns.length === 1) {
@@ -196,8 +196,8 @@ export function createBuilder(compiler: Compiler) {
     });
   }
   // regex sharthand
-  function r(...expr: string[]): Regex {
-    return regex(expr.join(""));
+  function r(strings: TemplateStringsArray, name?: string): Regex {
+    return regex(strings.join(""));
   }
 
   function eof(): Eof {

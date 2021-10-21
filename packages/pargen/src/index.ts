@@ -441,6 +441,12 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("a").result, "a");
   });
 
+  test("regex sharthand", () => {
+    const { compile, builder: $ } = createContext();
+    const parser = compile($.r`\\w`, { end: true });
+    is(parser("a").result, "a");
+  });
+
   test("token2", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.tok("\\s*a"));

@@ -162,6 +162,10 @@ assert.deepStrictEqual(
 );
 ```
 
+## TODO
+
+- separate regex and string
+- head table for or rule
 
 ## LICENSE
 

@@ -70,7 +70,7 @@ export type Repeat = RuleBase & {
 
 export type Or = RuleBase & {
   kind: NodeKind.OR;
-  patterns: Array<Seq | Token | Ref>;
+  patterns: Array<Seq | Token | Ref | Regex>;
 };
 
 export type Token = RuleBase & {
@@ -103,8 +103,8 @@ export type Builder = {
   ref(refId: number, reshape?: Reshape): Ref;
 
   regex(expr: string, reshape?: Reshape): Regex;
-  // regex shorthand
-  r(...args: string[]): Regex;
+  // regex tagged template
+  r(strings: TemplateStringsArray, name?: string): Regex;
 
   tok(expr: string, reshape?: Reshape): Token;
   repeat(
@@ -118,7 +118,7 @@ export type Builder = {
     reshape?: Reshape
   ): Repeat;
   or: (
-    patterns: Array<Seq | Token | Ref | Or | Eof | string | number>,
+    patterns: Array<Seq | Token | Ref | Or | Eof | string | number | Regex>,
     reshape?: Reshape
   ) => Rule;
   seq(
