@@ -109,6 +109,11 @@ export type PackratCache = {
   export(): CacheMap;
   add(id: number | string, pos: number, result: any): void;
   get(id: number | string, pos: number): ParseResult | void;
+  getOrCreate(
+    id: number | string,
+    pos: number,
+    creator: () => ParseResult
+  ): ParseResult;
 };
 
 // internal

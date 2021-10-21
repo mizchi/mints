@@ -21,25 +21,48 @@ import {
   defaultReshape,
   Range,
 } from "./types";
-import { isRegExp, createMatcher } from "./utils";
+import { createMatcher } from "./utils";
 
 // impl
 function createPackratCache(): PackratCache {
   const cache: CacheMap = {};
   const keygen = (id: number, pos: number): `${number}@${string}` =>
     `${pos}@${id}`;
+
+  function add(id: number, pos: number, result: ParseResult) {
+    // @ts-ignore
+    cache[keygen(id, pos)] = result;
+  }
+  function get(id: number, pos: number): ParseResult | void {
+    const key = keygen(id, pos);
+    return cache[key];
+  }
+
+  const getOrCreate = (
+    id: number | string,
+    pos: number,
+    creator: () => ParseResult
+  ): ParseResult => {
+    return measurePerf("cache-" + id, () => {
+      const cached = get(id as number, pos);
+      if (cached) {
+        cacheHitCount++;
+        return cached;
+      }
+      cacheMissCount++;
+      const result = creator();
+      add(id as number, pos, result);
+      return result;
+    });
+  };
+
   return {
     export(): CacheMap {
       return cache;
     },
-    add(id: number, pos: number, result: ParseResult) {
-      // @ts-ignore
-      cache[keygen(id, pos)] = result;
-    },
-    get(id: number, pos: number): ParseResult | void {
-      const key = keygen(id, pos);
-      return cache[key];
-    },
+    add,
+    get,
+    getOrCreate,
   };
 }
 
@@ -160,25 +183,6 @@ export function createContext<ID extends number = number>(
   return { builder, compile };
 }
 
-const getOrCreateCache = (
-  cache: PackratCache,
-  id: number | string,
-  pos: number,
-  creator: () => ParseResult
-): ParseResult => {
-  return measurePerf("cache-" + id, () => {
-    const cached = cache.get(id, pos);
-    if (cached) {
-      cacheHitCount++;
-      return cached;
-    }
-    cacheMissCount++;
-    const result = creator();
-    cache.add(id, pos, result);
-    return result;
-  });
-};
-
 export const createParseSuccess = (
   result: any,
   pos: number,
@@ -216,7 +220,7 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
     case NodeKind.NOT: {
       const childParser = compileParser((rule as Not).child, compiler);
       return (ctx) => {
-        return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
+        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
           const result = childParser(ctx);
           if (result.error === true) {
             return createParseSuccess(result, ctx.pos, 0);
@@ -236,16 +240,14 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
         if (!resolved) {
           throw new Error(`symbol not found: ${(rule as Ref).ref}`);
         }
-        return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () =>
-          resolved!(ctx)
-        );
+        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => resolved!(ctx));
       };
     }
     case NodeKind.ATOM: {
       // const node = node as Atom;
       const parse = rule.parse({} as any, compiler);
       return (ctx) => {
-        return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
+        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
           const ret = parse(ctx);
           if (ret == null) {
             return createParseError(
@@ -278,10 +280,10 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
     }
 
     case NodeKind.TOKEN: {
+      let expr = rule.expr;
+      const matcher = createMatcher(expr);
       return (ctx) => {
-        let expr = rule.expr;
-        const matcher = createMatcher(expr);
-        return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
+        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
           const matched: string | null = matcher(ctx.raw, ctx.pos);
           if (matched == null) {
             if (rule.optional) {
@@ -311,7 +313,7 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
         };
       });
       return (ctx) => {
-        return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
+        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
           const errors: ParseError[] = [];
           for (const next of compiledPatterns) {
             const parsed = next.parse(ctx);
@@ -325,16 +327,15 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
             return parsed as ParseResult;
           }
           return createParseError(rule.kind, ErrorType.Or_UnmatchAll, ctx.pos, {
-            // message: `"${ctx.raw.slice(ctx.pos)}" does not match any pattern`,
             children: errors,
           });
         });
       };
     }
     case NodeKind.REPEAT: {
-      const parser = compileParser((rule as Repeat).pattern, compiler);
+      const parser = compileParser(rule.pattern, compiler);
       return (ctx) => {
-        return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
+        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
           const repeat = rule as Repeat;
           const xs: string[] = [];
           let ranges: Range[] = [];
@@ -385,7 +386,7 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
       });
       return (ctx) => {
         // console.log("seq-root", ctx);
-        return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
+        return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
           let cursor = ctx.pos;
           if (isObjectMode) {
             const result: any = {};
@@ -448,7 +449,7 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
       };
     }
     default: {
-      throw new Error("WIP expr and parser");
+      throw new Error("[compile] Unknown Rule");
     }
   }
 }
