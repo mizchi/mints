@@ -39,7 +39,7 @@ export const defaultReshape: Reshape<any, any> = <T>(i: T): T => i;
 
 export type Atom = RuleBase & {
   kind: NodeKind.ATOM;
-  parse: Parser;
+  parse: InternalParser;
 };
 
 export type Eof = RuleBase & {
@@ -127,7 +127,7 @@ export type Builder = {
   ): Seq;
   // pair(pair: { open: string; close: string }, reshape?: Reshape): Rule;
   not(child: InputNodeExpr, reshape?: Reshape): Not;
-  atom(fn: Parser): Atom;
+  atom(fn: InternalParser): Atom;
   opt<T extends Rule = any>(node: InputNodeExpr): T;
   skip_opt<T extends Rule>(node: InputNodeExpr): T;
   param<T extends Rule>(key: string, node: InputNodeExpr, reshape?: Reshape): T;
@@ -153,11 +153,11 @@ export type Compiler = {
   compile: RootCompiler;
 };
 
-export type DefsMap = Record<string | symbol, InternalPerser | void>;
+export type DefsMap = Record<string | symbol, InternalParser | void>;
 
 export type RulesMap<T> = Record<
   any,
-  (node: T, opts: Compiler) => InternalPerser
+  (node: T, opts: Compiler) => InternalParser
 >;
 
 export type PackratCache = {
@@ -186,7 +186,7 @@ export type Parser<T = any> = (
   opts: Compiler
 ) => (ctx: ParseContext) => number | [output: any, len: number] | void;
 
-export type InternalPerser = (ctx: ParseContext) => ParseResult;
+export type InternalParser = (ctx: ParseContext) => ParseResult;
 export type ParseResult = ParseSuccess | ParseError;
 
 export type Reshape<In = any, Out = any> = (

@@ -17,6 +17,7 @@ import {
   defaultReshape,
   Parser,
   Regex,
+  InternalParser,
 } from "./types";
 
 export function createRef(refId: string | number, reshape?: Reshape): Ref {
@@ -211,7 +212,7 @@ export function createBuilder(compiler: Compiler) {
     };
   }
 
-  function atom(parser: Parser): Atom {
+  function atom(parser: InternalParser): Atom {
     return {
       ...nodeBaseDefault,
       id: "atom:" + genId(),
