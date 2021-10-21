@@ -21,7 +21,7 @@ import {
   defaultReshape,
   Range,
 } from "./types";
-import { buildTokenMap, findPatternAt, isRegExp, startStringAt } from "./utils";
+import { isRegExp, createMatcher } from "./utils";
 
 // impl
 function createPackratCache(): PackratCache {
@@ -68,8 +68,6 @@ export function createCompiler<ID extends number>(
           chars: Array.from(input),
           cache: cache,
           pos: 0,
-          // tokenMap,
-          // ...ctx,
         });
       } else {
         return parse(input);
@@ -291,17 +289,9 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
     case NodeKind.TOKEN: {
       return (ctx) => {
         let expr = (rule as Token).expr;
-        const isReg = isRegExp(expr);
-        expr = isReg ? expr : expr.replace(/\\/g, "");
-        // console.log("[token-is-regexp?]", { isReg, expr });
-        // const isNonRegExp = false;
+        const matcher = createMatcher(expr);
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
-          let matched: string | null;
-          if (isReg) {
-            matched = findPatternAt(ctx.raw, (rule as Token).expr, ctx.pos);
-          } else {
-            matched = startStringAt(ctx.raw, expr, ctx.pos) ? expr : null;
-          }
+          const matched: string | null = matcher(ctx.raw, ctx.pos);
           if (matched == null) {
             if (rule.optional) {
               return createParseSuccess(null, ctx.pos, 0);
@@ -310,7 +300,7 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
                 rule.kind,
                 ErrorType.Token_Unmatch,
                 ctx.pos,
-                (rule as Token).expr
+                expr
               );
             }
           }
@@ -404,7 +394,6 @@ export function compileParser(rule: Rule, compiler: Compiler): InternalPerser {
       });
       return (ctx) => {
         // console.log("seq-root", ctx);
-
         return getOrCreateCache(ctx.cache, rule.id, ctx.pos, () => {
           let cursor = ctx.pos;
           if (isObjectMode) {

@@ -1,25 +1,77 @@
-// const regexMatch = /([\(\{\[])/g;
-
 export type TokenMap<T extends string> = Record<T, Array<number>>;
 
-export const findPatternAt = (
+type StringMatcher = (input: string, pos: number) => string | null;
+
+const REGEX_CHAR =
+  /(?<!\\)[\(\)\[\]\+\?\+\^\*\.]|(\\[dDsSwWbB])|\{(\d*),?\d*\}/;
+
+// regex
+export function isRegExp(str: string) {
+  return REGEX_CHAR.test(str);
+}
+
+export function createMatcher(expr: string): StringMatcher {
+  if (isRegExp(expr)) {
+    const regex = new RegExp(`^(${expr})`, "ms");
+    return (input: string, pos: number) => findPatternAt(input, regex, pos);
+  } else {
+    const escapedExpr = expr
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .replace(/\\r/g, "\r")
+      .replace(/\\/g, "");
+    return (input: string, pos: number) => {
+      if (startStringAt(input, escapedExpr, pos)) {
+        return escapedExpr;
+      }
+      return null;
+    };
+  }
+}
+
+const findPatternAt = (
+  input: string,
+  regex: RegExp,
+  pos: number
+): string | null => {
+  const sliced = input.slice(pos);
+  const match = sliced.match(regex);
+  if (match && match[0].length > 0) {
+    console.log(
+      "[eat:reg]",
+      `"${match[0]}"`,
+      "\t",
+      `/${
+        regex.toString().length > 10
+          ? regex.toString().slice(0, 10) + "..."
+          : regex
+      }/`
+    );
+  }
+  return match?.[0] ?? null;
+};
+
+// it works but is not very efficient
+const _findPatternAt_slow = (
   input: string,
   regex: string,
   pos: number
 ): string | null => {
-  const re = new RegExp(`(?<=.{${pos}})${regex}`, "ms");
+  const re = new RegExp(`(?<=.{${pos},${pos}})${regex}`, "ms");
   const match = re.exec(input);
   const notMatch = match == null || match.index !== pos;
   if (notMatch) return null;
   return match[0];
 };
 
-export const startStringAt = (
-  input: string,
-  str: string,
-  pos: number
-): boolean => {
-  return input.startsWith(str, pos);
+const startStringAt = (input: string, str: string, pos: number): boolean => {
+  const match = input.startsWith(str, pos);
+  if (match) {
+    console.log("[eat:str]", str.slice(0, 10));
+  } else {
+    console.log("[eat:str_fail]", str);
+  }
+  return match;
 };
 
 export function buildTokenMap<T extends string>(
@@ -69,24 +121,17 @@ export function readPairedBlock(
   }
 }
 
-const REGEX_CHAR =
-  /(?<!\\)[\(\)\[\]\+\?\+\^\*\.]|(\\[dDsSwWbB])|\{(\d*),?\d*\}/;
-
-// regex
-export function isRegExp(str: string) {
-  return REGEX_CHAR.test(str);
-}
-
 import { test, run } from "@mizchi/test";
 import assert from "assert";
-if (process.env.NODE_ENV === "test" && require.main === module) {
+const isMain = require.main === module;
+if (process.env.NODE_ENV === "test") {
   // @ts-ignore
   const eq = (...args: any[]) => assert.deepStrictEqual(...(args as any));
   test("buildTokenMap & pair", () => {
     const text = "( { { a } } ) [ ]";
     const chars = ["(", ")", "{", "}", "[", "]"];
     const map = buildTokenMap(text, chars);
-    console.log(map);
+    // console.log(map);
     eq(map, {
       "(": [0],
       ")": [12],
@@ -95,7 +140,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       "[": [14],
       "]": [16],
     });
-
     const hit = readPairedBlock(map, 0, text.length, ["(", ")"]);
     eq(text.slice(0, hit as number), "( { { a } } )");
 
@@ -104,11 +148,27 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("findPatternAt", () => {
-    eq(findPatternAt("a", "a", 0), "a");
-    eq(findPatternAt("abc", "\\w+", 0), "abc");
-    eq(findPatternAt("a\nb", "a\\nb", 0), "a\nb");
-    eq(findPatternAt("a\nb", "\\nb", 1), "\nb");
-    eq(findPatternAt("a\nb", "\\sb", 1), "\nb");
+    eq(createMatcher("a")("a", 0), "a");
+    eq(createMatcher("\\w+")("abc", 0), "abc");
+    eq(createMatcher("a\nb")("a\nb", 0), "a\nb");
+    eq(createMatcher("\nb")("a\nb", 1), "\nb");
+    eq(createMatcher("\\sb")("a\nb", 1), "\nb");
+    eq(createMatcher("\\[")("[", 0), "[");
+    eq(createMatcher("\\a")("a", 0), "a");
+    eq(createMatcher("\n")("\n", 0), "\n");
+    eq(createMatcher("\\[\\]")("[]", 0), "[]");
+  });
+
+  test("findPatternAt2", () => {
+    const code = `
+
+    aaa
+bb
+
+ccc
+    `;
+    const hit = code.indexOf("ccc");
+    eq(createMatcher("ccc")(code, hit), "ccc");
   });
 
   test("isRegExp", () => {
@@ -144,5 +204,5 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     eq(isRegExp("\\+\\+"), false);
   });
 
-  run({ stopOnFail: true, stub: true });
+  run({ stopOnFail: true, stub: true, isMain });
 }
