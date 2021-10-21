@@ -18,7 +18,11 @@ import {
   defaultReshape,
   Range,
 } from "./types";
-import { createMatcher, createRegexMatcher } from "./utils";
+import {
+  createMatcher,
+  createRegexMatcher,
+  createStringMatcher,
+} from "./utils";
 
 // impl
 function createPackratCache(): PackratCache {
@@ -264,6 +268,7 @@ function compileFragmentInternal(
     case NodeKind.TOKEN: {
       let expr = rule.expr;
       const matcher = createMatcher(expr);
+      // const matcher = createStringMatcher(expr);
       return (ctx, pos) => {
         const matched: string | null = matcher(ctx.raw, pos);
         if (matched == null) {

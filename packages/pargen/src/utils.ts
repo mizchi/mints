@@ -15,21 +15,25 @@ export function createRegexMatcher(expr: string): StringMatcher {
   return (input: string, pos: number) => findPatternAt(input, regex, pos);
 }
 
+export function createStringMatcher(expr: string): StringMatcher {
+  const escapedExpr = expr
+    .replace(/\\n/g, "\n")
+    .replace(/\\t/g, "\t")
+    .replace(/\\r/g, "\r")
+    .replace(/\\/g, "");
+  return (input: string, pos: number) => {
+    if (startStringAt(input, escapedExpr, pos)) {
+      return escapedExpr;
+    }
+    return null;
+  };
+}
+
 export function createMatcher(expr: string): StringMatcher {
   if (isRegExp(expr)) {
     return createRegexMatcher(expr);
   } else {
-    const escapedExpr = expr
-      .replace(/\\n/g, "\n")
-      .replace(/\\t/g, "\t")
-      .replace(/\\r/g, "\r")
-      .replace(/\\/g, "");
-    return (input: string, pos: number) => {
-      if (startStringAt(input, escapedExpr, pos)) {
-        return escapedExpr;
-      }
-      return null;
-    };
+    return createStringMatcher(expr);
   }
 }
 
