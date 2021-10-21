@@ -11,18 +11,13 @@ import {
   CacheMap,
   InternalParser,
   RootCompiler,
-  Not,
   Ref,
   Repeat,
   Seq,
   defaultReshape,
   Range,
 } from "./types";
-import {
-  createMatcher,
-  createRegexMatcher,
-  createStringMatcher,
-} from "./utils";
+import { createRegexMatcher, createStringMatcher } from "./utils";
 
 // impl
 function createPackratCache(): PackratCache {
@@ -67,9 +62,7 @@ function createPackratCache(): PackratCache {
   };
 }
 
-export function createCompiler<ID extends number>(
-  partial: Partial<Compiler>
-): Compiler {
+export function createCompiler(partial: Partial<Compiler>): Compiler {
   const compiler: Compiler = {
     composeTokens: true,
     rules: {},
@@ -81,11 +74,12 @@ export function createCompiler<ID extends number>(
   // internal
   const compile: RootCompiler = (node) => {
     const resolved = typeof node === "number" ? createRef(node) : node;
-    const parse = compileFragment(resolved, compiler);
+    const parse = compileFragment(resolved, compiler, resolved.id);
     const parser: RootParser = (input: string) => {
       const cache = createPackratCache();
       return parse(
         {
+          root: resolved.id,
           raw: input,
           chars: Array.from(input),
           cache,
@@ -196,12 +190,23 @@ export const createParseError = <ET extends ErrorType>(
 
 function compileFragmentInternal(
   rule: Rule,
-  compiler: Compiler
+  compiler: Compiler,
+  rootId: number | string
 ): InternalParser {
+  // if (rule.id === "seq:222") {
+  //   throw rule;
+  // }
+  // TODO: why?
+  // @ts-ignore
+  if (rule === Object) {
+    console.log("compiler", rootId);
+    throw new Error("Object is not allowed in rule");
+  }
+  // console.log("rule.id", rule.id);
   const reshape = rule.reshape ?? defaultReshape;
   switch (rule.kind) {
     case NodeKind.NOT: {
-      const childParser = compileFragment((rule as Not).child, compiler);
+      const childParser = compileFragment(rule.child, compiler, rootId);
       return (ctx, pos) => {
         const result = childParser(ctx, pos);
         if (result.error === true) {
@@ -217,7 +222,7 @@ function compileFragmentInternal(
     }
     case NodeKind.REF: {
       return (ctx, pos) => {
-        const resolved = compiler.defs[(rule as Ref).ref];
+        const resolved = compiler.defs[rule.ref];
         if (!resolved) {
           throw new Error(`symbol not found: ${(rule as Ref).ref}`);
         }
@@ -293,7 +298,7 @@ function compileFragmentInternal(
     case NodeKind.OR: {
       const compiledPatterns = rule.patterns.map((p) => {
         return {
-          parse: compileFragment(p, compiler),
+          parse: compileFragment(p, compiler, rootId),
           node: p,
         };
       });
@@ -316,7 +321,7 @@ function compileFragmentInternal(
       };
     }
     case NodeKind.REPEAT: {
-      const parser = compileFragment(rule.pattern, compiler);
+      const parser = compileFragment(rule.pattern, compiler, rootId);
       return (ctx, pos) => {
         const repeat = rule as Repeat;
         const xs: string[] = [];
@@ -360,7 +365,7 @@ function compileFragmentInternal(
     case NodeKind.SEQ: {
       let isObjectMode = false;
       const parsers = (rule as Seq).children.map((c) => {
-        const parse = compileFragment(c, compiler);
+        const parse = compileFragment(c, compiler, rootId);
         if (c.key) isObjectMode = true;
         return { parse, node: c };
       });
@@ -409,6 +414,7 @@ function compileFragmentInternal(
       };
     }
     default: {
+      console.error(rule, rule === Object);
       throw new Error("[compile] Unknown Rule");
     }
   }
@@ -416,9 +422,10 @@ function compileFragmentInternal(
 
 export function compileFragment(
   rule: Rule,
-  compiler: Compiler
+  compiler: Compiler,
+  rootId: string | number
 ): InternalParser {
-  const internalParser = compileFragmentInternal(rule, compiler);
+  const internalParser = compileFragmentInternal(rule, compiler, rootId);
   // generic cache
   const parser: InternalParser = (ctx, pos) => {
     return ctx.cache.getOrCreate(rule.id, pos, () => {

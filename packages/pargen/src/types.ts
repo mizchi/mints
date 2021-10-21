@@ -175,6 +175,7 @@ export type PackratCache = {
 export type CacheMap = { [key: `${number}@${string}`]: ParseSuccess };
 
 export type ParseContext = {
+  root: number | string;
   raw: string;
   chars: string[];
   cache: PackratCache;

@@ -34,6 +34,10 @@ export function createBuilder(compiler: Compiler) {
   let cnt = 0;
   const genId = () => (cnt++).toString();
   const toNode = (input: InputNodeExpr): Rule => {
+    if (input === "constructor") {
+      throw new Error("constructor is not allowed in token");
+    }
+
     if (typeof input === "object") {
       return input;
     }
@@ -47,7 +51,8 @@ export function createBuilder(compiler: Compiler) {
   const _hydratePatterns = () => {
     registeredPatterns.forEach(([id, nodeCreator]) => {
       const node = nodeCreator();
-      const parser = compileFragment(toNode(node), compiler);
+      const n = toNode(node);
+      const parser = compileFragment(n, compiler, n.id);
       compiler.defs[id] = parser;
     });
     registeredPatterns.length = 0;
@@ -172,16 +177,27 @@ export function createBuilder(compiler: Compiler) {
     };
   }
 
-  const exprCache: { [key: string]: Token } = {};
+  // const tokenCache: { [key: string]: Token } = {};
   function token(expr: string, reshape?: Reshape<any, any>): Token {
-    if (exprCache[expr]) return exprCache[expr];
-    return (exprCache[expr] = {
+    return {
       ...nodeBaseDefault,
       id: `expr:${expr}`,
       kind: NodeKind.TOKEN,
       expr,
       reshape,
-    });
+    };
+
+    // if (tokenCache[expr]) return tokenCache[expr];
+    // if (expr === "constructor") {
+    //   throw new Error("constructor is not allowed in token");
+    // }
+    // return (tokenCache[expr] = {
+    //   ...nodeBaseDefault,
+    //   id: `expr:${expr}`,
+    //   kind: NodeKind.TOKEN,
+    //   expr,
+    //   reshape,
+    // });
   }
 
   const regexCache: { [key: string]: Regex } = {};
@@ -189,7 +205,7 @@ export function createBuilder(compiler: Compiler) {
     if (regexCache[expr]) return regexCache[expr];
     return (regexCache[expr] = {
       ...nodeBaseDefault,
-      id: `expr:${expr}`,
+      id: `regex:${expr}`,
       kind: NodeKind.REGEX,
       expr,
       reshape,
@@ -242,11 +258,11 @@ export function createBuilder(compiler: Compiler) {
     opt<T extends Rule>(input: InputNodeExpr): T {
       return { ...toNode(input), optional: true } as T;
     },
-    skip<T extends Rule>(node: InputNodeExpr): T {
-      return { ...toNode(node), skip: true } as T;
+    skip<T extends Rule>(input: InputNodeExpr): T {
+      return { ...toNode(input), skip: true } as T;
     },
-    skip_opt<T extends Rule>(node: InputNodeExpr): T {
-      return { ...toNode(node), skip: true, optional: true } as T;
+    skip_opt<T extends Rule>(input: InputNodeExpr): T {
+      return { ...toNode(input), skip: true, optional: true } as T;
     },
     join(...expr: string[]): Token {
       return token(expr.join(""));
