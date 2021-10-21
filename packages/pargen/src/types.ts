@@ -178,7 +178,6 @@ export type ParseContext = {
   raw: string;
   chars: string[];
   cache: PackratCache;
-  pos: number;
 };
 
 export type InternalParser = (ctx: ParseContext, pos: number) => ParseResult;

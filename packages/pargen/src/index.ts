@@ -85,7 +85,6 @@ export function createCompiler<ID extends number>(
           raw: input,
           chars: Array.from(input),
           cache,
-          pos: 0,
         },
         0
       );
@@ -202,12 +201,12 @@ function compileFragmentInternal(
       return (ctx, pos) => {
         const result = childParser(ctx, pos);
         if (result.error === true) {
-          return createParseSuccess(result, ctx.pos, 0);
+          return createParseSuccess(result, pos, 0);
         }
         return createParseError(
           rule.kind,
           ErrorType.Not_IncorrectMatch,
-          ctx.pos,
+          pos,
           result.len
         );
       };
@@ -228,35 +227,35 @@ function compileFragmentInternal(
     }
 
     case NodeKind.EOF: {
-      return (ctx, _pos) => {
-        const ended = ctx.chars.length === ctx.pos;
+      return (ctx, pos) => {
+        const ended = ctx.chars.length === pos;
         if (ended) {
-          return createParseSuccess("", ctx.pos, 0);
+          return createParseSuccess("", pos, 0);
         }
-        return createParseError(rule.kind, ErrorType.Eof_Unmatch, ctx.pos);
+        return createParseError(rule.kind, ErrorType.Eof_Unmatch, pos);
       };
     }
 
     case NodeKind.REGEX: {
       let expr = rule.expr;
       const matcher = createRegexMatcher(expr);
-      return (ctx) => {
-        const matched: string | null = matcher(ctx.raw, ctx.pos);
+      return (ctx, pos) => {
+        const matched: string | null = matcher(ctx.raw, pos);
         if (matched == null) {
           if (rule.optional) {
-            return createParseSuccess(null, ctx.pos, 0);
+            return createParseSuccess(null, pos, 0);
           } else {
             return createParseError(
               rule.kind,
               ErrorType.Token_Unmatch,
-              ctx.pos,
+              pos,
               expr
             );
           }
         }
         return createParseSuccess(
           reshape(matched),
-          ctx.pos,
+          pos,
           Array.from(matched).length
         );
       };
@@ -266,22 +265,22 @@ function compileFragmentInternal(
       let expr = rule.expr;
       const matcher = createMatcher(expr);
       return (ctx, pos) => {
-        const matched: string | null = matcher(ctx.raw, ctx.pos);
+        const matched: string | null = matcher(ctx.raw, pos);
         if (matched == null) {
           if (rule.optional) {
-            return createParseSuccess(null, ctx.pos, 0);
+            return createParseSuccess(null, pos, 0);
           } else {
             return createParseError(
               rule.kind,
               ErrorType.Token_Unmatch,
-              ctx.pos,
+              pos,
               expr
             );
           }
         }
         return createParseSuccess(
           reshape(matched),
-          ctx.pos,
+          pos,
           Array.from(matched).length
         );
       };
@@ -299,27 +298,27 @@ function compileFragmentInternal(
           const parsed = next.parse(ctx, pos);
           if (parsed.error === true) {
             if (rule.optional) {
-              return createParseSuccess(null, ctx.pos, 0);
+              return createParseSuccess(null, pos, 0);
             }
             errors.push(parsed);
             continue;
           }
           return parsed as ParseResult;
         }
-        return createParseError(rule.kind, ErrorType.Or_UnmatchAll, ctx.pos, {
+        return createParseError(rule.kind, ErrorType.Or_UnmatchAll, pos, {
           children: errors,
         });
       };
     }
     case NodeKind.REPEAT: {
       const parser = compileFragment(rule.pattern, compiler);
-      return (ctx) => {
+      return (ctx, pos) => {
         const repeat = rule as Repeat;
         const xs: string[] = [];
         let ranges: Range[] = [];
-        let cursor = ctx.pos;
+        let cursor = pos;
         while (cursor < ctx.chars.length) {
-          const parseResult = parser({ ...ctx, pos: cursor }, cursor);
+          const parseResult = parser(ctx, cursor);
           if (parseResult.error === true) break;
           // stop infinite loop
           if (parseResult.len === 0) {
@@ -339,7 +338,7 @@ function compileFragmentInternal(
           return createParseError(
             rule.kind,
             ErrorType.Repeat_RangeError,
-            ctx.pos,
+            pos,
             `not fill range: ${xs.length} in [${repeat.min}, ${
               repeat.max ?? ""
             }] `
@@ -347,8 +346,8 @@ function compileFragmentInternal(
         }
         return createParseSuccess(
           xs.map(reshape as any),
-          ctx.pos,
-          cursor - ctx.pos,
+          pos,
+          cursor - pos,
           ranges
         );
       };
@@ -360,15 +359,15 @@ function compileFragmentInternal(
         if (c.key) isObjectMode = true;
         return { parse, node: c };
       });
-      return (ctx) => {
-        let cursor = ctx.pos;
+      return (ctx, pos) => {
+        let cursor = pos;
         if (isObjectMode) {
           const result: any = {};
           for (const parser of parsers) {
-            const parseResult = parser.parse({ ...ctx, pos: cursor }, cursor);
+            const parseResult = parser.parse(ctx, cursor);
             if (parseResult.error) {
               if (parser.node.optional) continue;
-              return createParseError(rule.kind, ErrorType.Seq_Stop, ctx.pos, {
+              return createParseError(rule.kind, ErrorType.Seq_Stop, pos, {
                 child: parseResult,
               });
             }
@@ -380,15 +379,15 @@ function compileFragmentInternal(
             cursor += parseResult.len;
           }
           const reshaped = reshape(result);
-          return createParseSuccess(reshaped, ctx.pos, cursor - ctx.pos);
+          return createParseSuccess(reshaped, pos, cursor - pos);
         } else {
           // string mode
           let ranges: Range[] = [];
           for (const parser of parsers) {
-            const parseResult = parser.parse({ ...ctx, pos: cursor }, cursor);
+            const parseResult = parser.parse(ctx, cursor);
             if (parseResult.error) {
               if (parser.node.optional) continue;
-              return createParseError(rule.kind, ErrorType.Seq_Stop, ctx.pos, {
+              return createParseError(rule.kind, ErrorType.Seq_Stop, pos, {
                 child: parseResult,
               });
             }
@@ -400,12 +399,7 @@ function compileFragmentInternal(
           const text = ranges
             .map(([start, end]) => ctx.raw.slice(start, end))
             .join("");
-          return createParseSuccess(
-            reshape(text),
-            ctx.pos,
-            cursor - ctx.pos,
-            ranges
-          );
+          return createParseSuccess(reshape(text), pos, cursor - pos, ranges);
         }
       };
     }
@@ -422,7 +416,7 @@ export function compileFragment(
   const internalParser = compileFragmentInternal(rule, compiler);
   // generic cache
   const parser: InternalParser = (ctx, pos) => {
-    return ctx.cache.getOrCreate(rule.id, ctx.pos, () => {
+    return ctx.cache.getOrCreate(rule.id, pos, () => {
       return internalParser(ctx, pos);
     });
   };
