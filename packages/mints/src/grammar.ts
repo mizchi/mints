@@ -793,9 +793,18 @@ const ifStatement = $.def(() =>
     _,
     ")",
     _,
-    anyStatement,
+    blockOrStatement,
     _,
-    $.opt($.seq(["else", __, blockOrStatement])),
+    $.opt(
+      $.seq([
+        "else",
+        $.or([
+          // xx
+          $.seq([_, block]),
+          $.seq([__, anyStatement]),
+        ]),
+      ])
+    ),
   ])
 );
 
@@ -814,7 +823,6 @@ const switchStatement = $.def(() =>
       _,
       $.repeat_seq([
         "case ",
-        _,
         anyExpression,
         _,
         ":",
@@ -978,7 +986,6 @@ const semicolonlessStatement = $.def(() =>
     switchStatement,
     doWhileStatement,
     interfaceStatement,
-    typeStatement,
     forStatement,
     forItemStatement,
     blockStatement,
@@ -996,6 +1003,7 @@ const anyStatement = $.def(() =>
     interfaceStatement,
     ifStatement,
     importStatement,
+    exportStatement,
     forItemStatement,
     forStatement,
     doWhileStatement,
@@ -1013,7 +1021,11 @@ const lines = $.seq([
       $.seq([
         // class{}(;\n)
         semicolonlessStatement,
-        $.or([$.seq([_, ";", _]), _]),
+        $.or([
+          // n
+          $.seq([_, $.r`[;\n]`, _]),
+          _,
+        ]),
         // $.r`[;\\n ]*`,
       ]),
       // $.seq([$.opt(anyStatement), _, $.r`[;\\n]+`, _]),
@@ -1698,8 +1710,16 @@ if (process.env.NODE_ENV === "test") {
       `class{}\n;`,
       `class{};\n;`,
       `class{}\na;`,
+      `class{}\n\na;`,
       `class{};\na;`,
       `class{}\n;\na`,
+      `if(1){}a`,
+      `if(1){};a`,
+      `if(1){}\n;a`,
+      `if(1){}\n;\na`,
+      `if(1){}\n\na`,
+      // `if(1){} else {}\n\na`,
+      `if(1){} else {}\na;`,
     ]);
     // is(parse`class {};a;b`), { error: false });
   });

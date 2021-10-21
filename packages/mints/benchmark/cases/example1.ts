@@ -1,6 +1,6 @@
 let a: number, b: number[], c: Array<string>;
 
-// const x: number = 1;
+const x: number = 1;
 
 // function square(x: number): number {
 //   return x ** 2;
@@ -27,3 +27,5 @@ class Point<T extends IPoint = any> implements IPoint {
 // const p = new Point();
 
 // func<T>();
+
+export { a, b };

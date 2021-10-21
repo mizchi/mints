@@ -17,3 +17,5 @@ const compileWithPreprocess: RootCompiler = (input, opts) => {
 };
 
 export { compileWithPreprocess as compile, builder };
+
+interface X {}

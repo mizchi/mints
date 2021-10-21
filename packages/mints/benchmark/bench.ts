@@ -3,6 +3,7 @@ import ts from "typescript";
 import fs from "fs";
 import { printPerfResult } from "@mizchi/pargen/src";
 import { formatError } from "../src/_testHelpers";
+import prettier from "prettier";
 
 const code = fs.readFileSync(__dirname + "/cases/example0.ts", "utf-8");
 
@@ -37,7 +38,7 @@ export function main() {
       const out = compiler(code);
       console.log(compiler.name, `[${i}]`, Date.now() - now);
       // printPerfResult();
-      console.log(out);
+      console.log(prettier.format(out, { parser: "typescript" }));
     }
   }
 }

@@ -2,30 +2,37 @@
 let a1: number = '111';
 
 // , b: number[], c: Array<string>;
-// const x: number = 1;
+const x: number = 1;
 
 function square(x: number): number {
   return x ** 2;
 };
 
-// type IPoint = {
-//   x: number;
-//   y: number;
-// };
-// interface X {}
+type IPoint = {
+  x: number;
+  y: number;
+};
 
-// class Point<T extends IPoint = any> implements IPoint {
-//   public x: number;
-//   private y: number;
-//   constructor() {
-//     this.x = 1;
-//     this.y = 2;
-//   }
-//   public static async foo(arg: number): number {
-//     return arg;
-//   }
-// }
+if (1) {
+  1;
+} else {
+  while(false) {}
+}
 
-// const p = new Point();
+class Point<T extends IPoint = any> implements IPoint {
+  public x: number;
+  private y: number;
+  constructor() {
+    this.x = 1;
+    this.y = 2;
+  }
+  public static async foo(arg: number): number {
+    return arg;
+  }
+}
 
-// func<T>();
+const p = new Point();
+
+func<T>();
+
+export {a1, b};

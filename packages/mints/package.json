@@ -13,6 +13,7 @@
   },
   "devDependencies": {
     "0x": "^4.11.0",
-    "autocannon": "^7.5.0"
+    "autocannon": "^7.5.0",
+    "prettier": "^2.4.1"
   }
 }

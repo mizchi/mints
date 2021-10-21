@@ -60,7 +60,10 @@ function App() {
           setOutput(JSON.stringify(out, null, 2));
         } else {
           setBuildTime(Date.now() - now);
-          setOutput(out.result as string);
+          setOutput(
+            // format
+            out.result.replace(/;/g, ";\n")
+          );
         }
       }, 500);
     } catch (err) {
