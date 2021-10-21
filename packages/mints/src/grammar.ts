@@ -1,22 +1,36 @@
-import { OPERATORS, RESERVED_WORDS, REST_SPREAD, _, __ } from "./constants";
+import {
+  OPERATORS,
+  RESERVED_WORDS,
+  REST_SPREAD,
+  _ as _w,
+  __ as __w,
+} from "./constants";
 
 import { compile, builder as $ } from "./ctx";
 
+const _ = $.regex(_w);
+const __ = $.regex(__w);
+
 export const identifier = $.def(() =>
-  $.seq([`(?!${RESERVED_WORDS.join("|")})`, "([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)"])
+  $.seq([
+    // TODO
+    $.not($.or([...RESERVED_WORDS])),
+    // $.r`(?!${RESERVED_WORDS.join("|")})([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
+    $.r`([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
+  ])
 );
 
 const ThisKeyword = $.tok("this");
 const ImportKeyword = $.tok("import");
 
-const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
+// const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 
 /* TypeExpression */
 const typeDeclareParameter = $.def(() =>
   $.seq([
     typeExpression,
     // extends T
-    $.opt($.seq([_, "extends", __, typeExpression])),
+    $.opt($.seq([_, "extends ", typeExpression])),
     _,
     $.opt($.seq(["=", _, typeExpression])),
   ])
@@ -28,7 +42,7 @@ const typeDeclareParameters = $.def(() =>
     "<",
     _,
     $.repeat_seq([typeDeclareParameter, _, ",", _]),
-    $.seq([typeDeclareParameter, _, ",?"]),
+    $.seq([typeDeclareParameter, _, $.opt(",")]),
     _,
     ">",
   ])
@@ -40,14 +54,14 @@ const typeParameters = $.def(() =>
     "<",
     _,
     $.repeat_seq([typeExpression, _, ",", _]),
-    $.seq([typeExpression, _, ",?"]),
+    $.seq([typeExpression, _, $.r`,?`]),
     _,
     ">",
   ])
 );
 
 const typeParen = $.def(() =>
-  $.seq(["\\(", _, typeExpression, _, "\\)", _, $.opt(typeParameters)])
+  $.seq(["(", _, typeExpression, _, ")", _, $.opt(typeParameters)])
 );
 
 const typeIdentifier = $.def(() =>
@@ -70,8 +84,8 @@ const typeReference = $.def(() =>
     $.repeat_seq([
       _,
       $.or([
-        $.seq(["\\.", _, typeIdentifier]),
-        $.seq(["\\[", $.opt(typeExpression), "\\]"]),
+        $.seq([".", _, typeIdentifier]),
+        $.seq(["[", _, $.opt(typeExpression), _, "]"]),
       ]),
     ]),
   ])
@@ -95,7 +109,7 @@ const _typeNameableItem = $.def(() =>
 const typeArrayLiteral = $.def(() =>
   $.seq([
     // array
-    "\\[",
+    "[",
     _,
     // repeat
     $.repeat_seq([_typeNameableItem, _, ",", _]),
@@ -117,7 +131,7 @@ const typeArrayLiteral = $.def(() =>
       _,
     ]),
     _,
-    "\\]",
+    "]",
   ])
 );
 
@@ -137,7 +151,7 @@ const typeFunctionArgs = $.def(() =>
     $.or([
       // last
       $.seq([REST_SPREAD, _, identifier, _, ":", _, typeExpression]),
-      $.seq([identifier, _, ":", _, typeExpression, _, ",?"]),
+      $.seq([identifier, _, ":", _, typeExpression, _, $.opt(",")]),
       _,
     ]),
   ])
@@ -147,16 +161,16 @@ const _typeObjectItem = $.def(() =>
   $.or([
     $.seq([
       // async foo<T>(arg: any): void;
-      $.opt($.seq(["async", __])),
+      $.opt("async "),
       identifier,
       _,
       $.opt(typeDeclareParameters),
       _,
-      "\\(",
+      "(",
       _,
       typeFunctionArgs,
       _,
-      "\\)",
+      ")",
       _,
       ":",
       _,
@@ -177,14 +191,14 @@ const _typeObjectItem = $.def(() =>
 const typeObjectLiteral = $.def(() =>
   $.seq([
     // object
-    "\\{",
+    "{",
     _,
     $.repeat_seq([_typeObjectItem, _, $.r`(,|;)`, _]),
     $.opt(_typeNameableItem),
     _,
     $.r`(,|;)?`,
     _,
-    "\\}",
+    "}",
   ])
 );
 
@@ -206,13 +220,13 @@ const typeFunctionExpression = $.def(() =>
     // function
     $.opt(typeDeclareParameters),
     _,
-    "\\(",
+    "(",
     _,
     typeFunctionArgs,
     _,
-    "\\)",
+    ")",
     _,
-    "\\=\\>",
+    "=>",
     _,
     // return type
     typeExpression,
@@ -221,7 +235,7 @@ const typeFunctionExpression = $.def(() =>
 
 const typeUnaryExpression = $.def(() =>
   $.seq([
-    $.opt($.seq(["(keyof|typeof|infer)", __])),
+    $.opt($.seq([$.r`(keyof|typeof|infer)`, __])),
     $.or([typeFunctionExpression, typeParen, typeReference, typeLiteral]),
     // generics parameter
   ])
@@ -229,7 +243,7 @@ const typeUnaryExpression = $.def(() =>
 
 const typeBinaryExpression = $.def(() =>
   $.seq([
-    $.repeat_seq([typeUnaryExpression, _, $.or(["\\|", "&"]), _]),
+    $.repeat_seq([typeUnaryExpression, _, $.or(["|", "&"]), _]),
     typeUnaryExpression,
   ])
 );
@@ -243,7 +257,7 @@ const typeExpression = $.def(() => $.or([typeBinaryExpression]));
 // Destructive Pattren
 const destructiveArrayPattern = $.def(() =>
   $.seq([
-    "\\[",
+    "[",
     _,
     $.repeat_seq([$.opt(destructivePattern), _, ",", _]),
     _,
@@ -255,7 +269,7 @@ const destructiveArrayPattern = $.def(() =>
     _,
     $.r`,?`,
     _,
-    "\\]",
+    "]",
   ])
 );
 
@@ -274,12 +288,12 @@ const destructiveObjectItem = $.def(() =>
 
 const destructiveObjectPattern = $.def(() =>
   $.seq([
-    "\\{",
+    "{",
     _,
     $.repeat_seq([destructiveObjectItem, _, ",", _]),
     $.or([$.seq([REST_SPREAD, _, identifier]), destructiveObjectItem, _]),
     _,
-    "\\}",
+    "}",
   ])
 );
 
@@ -335,20 +349,13 @@ export const templateLiteral = $.def(() =>
   $.seq([
     "`",
     // aaa${}
-    $.repeat_seq([
-      $.regex(nonBacktickChars),
-      "\\$\\{",
-      _,
-      anyExpression,
-      _,
-      "\\}",
-    ]),
+    $.repeat_seq([$.regex(nonBacktickChars), "${", _, anyExpression, _, "}"]),
     $.regex(nonBacktickChars),
     "`",
   ])
 );
 
-const regexpLiteral = $.def(() => $.seq(["\\/[^\\/]+\\/([igmsuy]*)?"]));
+const regexpLiteral = $.def(() => $.seq([$.r`\\/[^\\/]+\\/([igmsuy]*)?`]));
 
 // TODO: 111_000
 // TODO: 0b1011
@@ -365,7 +372,7 @@ export const numberLiteral = $.def(() =>
   ])
 );
 
-export const booleanLiteral = $.def(() => `(true|false)`);
+export const booleanLiteral = $.def(() => $.r`(true|false)`);
 export const nullLiteral = $.def(() => `null`);
 
 const restSpread = $.def(() => $.seq([REST_SPREAD, _, anyExpression]));
@@ -373,7 +380,7 @@ const restSpread = $.def(() => $.seq([REST_SPREAD, _, anyExpression]));
 export const arrayLiteral = $.def(() =>
   $.or([
     $.seq([
-      "\\[",
+      "[",
       $.repeat(
         $.seq([
           // , item
@@ -386,7 +393,7 @@ export const arrayLiteral = $.def(() =>
       _,
       $.or([$.opt<any>(restSpread), anyExpression, _]),
       _,
-      "\\]",
+      "]",
     ]),
   ])
 );
@@ -396,21 +403,13 @@ const objectItem = $.def(() =>
   $.or([
     $.seq([
       // function
-      "((async|get|set) )?",
-      $.or([
-        stringLiteral,
-        $.seq(["\\[", _, anyExpression, _, "\\]"]),
-        identifier,
-      ]),
-      $.seq([_, "\\(", _, functionArguments, _, "\\)", _, block]),
+      $.r`((async|get|set) )?`,
+      $.or([stringLiteral, $.seq(["[", _, anyExpression, _, "]"]), identifier]),
+      $.seq([_, "(", _, functionArguments, _, ")", _, block]),
     ]),
     $.seq([
       // value
-      $.or([
-        stringLiteral,
-        $.seq(["\\[", _, anyExpression, _, "\\]"]),
-        identifier,
-      ]),
+      $.or([stringLiteral, $.seq(["[", _, anyExpression, _, "]"]), identifier]),
       // value or shorthand
       $.seq([_, ":", _, anyExpression]),
     ]),
@@ -421,12 +420,12 @@ const objectItem = $.def(() =>
 // ref by key
 const objectLiteral = $.def(() =>
   $.seq([
-    "\\{",
+    "{",
     $.repeat($.seq([_, objectItem, _, ","])),
     _,
     $.or([$.opt<any>(restSpread), objectItem, _]),
     _,
-    "\\}",
+    "}",
   ])
 );
 
@@ -444,32 +443,33 @@ const anyLiteral = $.def(() =>
 );
 
 /* Class */
-const accessModifier = "(private|public|protected) ";
-const staticModifier = "static\\ ";
-const asyncModifier = "async\\ ";
-const getOrSetModifier = "(get|set) ";
+const accessModifier = $.r`(private|public|protected) `;
+const staticModifier = $.tok(`static `);
+const asyncModifier = $.tok("async ");
+const getOrSetModifier = $.r`(get|set) `;
 const classField = $.def(() =>
   $.or([
     $.seq([
       $.skip_opt(accessModifier),
+      // $.tok("constructor"),
       "constructor",
       _,
-      "\\(",
+      "(",
       _,
       functionArguments,
       _,
-      "\\)",
+      ")",
       _,
       block,
     ]),
     // class member
     $.seq([
       $.skip_opt(accessModifier),
-      `(${staticModifier})?`,
-      `(${asyncModifier})?`,
-      `(${getOrSetModifier})?`,
-      "\\*?", // generator
-      "\\#?", // private
+      $.opt(staticModifier),
+      $.opt(asyncModifier),
+      $.opt(getOrSetModifier),
+      $.opt("*"),
+      $.opt("#"),
       identifier,
       // <T>
       $.skip_opt($.seq([_, typeDeclareParameters])),
@@ -489,8 +489,8 @@ const classField = $.def(() =>
     // field
     $.seq([
       $.skip_opt(accessModifier),
-      `(${staticModifier})?`,
-      $.opt("\\#"),
+      $.opt(staticModifier),
+      $.opt("#"),
       identifier,
       $.skip_opt($.seq([_, _typeAnnotation])),
       _,
@@ -502,7 +502,7 @@ const classField = $.def(() =>
 
 export const classExpression = $.def(() =>
   $.seq([
-    $.skip_opt($.seq(["abstract", __])),
+    $.skip_opt("abstract "),
     "class",
     $.opt($.seq([__, identifier])),
     // <T>
@@ -510,12 +510,12 @@ export const classExpression = $.def(() =>
     $.opt($.seq([__, "extends", __, anyExpression])),
     $.skip_opt($.seq([__, "implements", __, typeExpression])),
     _,
-    "\\{",
+    "{",
     _,
     $.repeat_seq([_, classField, _]),
     _,
     // TODO: class field
-    "\\}",
+    "}",
   ])
 );
 
@@ -524,17 +524,17 @@ export const functionExpression = $.def(() =>
     $.opt(asyncModifier),
     "function",
     _,
-    "(\\*)?", // generator
+    $.opt("*"), // generator
     _,
     $.opt(identifier),
     _,
     $.skip_opt(typeDeclareParameters),
     _,
-    "\\(",
+    "(",
     _,
     functionArguments,
     _,
-    "\\)",
+    ")",
     _,
     $.skip_opt(_typeAnnotation),
     _,
@@ -551,17 +551,17 @@ const arrowFunctionExpression = $.def(() =>
     _,
     $.or([
       $.seq([
-        "\\(",
+        "(",
         _,
         functionArguments,
         _,
-        "\\)",
+        ")",
         $.skip_opt($.seq([_, _typeAnnotation])),
       ]),
       identifier,
     ]),
     _,
-    "\\=\\>",
+    "=>",
     _,
     $.or([block, anyStatement]),
   ])
@@ -573,7 +573,7 @@ const newExpression = $.def(() =>
     __,
     memberable,
     _,
-    $.opt($.seq(["\\(", functionArguments, "\\)"])),
+    $.opt($.seq(["(", _, functionArguments, _, ")"])),
   ])
 );
 
@@ -589,23 +589,23 @@ const primary = $.or([
 const __call = $.def(() =>
   $.or([
     $.seq([
-      "\\?\\.",
+      "?.",
       $.skip_opt($.seq([_, typeParameters])),
       _,
-      "\\(",
+      "(",
       _,
       callArguments,
       _,
-      "\\)",
+      ")",
     ]),
     $.seq([
       $.skip_opt($.seq([_, typeParameters])),
       _,
-      "\\(",
+      "(",
       _,
       callArguments,
       _,
-      "\\)",
+      ")",
     ]),
   ])
 );
@@ -614,7 +614,7 @@ const memberAccess = $.def(() =>
   $.or([
     // ?. | .#a | .a
     $.seq([$.r`(\\?)?\\.`, $.r`\\#?`, identifier]),
-    $.seq([$.r`(\\?\\.)?`, "\\[", _, anyExpression, _, "\\]"]),
+    $.seq([$.r`(\\?\\.)?`, "[", _, anyExpression, _, "]"]),
     __call,
   ])
 );
@@ -636,16 +636,7 @@ const unary = $.def(() =>
   $.or([
     // with unary prefix
     $.seq([
-      $.or([
-        "\\+\\+",
-        "\\-\\-",
-        "void ",
-        "typeof ",
-        "delete ",
-        "await ",
-        "\\~",
-        "!",
-      ]),
+      $.or(["++", "--", "void ", "typeof ", "delete ", "await ", "~", "!"]),
       unary,
     ]),
     $.seq([$.or([accessible, paren]), templateLiteral]),
@@ -657,7 +648,7 @@ const unary = $.def(() =>
         accessible,
         paren,
       ]),
-      $.opt($.or(["\\+\\+", "\\-\\-"])),
+      $.opt($.or(["++", "--"])),
       // ts bang operator
       $.skip_opt("!"),
     ]),
@@ -665,7 +656,7 @@ const unary = $.def(() =>
 );
 
 const binaryExpression = $.def(() =>
-  $.seq([unary, $.repeat_seq([_, BINARY_OPS, _, unary])])
+  $.seq([unary, $.repeat_seq([_, $.or([...OPERATORS]), _, unary])])
 );
 
 /* TypeExpression */
@@ -688,12 +679,12 @@ export const anyExpression = $.def(() =>
 );
 
 const _typeAnnotation = $.seq([":", _, typeExpression]);
-const emptyStatement = $.def(() => $.seq(["(\\s)*"]));
+const emptyStatement = $.def(() => $.seq([$.r`(\\s)*`]));
 const breakStatement = $.def(() => "break");
 const debuggerStatement = $.def(() => "debugger");
 
 const returnStatement = $.def(() =>
-  $.seq(["(return|yield)", $.opt($.seq([__, anyExpression]))])
+  $.seq([$.r`(return|yield)`, $.opt($.seq([__, anyExpression]))])
 );
 
 const throwStatement = $.def(() => $.seq(["throw", __, anyExpression]));
@@ -712,10 +703,10 @@ const _importRightSide = $.def(() =>
     $.or([
       // default only
       identifier,
-      $.seq(["\\*", __, "as", __, identifier]),
+      $.seq(["*", __, "as", __, identifier]),
       // TODO: * as b
       $.seq([
-        "\\{",
+        "{",
         _,
         $.repeat_seq([
           identifier,
@@ -732,7 +723,7 @@ const _importRightSide = $.def(() =>
           ])
         ),
         _,
-        "\\}",
+        "}",
       ]),
     ]),
     __,
@@ -760,9 +751,9 @@ const exportStatement = $.def(() =>
     // TODO: skip: export type|interface
     // export clause
     $.seq([
-      "export",
-      __,
-      "\\{",
+      "export ",
+      _,
+      "{",
       _,
       $.repeat_seq([
         defaultOrIdentifer,
@@ -776,18 +767,16 @@ const exportStatement = $.def(() =>
         $.seq([
           defaultOrIdentifer,
           $.opt($.seq([__, "as", __, defaultOrIdentifer])),
-          ",?",
+          $.opt(","),
         ])
       ),
       _,
-      "\\}",
-      _,
-      $.opt($.seq(["from", __, stringLiteral])),
+      "}",
+      $.opt($.seq([_, "from ", stringLiteral])),
     ]),
     // export named expression
     $.seq([
-      "export",
-      __,
+      "export ",
       $.or([variableStatement, functionExpression, classExpression]),
     ]),
   ])
@@ -799,11 +788,11 @@ const ifStatement = $.def(() =>
     // if
     "if",
     _,
-    "\\(",
+    "(",
     _,
     anyExpression,
     _,
-    "\\)",
+    ")",
     _,
     blockOrNonEmptyStatement,
     _,
@@ -816,11 +805,11 @@ const switchStatement = $.def(() =>
     $.seq([
       "switch",
       _,
-      "\\(",
+      "(",
       _,
       anyExpression,
       _,
-      "\\)",
+      ")",
       _,
       "{",
       _,
@@ -834,7 +823,7 @@ const switchStatement = $.def(() =>
         // include empty statement
         blockOrStatement,
         _,
-        "(\\;)?", // optional closing semicolon
+        $.opt(";"),
         _,
       ]),
       _,
@@ -850,8 +839,7 @@ export const variableStatement = $.def(() =>
   $.or([
     $.seq([
       // single
-      "(var|const|let)",
-      __,
+      $.r`(var|const|let) `,
       // x, y=1,
       $.repeat_seq([
         destructivePattern,
@@ -914,7 +902,7 @@ export const forStatement = $.def(() =>
   $.seq([
     "for",
     _,
-    "\\(",
+    "(",
     _,
     // start
     $.or([variableStatement, anyExpression, _]),
@@ -927,7 +915,7 @@ export const forStatement = $.def(() =>
     ";",
     // step end
     $.opt(anyExpression),
-    "\\)",
+    ")",
     _,
     blockOrNonEmptyStatement,
   ])
@@ -938,7 +926,7 @@ const forItemStatement = $.def(() =>
   $.seq([
     "for",
     _,
-    "\\(",
+    "(",
     _,
     $.r`(var|const|let)`,
     __,
@@ -948,7 +936,7 @@ const forItemStatement = $.def(() =>
     __,
     anyExpression,
     _,
-    "\\)",
+    ")",
     _,
     blockOrNonEmptyStatement,
   ])
@@ -959,11 +947,11 @@ export const whileStatement = $.def(() =>
     $.seq([
       "while",
       _,
-      "\\(",
+      "(",
       _,
       anyExpression,
       _,
-      "\\)",
+      ")",
       _,
       blockOrNonEmptyStatement,
     ]),
@@ -979,11 +967,11 @@ const doWhileStatement = $.def(() =>
       _,
       "while",
       _,
-      "\\(",
+      "(",
       _,
       anyExpression,
       _,
-      "\\)",
+      ")",
     ]),
   ])
 );
@@ -1038,7 +1026,7 @@ const statementLine = $.or([
   // ]),
   // semicolon
   // $.seq([_, anyStatement, _, "(\\;\\n?|\\n)"]),
-  $.seq([_, anyStatement, _, "[;\n]", _]),
+  $.seq([_, anyStatement, _, $.r`[;\n]`, _]),
   // empty line
   $.seq([_, ";", _]),
 ]);
@@ -1054,168 +1042,18 @@ import { expectError, expectSame, formatError } from "./_testHelpers";
 
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
-  // test("empty", () => {
-  //   const parseEmpty = compile(emptyStatement);
-  //   is(parseEmpty("").result, "");
-  //   is(parseEmpty(";").result, ";");
-  //   is(parseEmpty(";;;").result, ";;;");
-  //   is(parseEmpty("\n").result, "\n");
-  //   is(parseEmpty("\n\n").result, "\n");
-  // });
-  test("debugger", () => {
-    const parse = compile(debuggerStatement);
-    is(parse("debugger").result, "debugger");
+  test("empty", () => {
+    const parseEmpty = compile(emptyStatement);
+    is(parseEmpty("").result, "");
+    // is(parseEmpty(";").result, ";");
+    // is(parseEmpty(";;;").result, ";;;");
+    is(parseEmpty("\n").result, "\n");
+    is(parseEmpty("\n\n").result, "\n");
   });
-  test("return", () => {
-    const parse = compile(returnStatement);
-    expectSame(parse, ["return", "return 1"]);
-  });
-  test("throw", () => {
-    const parse = compile(throwStatement);
-    expectSame(parse, ["throw 1"]);
-    expectError(parse, ["throw"]);
-  });
-  test("block", () => {
-    const parse = compile($.seq([block, $.eof()]));
-    expectSame(parse, [`{ return 1; }`, `{ debugger; return; }`, "{}"]);
-  });
-  test("assign", () => {
-    const parse = compile(variableStatement, { end: true });
-    expectSame(parse, ["let x = 1", "let x,y"]);
-    is(parse("let x:number = 1"), { result: "let x= 1" });
-    is(parse("let x:any"), { result: "let x" });
-    is(parse("let x:number = 1,y:number=2"), { result: "let x= 1,y=2" });
-  });
-
-  // test("for", () => {
-  //   const parse = compile(forStatement, { end: true });
-  //   expectSame(parse, [
-  //     "for(x=0;x<1;x++) x",
-  //     "for(x=0;x<1;x++) {}",
-  //     "for(;;) x",
-  //     "for(let x = 1;x<6;x++) x",
-  //     "for(let x = 1;x<6;x++) {}",
-  //     "for(;;) {}",
-  //     "for(;x;x) {}",
-  //   ]);
-  //   expectError(parse, ["for(;;)"]);
-  // });
-
-  // test("for-item", () => {
-  //   const parse = compile(forItemStatement, { end: true });
-  //   expectSame(parse, [
-  //     "for(const i of array) x",
-  //     "for(const k in array) x",
-  //     "for(let {} in array) x",
-  //     "for(let {} in []) x",
-  //     "for(let [] in xs) {}",
-  //   ]);
-  //   expectError(parse, ["for(const i of t)"]);
-  // });
-  test("while", () => {
-    const parse = compile($.seq([whileStatement, $.eof()]));
-    expectSame(parse, ["while(1) 1", "while(1) { break; }"]);
-    expectError(parse, ["while(1)"]);
-  });
-
-  test("if", () => {
-    const parse = compile($.seq([ifStatement, $.eof()]));
-    expectSame(parse, [
-      "if(1) 1",
-      `if(1) { return 1; }`,
-      `if(1) 1 else 2`,
-      `if (1) 1 else if (1) return`,
-      `if (1) 1 else if (1) return else 1`,
-      `if (1) { if(2) return; }`,
-    ]);
-  });
-
-  test("switch", () => {
-    const parse = compile($.seq([switchStatement, $.eof()]));
-    expectSame(parse, [
-      `switch (x) {}`,
-      `switch(true){ default: 1 }`,
-      `switch(x){ case 1: 1 }`,
-      `switch(x){
-        case 1:
-        case 2:
-      }`,
-      `switch(x){
-        case 1:
-        case 2:
-          return
-      }`,
-      `switch(x){
-        case 1: {}
-        case 2: {}
-      }`,
-    ]);
-  });
-
-  test("expressionStatement", () => {
-    const parse = compile(expressionStatement);
-    expectSame(parse, ["1", "func()", "a = 1", "a.b = 1", "1, 1"]);
-  });
-
-  test("variableStatement", () => {
-    const parse = compile(variableStatement);
-    expectSame(parse, [
-      "let x",
-      "let x,y",
-      "let x,y,z",
-      "let x,y=1,z",
-      "let x=1",
-      "const [] = []",
-      "const {} = {}, [] = a",
-    ]);
-    is(parse("let x = 1").result, "let x = 1");
-    is(parse("let x: number = 1").result, "let x= 1");
-  });
-
-  test("importStatement", () => {
-    const parse = compile(importStatement, { end: true });
-    expectSame(parse, [
-      "import 'foo'",
-      "import * as b from 'xx'",
-      "import a from 'b'",
-      'import {} from "b"',
-      'import {a} from "x"',
-      'import {a, b} from "x"',
-      'import {a as b} from "x"',
-      'import {a as b, d as c,} from "x"',
-    ]);
-    // drop import type
-    is(parse("import type a from 'xxx'").result, "");
-    is(parse("import type * as b from 'xxx'").result, "");
-    is(parse("import type {a as b} from 'xxx'").result, "");
-  });
-  test("exportStatement", () => {
-    const parse = compile(exportStatement, { end: true });
-    expectSame(parse, [
-      "export {}",
-      "export {a}",
-      "export {a,b}",
-      "export {a as b}",
-      "export {a as default}",
-      "export {default as default}",
-      "export {} from 'a'",
-      "export {default as x} from 'a'",
-      "export const x = 1",
-      "export function f(){}",
-      "export class C {}",
-    ]);
-  });
-
-  test("anyStatement", () => {
-    const parse = compile(anyStatement);
-    expectSame(parse, ["debugger", "{ a=1; }", "foo: {}", "foo: 1"]);
-  });
-
-  test("program:with as", () => {
-    const parse = compile(program);
-    is(parse("1 as number;"), {
-      result: "1;",
-    });
+  test("identifier", () => {
+    const parse = compile(identifier);
+    expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1", "aAa"]);
+    expectError(parse, ["1", "1_", "const", "public"]);
   });
 
   test("string", () => {
@@ -1297,12 +1135,6 @@ if (process.env.NODE_ENV === "test") {
     expectError(parseExpression, [`{ async a: 1 }`, `{ async get a() {} }`]);
   });
 
-  test("identifier", () => {
-    const parse = compile(identifier);
-    expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1", "aAa"]);
-    expectError(parse, ["1", "1_", "const", "public"]);
-  });
-
   test("newExpression", () => {
     const parse = compile(newExpression, { end: true });
     expectSame(parse, ["new X()", "new X[1]()", "new X.Y()"]);
@@ -1310,17 +1142,6 @@ if (process.env.NODE_ENV === "test") {
 
   test("memberExpression", () => {
     const parse = compile(memberable, { end: true });
-    expectSame(parse, [
-      "a.b",
-      "a",
-      "a.b.c",
-      "a[1]",
-      "new X().b",
-      "a?.b",
-      "this.#a",
-      "a?.[x]",
-      "import.meta",
-    ]);
     expectError(parse, ["a.new X()", "a.this", "(a).(b)"]);
   });
 
@@ -1339,12 +1160,6 @@ if (process.env.NODE_ENV === "test") {
       "++x++",
     ]);
     // expectError(parse, ["a.new X()", "a.this"]);
-  });
-
-  test("callExpression", () => {
-    const parse = compile($.seq([accessible, $.eof()]));
-    expectSame(parse, ["a().a()", "import('aaa')"]);
-    // expectSame(parse, ["a().a.b()", "new X().b()"]);
   });
 
   test("functionExpression", () => {
@@ -1368,15 +1183,14 @@ if (process.env.NODE_ENV === "test") {
     is(parse("function f(arg: T, ...args: any[]) {}"), {
       result: "function f(arg, ...args) {}",
     });
-
     is(parse("function f(): void {}"), { result: "function f() {}" });
-    // TODO: fix space eating by types
+    // // TODO: fix space eating by types
     is(parse("function f(): T {}"), { result: "function f(){}" });
     is(parse("function f(): T | U {}"), { result: "function f(){}" });
   });
   test("arrowFunctionExpression", () => {
     const parse = compile(arrowFunctionExpression);
-    // expectSame(parse, ["a => 1"]);
+    expectSame(parse, ["a => 1"]);
     expectSame(parse, [
       "() => {}",
       "* () => {}",
@@ -1447,31 +1261,32 @@ if (process.env.NODE_ENV === "test") {
     is(parse("x.f<T>()").result, "x.f()");
   });
 
-  test("binaryExpr", () => {
-    const parse = compile(binaryExpression);
+  test("anyExpression", () => {
+    const parse = compile(anyExpression, { end: true });
     expectSame(parse, [
       "a + a",
       "1 = 1",
       "1 + 1",
       "1 * 2",
+      "((1))",
+      "(1)",
       "1*2",
       "1**2",
       "1 + (1)",
       "(1) + 1",
       "( 1 + 1) + 1",
       "( 1 + 1) * 1 + 2 / (3 / 4)",
-    ]);
-  });
-
-  test("parenExpr", () => {
-    const parse = compile(paren);
-    expectSame(parse, ["(1)", "((1))"]);
-  });
-
-  test("anyExpression", () => {
-    const parse = compile(anyExpression, { end: true });
-    expectSame(parse, [
+      "1",
       "i in []",
+      "a.b",
+      "a",
+      "a.b.c",
+      "a[1]",
+      "new X().b",
+      "a?.b",
+      "this.#a",
+      "a?.[x]",
+      "import.meta",
       "a = 1",
       "a ?? b",
       "1 + 1",
@@ -1497,9 +1312,12 @@ if (process.env.NODE_ENV === "test") {
       "a?b:c",
       "(a ? b : c).d",
       "(a ? b : c ? d : e ).d",
+      "a().a()",
+      "import('aaa')",
+      "(()=>{})()",
+      "(async ()=>{})()",
     ]);
     is(parse("a!"), { result: "a" });
-    // remove typescript bang operator
     is(parse("(a.b)!"), { result: "(a.b)" });
   });
 
@@ -1536,14 +1354,12 @@ if (process.env.NODE_ENV === "test") {
       "[[a], ...x]",
       "[[a,b, [c, d, e], [, g]],, [{x, y}], ...x]",
     ]);
-    expectSame(parse, ["[]", `[a]`, `[[a,b]]`]);
-    expectError(parse, ["a.b"]);
+    expectError(parse, ["a.b", "[a.b]"]);
   });
 
   /* type annotations */
   test("asExpression", () => {
     const parse = compile(asExpression, { end: true });
-    // const parse = compile(asExpression, { end: true });
     is(parse("1"), { result: "1" });
     is(parse("1 as number"), { result: "1" });
     is(parse("1 + 1 as number"), { result: "1 + 1" });
@@ -1620,14 +1436,176 @@ if (process.env.NODE_ENV === "test") {
     ]);
   });
 
+  // statements
+
+  test("debugger", () => {
+    const parse = compile(debuggerStatement);
+    is(parse("debugger").result, "debugger");
+  });
+  test("return", () => {
+    const parse = compile(returnStatement);
+    expectSame(parse, ["return", "return 1"]);
+  });
+  test("throw", () => {
+    const parse = compile(throwStatement);
+    expectSame(parse, ["throw 1"]);
+    expectError(parse, ["throw"]);
+  });
+  test("block", () => {
+    const parse = compile($.seq([block, $.eof()]));
+    expectSame(parse, [`{ return 1; }`, `{ debugger; return; }`, "{}"]);
+  });
+  test("for", () => {
+    const parse = compile(forStatement, { end: true });
+    expectSame(parse, [
+      "for(x=0;x<1;x++) x",
+      "for(x=0;x<1;x++) {}",
+      "for(;;) x",
+      "for(let x = 1;x<6;x++) x",
+      "for(let x = 1;x<6;x++) {}",
+      "for(;;) {}",
+      "for(;x;x) {}",
+    ]);
+    expectError(parse, ["for(;;)"]);
+  });
+
+  test("for-item", () => {
+    const parse = compile(forItemStatement, { end: true });
+    expectSame(parse, [
+      "for(const i of array) x",
+      "for(const k in array) x",
+      "for(let {} in array) x",
+      "for(let {} in []) x",
+      "for(let [] in xs) {}",
+    ]);
+    expectError(parse, ["for(const i of t)"]);
+  });
+  test("while", () => {
+    const parse = compile($.seq([whileStatement, $.eof()]));
+    expectSame(parse, ["while(1) 1", "while(1) { break; }"]);
+    expectError(parse, ["while(1)"]);
+  });
+
+  test("if", () => {
+    const parse = compile($.seq([ifStatement, $.eof()]));
+    expectSame(parse, [
+      "if(1) 1",
+      `if(1) { return 1; }`,
+      `if(1) 1 else 2`,
+      `if (1) 1 else if (1) return`,
+      `if (1) 1 else if (1) return else 1`,
+      `if (1) { if(2) return; }`,
+    ]);
+  });
+
+  test("switch", () => {
+    const parse = compile($.seq([switchStatement, $.eof()]));
+    expectSame(parse, [
+      `switch (x) {}`,
+      `switch(true){ default: 1 }`,
+      `switch(x){ case 1: 1 }`,
+      `switch(x){
+        case 1:
+        case 2:
+      }`,
+      `switch(x){
+        case 1:
+        case 2:
+          return
+      }`,
+      `switch(x){
+        case 1: {}
+        case 2: {}
+      }`,
+    ]);
+  });
+
+  test("variableStatement", () => {
+    const parse = compile(variableStatement);
+    expectSame(parse, [
+      "let x",
+      "let x,y",
+      "let x,y,z",
+      "let x,y=1,z",
+      "let x=1",
+      "const [] = []",
+      "const {} = {}, [] = a",
+    ]);
+    is(parse("let x = 1").result, "let x = 1");
+    is(parse("let x: number = 1").result, "let x= 1");
+  });
+
+  test("variableStatement2", () => {
+    const parse = compile(variableStatement, { end: true });
+    expectSame(parse, ["let x", "let x = 1", "let x,y"]);
+    is(parse("let x:number = 1"), { result: "let x= 1" });
+    is(parse("let x:any"), { result: "let x" });
+    is(parse("let x:number = 1,y:number=2"), { result: "let x= 1,y=2" });
+  });
+
+  test("importStatement", () => {
+    const parse = compile(importStatement, { end: true });
+    expectSame(parse, [
+      "import 'foo'",
+      "import * as b from 'xx'",
+      "import a from 'b'",
+      'import {} from "b"',
+      'import {a} from "x"',
+      'import {a, b} from "x"',
+      'import {a as b} from "x"',
+      'import {a as b, d as c,} from "x"',
+    ]);
+    // drop import type
+    is(parse("import type a from 'xxx'").result, "");
+    is(parse("import type * as b from 'xxx'").result, "");
+    is(parse("import type {a as b} from 'xxx'").result, "");
+  });
+  test("exportStatement", () => {
+    const parse = compile(exportStatement, { end: true });
+    expectSame(parse, [
+      "export {}",
+      "export {a}",
+      "export {a,b}",
+      "export {a as b}",
+      "export {a as default}",
+      "export {default as default}",
+      "export {} from 'a'",
+      "export {default as x} from 'a'",
+      "export const x = 1",
+      "export function f(){}",
+      "export class C {}",
+    ]);
+  });
+
+  test("expressionStatement", () => {
+    const parse = compile(expressionStatement);
+    expectSame(parse, ["1", "func()", "a = 1", "a.b = 1", "1, 1", "a=1"]);
+    expectSame(parse, ["1", "func()"]);
+  });
+
+  test("anyStatement", () => {
+    const parse = compile(anyStatement);
+    expectSame(parse, ["debugger", "{ a=1; }", "foo: {}", "foo: 1"]);
+  });
+
+  test("program:with as", () => {
+    const parse = compile(program);
+    is(parse("1 as number;"), {
+      result: "1;",
+    });
+  });
+
   test("program", () => {
     const parse = compile(program, { end: true });
     expectSame(parse, [
+      "const x = 1;",
+      "const x = 'xxxx';",
       "debugger;",
       "debugger; debugger;   debugger   ;",
       ";;;",
       "",
       "import a from 'b';",
+      // "export {};",
     ]);
     is(parse("declare const x: number;"), { result: ";" });
     is(parse("declare const x: number = 1;"), { result: ";" });

@@ -2,8 +2,9 @@ import { transform } from "../src/index";
 import ts from "typescript";
 import fs from "fs";
 import { printPerfResult } from "@mizchi/pargen/src";
+import { formatError } from "../src/_testHelpers";
 
-const code = fs.readFileSync(__dirname + "/cases/example1.ts", "utf-8");
+const code = fs.readFileSync(__dirname + "/cases/example0.ts", "utf-8");
 
 function compileTsc(input: string) {
   return ts.transpileModule(input, {
@@ -17,6 +18,7 @@ function compileTsc(input: string) {
 function compileMints(input: string) {
   const out = transform(input);
   if (out.error) {
+    formatError(code, out);
     throw out;
   }
   return out.result as string;
