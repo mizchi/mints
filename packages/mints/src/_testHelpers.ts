@@ -1,7 +1,56 @@
+import ts from "typescript";
 import { ErrorType, ParseError } from "@mizchi/pargen/src/types";
 import { preprocessLight } from "./preprocess";
+import prettier from "prettier";
 
-// let maxPos = 0;
+function compileTsc(input: string) {
+  return ts.transpile(input, {
+    module: ts.ModuleKind.ESNext,
+    target: ts.ScriptTarget.Latest,
+  });
+}
+
+const _format = (input: string, format: boolean, stripTypes: boolean) => {
+  input = stripTypes ? compileTsc(input) : input;
+  return format ? prettier.format(input, { parser: "typescript" }) : input;
+};
+
+export const expectSame = (
+  parse: any,
+  inputs: string[],
+  {
+    format = true,
+    stripTypes = true,
+  }: { format?: boolean; stripTypes?: boolean } = {}
+) => {
+  inputs.forEach((raw) => {
+    const input = preprocessLight(raw);
+    const result = parse(input);
+    if (result.error) {
+      formatError(input, result);
+      // throw "Unexpected";
+      throw new Error("Unexpected Result:" + input);
+      // throw `Expect: ${input}\nOutput: ${result}`;
+    } else {
+      const resultf = format
+        ? _format(result.result as string, format, stripTypes)
+        : result.result;
+      const expectedf = format ? _format(input, format, stripTypes) : input;
+      if (resultf !== expectedf) {
+        throw `Expect: ${input}\nOutput: ${JSON.stringify(result, null, 2)}`;
+      }
+    }
+  });
+};
+
+export const expectError = (parse: any, inputs: string[]) => {
+  inputs.forEach((input) => {
+    const result = parse(preprocessLight(input));
+    if (!result.error) {
+      throw new Error("Unexpected SameResult:" + result);
+    }
+  });
+};
 
 export function formatError(input: string, error: ParseError) {
   const deepError = findMaxPosError(error, error);
@@ -11,8 +60,7 @@ export function formatError(input: string, error: ParseError) {
 
 export function findMaxPosError(
   error: ParseError,
-  currentError: ParseError,
-  stack: string[] = []
+  currentError: ParseError
 ): ParseError {
   currentError = error.pos > currentError.pos ? error : currentError;
 
@@ -28,11 +76,7 @@ export function findMaxPosError(
   return currentError;
 }
 
-export function _formatError(
-  input: string,
-  error: ParseError,
-  depth: number = 0
-) {
+function _formatError(input: string, error: ParseError, depth: number = 0) {
   if (depth === 0) {
     console.error("[parse:fail]", error.pos);
   }
@@ -60,43 +104,3 @@ export function _formatError(
     }
   }
 }
-
-export const expectSame = (parse: any, inputs: string[]) => {
-  inputs.forEach((raw) => {
-    const input = preprocessLight(raw);
-    const result = parse(input);
-    if (result.error) {
-      formatError(input, result);
-      // throw "Unexpected";
-      throw new Error("Unexpected Result:" + input);
-      // throw `Expect: ${input}\nOutput: ${result}`;
-    } else if (!result.error && result.result !== input) {
-      throw `Expect: ${input}\nOutput: ${JSON.stringify(result, null, 2)}`;
-    }
-  });
-};
-
-export const expectSuccess = (parse: any, raw: string) => {
-  // inputs.forEach((raw) => {
-  const input = preprocessLight(raw);
-  const result = parse(input);
-  if (result.error) {
-    formatError(input, result);
-    // throw "Unexpected";
-    throw new Error("Unexpected Result:" + input);
-    // throw `Expect: ${input}\nOutput: ${result}`;
-  } else if (!result.error && result.result !== input) {
-    throw `Expect: ${input}\nOutput: ${JSON.stringify(result, null, 2)}`;
-  }
-  // });
-};
-
-export const expectError = (parse: any, inputs: string[]) => {
-  inputs.forEach((input) => {
-    const result = parse(input);
-    if (!result.error) {
-      formatError(input, result);
-      throw new Error("Unexpected Result:" + input);
-    }
-  });
-};

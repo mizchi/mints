@@ -4,6 +4,11 @@
   "repository": "git@github.com:mizchi/pargen.git",
   "author": "mizchi <miz404@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "test": "yarn test:pargen && yarn test:mints",
+    "test:pargen": "yarn workspace @mizchi/pargen run test",
+    "test:mints": "yarn workspace @mizchi/mints run test"
+  },
   "devDependencies": {
     "@mizchi/test": "^0.1.1",
     "@types/node": "^16.9.1",

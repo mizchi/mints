@@ -50,7 +50,7 @@ const findPatternAt = (
         ? regex.toString().slice(0, 10) + "..."
         : regex;
 
-    console.log(`[eat:reg${regexSummary}]`, `"${match[0]}"`);
+    // console.log(`[eat:reg${regexSummary}]`, `"${match[0]}"`);
   }
   return match?.[0] ?? null;
 };
@@ -58,7 +58,7 @@ const findPatternAt = (
 const startStringAt = (input: string, str: string, pos: number): boolean => {
   const match = input.startsWith(str, pos);
   if (match && input.length > 0) {
-    console.log("[eat:str]", `"${str.slice(0, 10)}"`);
+    // console.log("[eat:str]", `"${str.slice(0, 10)}"`);
   } else {
     // console.log("[eat:str_fail]", str);
   }
@@ -113,9 +113,9 @@ export function readPairedBlock(
 }
 
 import { test, run } from "@mizchi/test";
-import assert from "assert";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
+  const assert = require("assert");
   // @ts-ignore
   const eq = (...args: any[]) => assert.deepStrictEqual(...(args as any));
   test("buildTokenMap & pair", () => {

@@ -1,5 +1,4 @@
 import { defineConfig } from "vite";
-
 export default defineConfig({
   define: {
     "require.main === module": JSON.stringify(false),
@@ -7,6 +6,8 @@ export default defineConfig({
   },
   build: {
     target: "esnext",
+    minify: "terser",
+    // minify: true,
     // @ts-ignore
     lib: {
       entry: "src/index",

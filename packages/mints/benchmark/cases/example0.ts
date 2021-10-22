@@ -1,12 +1,11 @@
-// let a: number = "xxx";
-let a1: number = '111';
-
 // , b: number[], c: Array<string>;
 const x: number = 1;
 
 function square(x: number): number {
   return x ** 2;
 };
+
+square(2);
 
 type IPoint = {
   x: number;
@@ -19,20 +18,27 @@ if (1) {
   while(false) {}
 }
 
-class Point<T extends IPoint = any> implements IPoint {
+class Point<T extends IPoint = any> implements Object {
   public x: number;
   private y: number;
-  constructor() {
-    this.x = 1;
-    this.y = 2;
+  constructor(x: number, y: number) {
+    this.x = x;
+    this.y = y;
   }
-  public static async foo(arg: number): number {
+  public static async foo(arg: number): Promise<number> {
     return arg;
   }
 }
 
-const p = new Point();
+const p = new Point(1, 2);
+console.log(p.x);
 
-func<T>();
+// func<T>();
 
-export {a1, b};
+export { x, x as y, p };
+
+export const v = 1;
+
+export class Foo {
+  x: number = 1;
+}

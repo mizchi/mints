@@ -4,10 +4,11 @@ export const __ = `(\\s|\\n)+`;
 // "(?!.*@N).*?"
 export const PAIRED_CHARS = ["(", ")", "{", "}", "[", "]", "<", ">"] as const;
 export const REST_SPREAD = "...";
+export const SPACE_REQUIRED_OPERATORS = ["instanceof", "in"];
 export const OPERATORS = [
   // relation
-  "instanceof",
-  "in",
+  // "instanceof",
+  // "in",
 
   // 3 chars
   ">>>",

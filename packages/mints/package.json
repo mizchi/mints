@@ -6,14 +6,23 @@
   "main": "dist/index.cjs",
   "module": "dist/index.js",
   "scripts": {
-    "build": "vite build && tsc",
+    "build": "rollup -c && tsc",
+    "analyze": "rollup -c rollup.config.analyze.js",
     "bench": "node -r esbuild-register benchmark/bench.ts",
     "bench:0x": "0x -- node -r esbuild-register  benchmark/bench.ts",
     "test": "NODE_ENV=test node -r esbuild-register src/"
   },
   "devDependencies": {
     "0x": "^4.11.0",
-    "autocannon": "^7.5.0",
-    "prettier": "^2.4.1"
+    "@rollup/plugin-replace": "^3.0.0",
+    "@types/prettier": "^2.4.1",
+    "prettier": "^2.4.1",
+    "rollup-plugin-analyzer": "^4.0.0",
+    "rollup-plugin-define": "^1.0.1",
+    "rollup-plugin-esbuild": "^4.6.0",
+    "rollup-plugin-terser": "^7.0.2",
+    "rollup-plugin-ts": "^1.4.7",
+    "typescript": "^4.4.4",
+    "vite": "^2.6.10"
   }
 }

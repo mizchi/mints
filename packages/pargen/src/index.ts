@@ -402,7 +402,8 @@ function compileFragmentInternal(
               });
             }
             if (!parser.node.skip) {
-              ranges.push(...parseResult.ranges);
+              // drop zero
+              ranges.push(...parseResult.ranges.filter(([a, b]) => a !== b));
             }
             cursor += parseResult.len;
           }

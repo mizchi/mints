@@ -2,6 +2,7 @@ import {
   OPERATORS,
   RESERVED_WORDS,
   REST_SPREAD,
+  SPACE_REQUIRED_OPERATORS,
   _ as _w,
   __ as __w,
 } from "./constants";
@@ -9,6 +10,7 @@ import {
 import { compile, builder as $ } from "./ctx";
 
 const _ = $.regex(_w);
+const _s = $.skip($.regex(_w));
 const __ = $.regex(__w);
 
 export const identifier = $.def(() =>
@@ -308,13 +310,13 @@ const lefthand = $.def(() => destructivePattern);
 
 const functionArguments = $.def(() =>
   $.seq([
-    $.repeat_seq([lefthand, _, $.skip_opt(_typeAnnotation), _, ","]),
-    _,
+    $.repeat_seq([lefthand, _s, $.skip_opt(_typeAnnotation), _s, ","]),
+    _s,
     $.or([
       // rest spread
-      $.seq([REST_SPREAD, _, identifier, _, $.skip_opt(_typeAnnotation)]),
-      $.seq([lefthand, _, $.skip_opt(_typeAnnotation)]),
-      _,
+      $.seq([REST_SPREAD, _s, identifier, _s, $.skip_opt(_typeAnnotation)]),
+      $.seq([lefthand, _s, $.skip_opt(_typeAnnotation)]),
+      _s,
     ]),
   ])
 );
@@ -453,13 +455,13 @@ const classField = $.def(() =>
       $.skip_opt(accessModifier),
       // $.tok("constructor"),
       "constructor",
-      _,
+      _s,
       "(",
-      _,
+      _s,
       functionArguments,
-      _,
+      _s,
       ")",
-      _,
+      _s,
       block,
     ]),
     // class member
@@ -476,13 +478,13 @@ const classField = $.def(() =>
       _,
       $.seq([
         // foo(): void {}
-        "\\(",
-        _,
+        "(",
+        _s,
         functionArguments,
-        _,
-        "\\)",
+        _s,
+        ")",
         $.skip_opt($.seq([_, _typeAnnotation])),
-        _,
+        _s,
         block,
       ]),
     ]),
@@ -492,9 +494,9 @@ const classField = $.def(() =>
       $.opt(staticModifier),
       $.opt("#"),
       identifier,
-      $.skip_opt($.seq([_, _typeAnnotation])),
-      _,
-      $.opt($.seq(["=", _, anyExpression])),
+      $.skip_opt($.seq([_s, _typeAnnotation])),
+      _s,
+      $.opt($.seq(["=", _s, anyExpression])),
       ";",
     ]),
   ])
@@ -509,11 +511,11 @@ export const classExpression = $.def(() =>
     $.skip_opt(typeDeclareParameters),
     $.opt($.seq([__, "extends", __, anyExpression])),
     $.skip_opt($.seq([__, "implements", __, typeExpression])),
-    _,
+    _s,
     "{",
-    _,
-    $.repeat_seq([_, classField, _]),
-    _,
+    _s,
+    $.repeat_seq([_s, classField, _s]),
+    _s,
     // TODO: class field
     "}",
   ])
@@ -523,21 +525,19 @@ export const functionExpression = $.def(() =>
   $.seq([
     $.opt(asyncModifier),
     "function",
-    _,
-    $.opt("*"), // generator
-    _,
-    $.opt(identifier),
-    _,
+    $.opt($.seq([_s, "*"])),
+    $.opt($.seq([__, identifier])),
+    _s,
     $.skip_opt(typeDeclareParameters),
-    _,
+    _s,
     "(",
-    _,
+    _s,
     functionArguments,
-    _,
+    _s,
     ")",
-    _,
+    _s,
     $.skip_opt(_typeAnnotation),
-    _,
+    _s,
     $.or([block, anyStatement]),
   ])
 );
@@ -546,23 +546,23 @@ const arrowFunctionExpression = $.def(() =>
   $.seq([
     $.opt(asyncModifier),
     $.skip_opt(typeDeclareParameters),
-    _,
+    _s,
     $.r`(\\*)?`,
-    _,
+    _s,
     $.or([
       $.seq([
         "(",
-        _,
+        _s,
         functionArguments,
-        _,
+        _s,
         ")",
         $.skip_opt($.seq([_, _typeAnnotation])),
       ]),
       identifier,
     ]),
-    _,
+    _s,
     "=>",
-    _,
+    _s,
     $.or([block, anyStatement]),
   ])
 );
@@ -572,12 +572,12 @@ const newExpression = $.def(() =>
     "new",
     __,
     memberable,
-    _,
-    $.opt($.seq(["(", _, functionArguments, _, ")"])),
+    _s,
+    $.opt($.seq(["(", _s, functionArguments, _s, ")"])),
   ])
 );
 
-const paren = $.def(() => $.seq(["\\(", _, anyExpression, _, "\\)"]));
+const paren = $.def(() => $.seq(["\\(", _s, anyExpression, _s, "\\)"]));
 const primary = $.or([
   paren,
   newExpression,
@@ -591,11 +591,11 @@ const __call = $.def(() =>
     $.seq([
       "?.",
       $.skip_opt($.seq([_, typeParameters])),
-      _,
+      _s,
       "(",
-      _,
+      _s,
       callArguments,
-      _,
+      _s,
       ")",
     ]),
     $.seq([
@@ -614,7 +614,7 @@ const memberAccess = $.def(() =>
   $.or([
     // ?. | .#a | .a
     $.seq([$.r`(\\?)?\\.`, $.r`\\#?`, identifier]),
-    $.seq([$.r`(\\?\\.)?`, "[", _, anyExpression, _, "]"]),
+    $.seq([$.r`(\\?\\.)?`, "[", _s, anyExpression, _s, "]"]),
     __call,
   ])
 );
@@ -627,7 +627,7 @@ const memberable = $.def(() =>
 const accessible = $.def(() =>
   $.or([
     // call chain
-    $.seq([memberable, _, __call, _, $.repeat_seq([memberAccess])]),
+    $.seq([memberable, _s, __call, _s, $.repeat_seq([memberAccess])]),
     memberable,
   ])
 );
@@ -656,7 +656,18 @@ const unary = $.def(() =>
 );
 
 const binaryExpression = $.def(() =>
-  $.seq([unary, $.repeat_seq([_, $.or([...OPERATORS]), _, unary])])
+  $.seq([
+    unary,
+    $.repeat_seq([
+      // _s,
+      $.or([
+        ...SPACE_REQUIRED_OPERATORS.map((op) => $.seq([__, op, __])),
+        ...OPERATORS.map((op) => $.seq([_s, op, _s])),
+      ]),
+      // _s,
+      unary,
+    ]),
+  ])
 );
 
 /* TypeExpression */
@@ -671,7 +682,17 @@ const asExpression = $.def(() =>
 
 // a ? b: c
 const ternaryExpression = $.def(() =>
-  $.seq([asExpression, _, "\\?", _, anyExpression, _, ":", _, anyExpression])
+  $.seq([
+    asExpression,
+    _s,
+    "\\?",
+    _s,
+    anyExpression,
+    _s,
+    ":",
+    _s,
+    anyExpression,
+  ])
 );
 
 export const anyExpression = $.def(() =>
@@ -694,7 +715,7 @@ const blockOrStatement = $.def(() => $.or([block, anyStatement]));
 const blockStatement = $.def(() => block);
 
 const labeledStatement = $.def(() =>
-  $.seq([identifier, _, ":", _, anyStatement])
+  $.seq([identifier, _s, ":", _s, anyStatement])
 );
 
 const _importRightSide = $.def(() =>
@@ -706,22 +727,22 @@ const _importRightSide = $.def(() =>
       // TODO: * as b
       $.seq([
         "{",
-        _,
+        _s,
         $.repeat_seq([
           identifier,
           $.opt($.seq([__, "as", __, identifier])),
-          _,
+          _s,
           ",",
-          _,
+          _s,
         ]),
         // last item
         $.opt(
           $.seq([
             identifier,
-            $.opt($.seq([__, "as", __, identifier, _, $.r`,?`])),
+            $.opt($.seq([__, "as", __, identifier, _s, $.r`,?`])),
           ])
         ),
-        _,
+        _s,
         "}",
       ]),
     ]),
@@ -750,16 +771,16 @@ const exportStatement = $.def(() =>
     // TODO: skip: export type|interface
     // export clause
     $.seq([
-      "export ",
-      _,
+      "export",
+      _s,
       "{",
-      _,
+      _s,
       $.repeat_seq([
         defaultOrIdentifer,
         $.opt($.seq([__, "as", __, defaultOrIdentifer])),
-        _,
+        _s,
         ",",
-        _,
+        _s,
       ]),
       // last item
       $.opt(
@@ -769,9 +790,9 @@ const exportStatement = $.def(() =>
           $.opt(","),
         ])
       ),
-      _,
+      _s,
       "}",
-      $.opt($.seq([_, "from ", stringLiteral])),
+      $.opt($.seq([_s, "from ", stringLiteral])),
     ]),
     // export named expression
     $.seq([
@@ -786,21 +807,21 @@ const ifStatement = $.def(() =>
   $.seq([
     // if
     "if",
-    _,
+    _s,
     "(",
-    _,
+    _s,
     anyExpression,
-    _,
+    _s,
     ")",
-    _,
+    _s,
     blockOrStatement,
-    _,
+    _s,
     $.opt(
       $.seq([
         "else",
         $.or([
           // xx
-          $.seq([_, block]),
+          $.seq([_s, block]),
           $.seq([__, anyStatement]),
         ]),
       ])
@@ -812,59 +833,55 @@ const switchStatement = $.def(() =>
   $.or([
     $.seq([
       "switch",
-      _,
+      _s,
       "(",
-      _,
+      _s,
       anyExpression,
-      _,
+      _s,
       ")",
-      _,
+      _s,
       "{",
-      _,
+      _s,
       $.repeat_seq([
         "case ",
         anyExpression,
-        _,
+        _s,
         ":",
-        _,
+        _s,
         // include empty statement
         $.opt(blockOrStatement),
-        _,
+        _s,
         $.opt(";"),
-        _,
+        _s,
       ]),
-      _,
-      $.opt($.seq(["default", _, ":", _, blockOrStatement])),
-      _,
+      _s,
+      $.opt($.seq(["default", _s, ":", _s, blockOrStatement])),
+      _s,
       "}",
     ]),
   ])
 );
 
-const __assignSeq = $.seq(["=", _, anyExpression]);
+const __assignSeq = $.seq(["=", _s, anyExpression]);
 export const variableStatement = $.def(() =>
-  $.or([
-    $.seq([
-      // single
-      $.r`(var|const|let) `,
-      // x, y=1,
-      $.repeat_seq([
-        destructivePattern,
-        _,
-        $.skip_opt(_typeAnnotation),
-        _,
-        $.opt(__assignSeq),
-        _,
-        ",",
-        _,
-      ]),
-      _,
+  $.seq([
+    // single
+    $.r`(var|const|let) `,
+    // x, y=1,
+    $.repeat_seq([
       destructivePattern,
-      _,
+      _s,
       $.skip_opt(_typeAnnotation),
-      _,
-      $.opt(__assignSeq),
+      $.opt($.seq([_s, __assignSeq])),
+      _s,
+      ",",
+      _s,
     ]),
+    _s,
+    destructivePattern,
+    _s,
+    $.skip_opt(_typeAnnotation),
+    $.opt($.seq([_s, __assignSeq])),
   ])
 );
 
@@ -908,22 +925,22 @@ const interfaceStatement = $.def(() =>
 export const forStatement = $.def(() =>
   $.seq([
     "for",
-    _,
+    _s,
     "(",
-    _,
+    _s,
     // start
     $.or([variableStatement, anyExpression, _]),
-    _,
+    _s,
     ";",
     // condition
-    _,
+    _s,
     $.opt(anyExpression),
-    _,
+    _s,
     ";",
     // step end
     $.opt(anyExpression),
     ")",
-    _,
+    _s,
     blockOrStatement,
   ])
 );
@@ -932,49 +949,46 @@ export const forStatement = $.def(() =>
 const forItemStatement = $.def(() =>
   $.seq([
     "for",
-    _,
+    _s,
     "(",
-    _,
-    $.r`(var|const|let)`,
-    __,
+    _s,
+    $.r`(var|const|let) `,
+    _s,
     destructivePattern,
     __,
     $.r`(of|in)`,
     __,
     anyExpression,
-    _,
+    _s,
     ")",
-    _,
+    _s,
     blockOrStatement,
   ])
 );
 
 export const whileStatement = $.def(() =>
-  $.or([
-    $.seq(["while", _, "(", _, anyExpression, _, ")", _, blockOrStatement]),
-  ])
+  $.seq(["while", _s, "(", _s, anyExpression, _s, ")", _s, blockOrStatement])
 );
 
 const doWhileStatement = $.def(() =>
   $.or([
     $.seq([
       "do",
-      _,
-      blockOrStatement,
+      $.or([$.seq([_s, block]), $.seq([__, anyStatement])]),
       _,
       "while",
-      _,
+      _s,
       "(",
-      _,
+      _s,
       anyExpression,
-      _,
+      _s,
       ")",
     ]),
   ])
 );
 
 const expressionStatement = $.def(() =>
-  $.seq([anyExpression, $.repeat_seq([",", _, anyExpression])])
+  $.seq([anyExpression, $.repeat_seq([",", _s, anyExpression])])
 );
 
 const semicolonlessStatement = $.def(() =>
@@ -1021,25 +1035,21 @@ const lines = $.seq([
       $.seq([
         // class{}(;\n)
         semicolonlessStatement,
-        $.or([
-          // n
-          $.seq([_, $.r`[;\n]`, _]),
-          _,
-        ]),
-        // $.r`[;\\n ]*`,
+        $.or([$.skip($.tok("\n")), $.tok(";"), $.skip(_)]),
       ]),
       // $.seq([$.opt(anyStatement), _, $.r`[;\\n]+`, _]),
       $.seq([
         // enter or semicolon end statements
         $.opt(anyStatement),
         $.r`[ ]*`,
-        $.r`[\\n;]`,
-        _,
+        // $.r`[\\n;]`,
+        $.or([$.skip($.tok("\n")), $.tok(";")]),
+        _s,
       ]),
     ]),
   ]),
   $.opt(anyStatement),
-  $.opt(";"),
+  $.skip_opt(";"),
 ]);
 // const statementLine = $.or([
 //   // $.seq([
@@ -1066,15 +1076,120 @@ const lines = $.seq([
 //   $.seq([_, ";", _]),
 // ]);
 
-export const block = $.def(() => $.seq(["{", _, lines, _, "}"]));
+export const block = $.def(() => $.seq(["{", _s, lines, _s, "}"]));
 
-export const program = $.def(() => $.seq([_, lines, _, $.eof()]));
+export const program = $.def(() => $.seq([_s, lines, _s, $.eof()]));
 
 import { test, run, is } from "@mizchi/test";
-import { expectError, expectSame, formatError } from "./_testHelpers";
-
+// import { expectError, expectSame } from "./_testHelpers";
+import { preprocessLight } from "./preprocess";
+import { ErrorType, ParseError } from "@mizchi/pargen/src/types";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
+  const ts = require("typescript");
+  const prettier = require("prettier");
+  function compileTsc(input: string) {
+    return ts.transpile(input, {
+      module: ts.ModuleKind.ESNext,
+      target: ts.ScriptTarget.Latest,
+    });
+  }
+
+  const _format = (input: string, format: boolean, stripTypes: boolean) => {
+    input = stripTypes ? compileTsc(input) : input;
+    return format ? prettier.format(input, { parser: "typescript" }) : input;
+  };
+
+  const expectSame = (
+    parse: any,
+    inputs: string[],
+    {
+      format = true,
+      stripTypes = true,
+    }: { format?: boolean; stripTypes?: boolean } = {}
+  ) => {
+    inputs.forEach((raw) => {
+      const input = preprocessLight(raw);
+      const result = parse(input);
+      if (result.error) {
+        formatError(input, result);
+        // throw "Unexpected";
+        throw new Error("Unexpected Result:" + input);
+        // throw `Expect: ${input}\nOutput: ${result}`;
+      } else {
+        const resultf = format
+          ? _format(result.result as string, format, stripTypes)
+          : result.result;
+        const expectedf = format ? _format(input, format, stripTypes) : input;
+        if (resultf !== expectedf) {
+          throw `Expect: ${input}\nOutput: ${JSON.stringify(result, null, 2)}`;
+        }
+      }
+    });
+  };
+
+  const expectError = (parse: any, inputs: string[]) => {
+    inputs.forEach((input) => {
+      const result = parse(preprocessLight(input));
+      if (!result.error) {
+        throw new Error("Unexpected SameResult:" + result);
+      }
+    });
+  };
+
+  function formatError(input: string, error: ParseError) {
+    const deepError = findMaxPosError(error, error);
+    console.log("max depth", deepError.pos);
+    _formatError(input, deepError);
+  }
+
+  function findMaxPosError(
+    error: ParseError,
+    currentError: ParseError
+  ): ParseError {
+    currentError = error.pos > currentError.pos ? error : currentError;
+
+    if (error.errorType === ErrorType.Seq_Stop) {
+      currentError = findMaxPosError(error.detail.child, currentError);
+    }
+
+    if (error.errorType === ErrorType.Or_UnmatchAll) {
+      for (const e of error.detail.children) {
+        currentError = findMaxPosError(e, currentError);
+      }
+    }
+    return currentError;
+  }
+
+  function _formatError(input: string, error: ParseError, depth: number = 0) {
+    if (depth === 0) {
+      console.error("[parse:fail]", error.pos);
+    }
+    const prefix = " ".repeat(depth * 2);
+    console.log(
+      prefix,
+      `${ErrorType?.[error.errorType]}[${error.pos}]`,
+      `<$>`,
+      input.substr(error.pos).split("\n")[0] + " ..."
+    );
+    if (error.errorType === ErrorType.Token_Unmatch && error.detail) {
+      console.log(prefix, ">", error.detail);
+    }
+    if (error.errorType === ErrorType.Not_IncorrectMatch) {
+      console.log(prefix, "matche", error);
+    }
+
+    if (error.errorType === ErrorType.Seq_Stop) {
+      _formatError(input, error.detail.child, depth + 1);
+    }
+
+    if (error.errorType === ErrorType.Or_UnmatchAll) {
+      for (const e of error.detail.children) {
+        _formatError(input, e, depth + 1);
+      }
+    }
+  }
+
   test("identifier", () => {
     const parse = compile(identifier);
     expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1", "aAa"]);
@@ -1139,24 +1254,28 @@ if (process.env.NODE_ENV === "test") {
 
   test("object", () => {
     const parseExpression = compile(anyLiteral);
-    expectSame(parseExpression, [
-      `{}`,
-      `{ a: 1 }`,
-      `{ a: 1, b: 2}`,
-      `{ a: 1, b: 2,}`,
-      `{ a: 1, b: 2, ...rest}`,
-      `{ a }`,
-      `{ a,b }`,
-      `{ [1]: 1 }`,
-      `{ a() {} }`,
-      `{ [1]() {} }`,
-      `{ async a(){} }`,
-      `{ get a() {} }`,
-      `{ set a() {} }`,
-      `{ get 'aaa'() {} }`,
-      `{ "a" : 1, "b": "text", "c" : true, "d": null }`,
-      `{ "a": { "b": "2" }, c: {}, "d": [1], "e": [{} ] }`,
-    ]);
+    expectSame(
+      parseExpression,
+      [
+        `{}`,
+        `{ a: 1 }`,
+        `{ a: 1, b: 2 }`,
+        `{ a: 1, b: 2,}`,
+        `{ a: 1, b: 2, ...rest}`,
+        `{ a }`,
+        `{ a,b }`,
+        `{ [1]: 1 }`,
+        `{ a() {} }`,
+        `{ [1]() {} }`,
+        `{ async a(){} }`,
+        `{ get a() {} }`,
+        `{ set a() {} }`,
+        `{ get 'aaa'() {} }`,
+        `{ "a" : 1, "b": "text", "c" : true, "d": null }`,
+        `{ "a": { "b": "2" }, c: {}, "d": [1], "e": [{} ] }`,
+      ],
+      { format: false }
+    );
     expectError(parseExpression, [`{ async a: 1 }`, `{ async get a() {} }`]);
   });
 
@@ -1182,92 +1301,96 @@ if (process.env.NODE_ENV === "test") {
       "!x",
       "~~x",
       "!!x",
-      "++x++",
+      // "++x++",
     ]);
     // expectError(parse, ["a.new X()", "a.this"]);
   });
 
   test("functionExpression", () => {
     const parse = compile(functionExpression);
+    // expectResult(parse, "function () {}", "function(){}");
+    // expectResult(parse, "function * () {}", "function*(){}");
+
     expectSame(parse, [
-      "function () {}",
-      "function * () {}",
-      "async function ({a}) 1",
-      "function (a) {}",
-      "function (a,) {}",
-      "function (a,b) {}",
-      "function ({a, b}) {}",
-      "function ({a, b}) return 1",
-      "function ({a}) 1",
-      "function f() 1",
+      "function f(){}",
+      // "function*f(){}",
+      "async function f({a})1",
+      "function f(a){}",
+      "function f(a,){}",
+      "function f(a,b){}",
+      "function f({a, b}){}",
+      "function f({a, b})return 1",
+      "function f({a})1",
+      "function f()1",
     ]);
     // drop types
-    is(parse("function f() {}"), { result: "function f() {}" });
-    is(parse("function f<T extends U>() {}"), { result: "function f() {}" });
-    is(parse("function f(arg: T) {}"), { result: "function f(arg) {}" });
-    is(parse("function f(arg: T, ...args: any[]) {}"), {
-      result: "function f(arg, ...args) {}",
+    is(parse("function f() {}"), { result: "function f(){}" });
+    is(parse("function f() {}"), { result: "function f(){}" });
+    is(parse("function f<T extends U>() {}"), { result: "function f(){}" });
+    is(parse("function f(arg: T){}"), { result: "function f(arg){}" });
+    is(parse("function f(arg: T, ...args: any[]){}"), {
+      result: "function f(arg,...args){}",
     });
-    is(parse("function f(): void {}"), { result: "function f() {}" });
+    is(parse("function f(): void {}"), { result: "function f(){}" });
     // // TODO: fix space eating by types
     is(parse("function f(): T {}"), { result: "function f(){}" });
     is(parse("function f(): T | U {}"), { result: "function f(){}" });
   });
   test("arrowFunctionExpression", () => {
     const parse = compile(arrowFunctionExpression);
-    expectSame(parse, ["a => 1"]);
+    expectSame(parse, ["a=>1"]);
     expectSame(parse, [
-      "() => {}",
-      "* () => {}",
-      "(a) => 1",
-      "a => 1",
-      "({}) => 1",
-      "async () => {}",
-      "async () => await p",
-      "async () => await new Promise(r => setTimeout(r))",
+      "()=>{}",
+      // "*()=>{}",
+      "(a)=>1",
+      "a=>1",
+      "({})=>1",
+      "async ()=>{}",
+      "async ()=>await p",
+      "async ()=>await new Promise(r=>setTimeout(r))",
     ]);
-    is(parse("() => {}"), { result: "() => {}" });
-    is(parse("<T>() => {}"), { result: "() => {}" });
+    is(parse("() => {}"), { result: "()=>{}" });
+    is(parse("<T>() => {}"), { result: "()=>{}" });
     // TODO: fix space eating by types
-    is(parse("(): T => {}"), { result: "()=> {}" });
-    is(parse("(a:T) => {}"), { result: "(a) => {}" });
+    is(parse("(): T => {}"), { result: "()=>{}" });
+    is(parse("(a:T) => {}"), { result: "(a)=>{}" });
   });
 
   test("classExpression", () => {
     const parse = compile(classExpression);
-    expectSame(parse, ["class X {}", "class {}", "class X extends Y {}"]);
+    expectSame(parse, ["class X{}", "class{}", "class X extends Y{}"]);
     expectSame(parse, [
       "class{}",
-      "class {}",
-      "class extends A {}",
-      "class { x; }",
-      "class { x = 1;}",
-      "class { x = 1; #y = 2;  }",
-      "class { constructor() {} }",
-      "class { constructor() { this.val = 1; } }",
-      "class { foo() {} }",
-      "class { get foo() {} }",
-      "class { set foo() {} }",
-      "class { async foo() {} }",
-      "class { async foo() {} }",
-      "class { static async foo() {} }",
+      "class{}",
+      "class extends A{}",
+      "class{x;}",
+      "class{x=1;}",
+      "class{x=1;#y=2;}",
+      "class{constructor(){}}",
+      // "class{constructor(){this.val = 1;}}",
+      "class{foo(){}}",
+      "class{get foo(){}}",
+      "class{set foo(){}}",
+      "class{async foo(){}}",
+      "class{async foo(){}}",
+      "class{static async foo(){}}",
     ]);
     is(parse("abstract class{}"), { result: "class{}" });
-    is(parse("class { private x; }"), { result: "class { x;}" });
-    is(parse("class { public x; }"), { result: "class { x;}" });
+    is(parse("class { private x; }"), { result: "class{x;}" });
+    is(parse("class { public x; }"), { result: "class{x;}" });
     is(parse("class<T>{}"), { result: "class{}" });
     is(parse("class<T> implements X{}"), { result: "class{}" });
     is(parse("class<T> extends C implements X{}"), {
       result: "class extends C{}",
     });
     is(parse("class{foo(): void {} }"), {
-      result: "class{foo() {} }",
+      result: "class{foo(){}}",
     });
     is(parse("class{foo(arg:T): void {} }"), {
-      result: "class{foo(arg) {} }",
+      result: "class{foo(arg){}}",
     });
     is(parse("class{foo<T>(arg:T): void {} }"), {
-      result: "class{foo(arg) {} }",
+      result: "class{foo(arg){}}",
     });
     is(parse("class{x:number;y=1;}"), {
       result: "class{x;y=1;}",
@@ -1289,18 +1412,18 @@ if (process.env.NODE_ENV === "test") {
   test("anyExpression", () => {
     const parse = compile(anyExpression, { end: true });
     expectSame(parse, [
-      "a + a",
-      "1 = 1",
-      "1 + 1",
-      "1 * 2",
+      "a+a",
+      "1=1",
+      "1+1",
+      "1*2",
       "((1))",
       "(1)",
       "1*2",
       "1**2",
-      "1 + (1)",
-      "(1) + 1",
-      "( 1 + 1) + 1",
-      "( 1 + 1) * 1 + 2 / (3 / 4)",
+      "1+(1)",
+      "(1)+1",
+      "(1+1)+1",
+      "(1+1)*1+2/(3/4)",
       "1",
       "i in []",
       "a.b",
@@ -1312,19 +1435,19 @@ if (process.env.NODE_ENV === "test") {
       "this.#a",
       "a?.[x]",
       "import.meta",
-      "a = 1",
-      "a ?? b",
-      "1 + 1",
+      "a=1",
+      "a??b",
+      "1+1",
       "(1)",
       "1",
-      "(1 + 1)",
-      "1 + 1 + 1",
-      "(1 + (1 * 2))",
-      "((1 + 1) + (1 * 2))",
+      "(1+1)",
+      "1+1+1",
+      "(1+(1*2))",
+      "((1+1)+(1*2))",
       "await 1",
       "await foo()",
       "(a).x",
-      "(a + b).x",
+      "(a+b).x",
       "(await x).foo",
       "typeof x",
       "await x",
@@ -1335,8 +1458,8 @@ if (process.env.NODE_ENV === "test") {
       "(x)`bbb`",
       "a.b().c``",
       "a?b:c",
-      "(a ? b : c).d",
-      "(a ? b : c ? d : e ).d",
+      "(a?b:c).d",
+      "(a?b:c?d:e).d",
       "a().a()",
       "import('aaa')",
       "(()=>{})()",
@@ -1354,31 +1477,35 @@ if (process.env.NODE_ENV === "test") {
 
   test("destructivePattern", () => {
     const parse = compile(destructivePattern, { end: true });
-    expectSame(parse, [
-      "a",
-      "a = 1",
-      `{a}`,
-      `{a: b}`,
-      `{a:{b,c}}`,
-      `{a: [a]}`,
-      "{a = 1}",
-      "{a: b = 1}",
-      "{a, ...b}",
-      "[]",
-      "[ ]",
-      "[,,,]",
-      "[a]",
-      "[,a]",
-      "[a, ...b]",
-      "[a = 1, ...b]",
-      "[,...b]",
-      "[[]]",
-      "[{}]",
-      "[{} = {}]",
-      "[[a]]",
-      "[[a], ...x]",
-      "[[a,b, [c, d, e], [, g]],, [{x, y}], ...x]",
-    ]);
+    expectSame(
+      parse,
+      [
+        "a",
+        "a = 1",
+        `{a}`,
+        `{a: b}`,
+        `{a:{b,c}}`,
+        `{a: [a]}`,
+        "{a = 1}",
+        "{a: b = 1}",
+        "{a, ...b}",
+        "[]",
+        "[ ]",
+        "[,,,]",
+        "[a]",
+        "[,a]",
+        "[a, ...b]",
+        "[a = 1, ...b]",
+        "[,...b]",
+        "[[]]",
+        "[{}]",
+        "[{} = {}]",
+        "[[a]]",
+        "[[a], ...x]",
+        "[[a,b, [c, d, e], [, g]],, [{x, y}], ...x]",
+      ],
+      { format: false, stripTypes: false }
+    );
     expectError(parse, ["a.b", "[a.b]"]);
   });
 
@@ -1387,78 +1514,82 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(asExpression, { end: true });
     is(parse("1"), { result: "1" });
     is(parse("1 as number"), { result: "1" });
-    is(parse("1 + 1 as number"), { result: "1 + 1" });
+    is(parse("1 + 1 as number"), { result: "1+1" });
     is(parse("(a) as number"), { result: "(a)" });
     is(parse("(a as number)"), { result: "(a)" });
   });
 
   test("typeExpression", () => {
     const parse = compile(typeExpression, { end: true });
-    expectSame(parse, [
-      "number",
-      "number[]",
-      "number[] | c",
-      "number[][]",
-      "1",
-      "'x'",
-      "true",
-      "null",
-      "`${number}`",
-      "Array<T>",
-      "Map<string, number>",
-      "Array<Array<T[]>>",
-      "X<Y>[]",
-      "React.ReactNode",
-      "React.ChangeEvent<T>",
-      "X.Y.Z",
-      "keyof T",
-      "T['K']",
-      "T['K']['X']",
-      "T['K']['X'].val",
-      "string",
-      "a | b",
-      "a | b | c",
-      "a & b",
-      "a & b & c",
-      "(a)",
-      "(a) | (b)",
-      "(a & b) & c",
-      "{}",
-      "typeof A",
-      "{ a: number; }",
-      "{ a: number, }",
-      "{ a: number, b: number }",
-      "{ a: number, b: { x: 1; } }",
-      "{ a: number; }['a']",
-      "{ a: () => void; }",
-      "{ f(): void; }",
-      "{ async f(): void; }",
-      "{ f(arg: any): void; }",
-      "{ f(arg: any,): void; }",
-      "{ f(a1: any, a2: any): void; }",
-      "{ f(a1: any, a2: any, ...args: any): void; }",
-      "{ f(...args: any): void; }",
-      "{ f(...args: any): void; b: 1; }",
-      "{ readonly b: number; }",
-      "[] & {}",
-      "[number]",
-      "[number,number]",
-      "[number, ...args: any]",
-      "[a:number]",
-      "[y:number,...args: any]",
-      "() => void",
-      "<T>() => void",
-      "<T = U>() => void",
-      "<T extends X>() => void",
-      "<T extends X = any>() => void",
-      "(a: number) => void",
-      "(a: A) => void",
-      "(a: A, b: B) => void",
-      "(...args: any[]) => void",
-      "(...args: any[]) => A | B",
-      "((...args: any[]) => A | B) | () => void",
-      "infer U",
-    ]);
+    expectSame(
+      parse,
+      [
+        "number",
+        "number[]",
+        "number[] | c",
+        "number[][]",
+        "1",
+        "'x'",
+        "true",
+        "null",
+        "`${number}`",
+        "Array<T>",
+        "Map<string, number>",
+        "Array<Array<T[]>>",
+        "X<Y>[]",
+        "React.ReactNode",
+        "React.ChangeEvent<T>",
+        "X.Y.Z",
+        "keyof T",
+        "T['K']",
+        "T['K']['X']",
+        "T['K']['X'].val",
+        "string",
+        "a | b",
+        "a | b | c",
+        "a & b",
+        "a & b & c",
+        "(a)",
+        "(a) | (b)",
+        "(a & b) & c",
+        "{}",
+        "typeof A",
+        "{ a: number; }",
+        "{ a: number, }",
+        "{ a: number, b: number }",
+        "{ a: number, b: { x: 1; } }",
+        "{ a: number; }['a']",
+        "{ a: () => void; }",
+        "{ f(): void; }",
+        "{ async f(): void; }",
+        "{ f(arg: any): void; }",
+        "{ f(arg: any,): void; }",
+        "{ f(a1: any, a2: any): void; }",
+        "{ f(a1: any, a2: any, ...args: any): void; }",
+        "{ f(...args: any): void; }",
+        "{ f(...args: any): void; b: 1; }",
+        "{ readonly b: number; }",
+        "[] & {}",
+        "[number]",
+        "[number,number]",
+        "[number, ...args: any]",
+        "[a:number]",
+        "[y:number,...args: any]",
+        "() => void",
+        "<T>() => void",
+        "<T = U>() => void",
+        "<T extends X>() => void",
+        "<T extends X = any>() => void",
+        "(a: number) => void",
+        "(a: A) => void",
+        "(a: A, b: B) => void",
+        "(...args: any[]) => void",
+        "(...args: any[]) => A | B",
+        "((...args: any[]) => A | B) | () => void",
+        "infer U",
+      ],
+      { stripTypes: false, format: false }
+    );
   });
 
   // statements
@@ -1478,18 +1609,18 @@ if (process.env.NODE_ENV === "test") {
   });
   test("block", () => {
     const parse = compile($.seq([block, $.eof()]));
-    expectSame(parse, [`{ return 1; }`, `{ debugger; return; }`, "{}"]);
+    expectSame(parse, [`{return 1;}`, `{debugger;return;}`, "{}"]);
   });
   test("for", () => {
     const parse = compile(forStatement, { end: true });
     expectSame(parse, [
-      "for(x=0;x<1;x++) x",
-      "for(x=0;x<1;x++) {}",
-      "for(;;) x",
-      "for(let x = 1;x<6;x++) x",
-      "for(let x = 1;x<6;x++) {}",
-      "for(;;) {}",
-      "for(;x;x) {}",
+      "for(x=0;x<1;x++)x",
+      "for(x=0;x<1;x++){}",
+      "for(;;)x",
+      "for(let x=1;x<6;x++)x",
+      "for(let x=1;x<6;x++){}",
+      "for(;;){}",
+      "for(;x;x){}",
     ]);
     expectError(parse, ["for(;;)"]);
   });
@@ -1497,51 +1628,42 @@ if (process.env.NODE_ENV === "test") {
   test("for-item", () => {
     const parse = compile(forItemStatement, { end: true });
     expectSame(parse, [
-      "for(const i of array) x",
-      "for(const k in array) x",
-      "for(let {} in array) x",
-      "for(let {} in []) x",
-      "for(let [] in xs) {}",
+      "for(const i of array)x",
+      "for(const k in array)x",
+      "for(let {} in array)x",
+      "for(let {} in [])x",
+      "for(let [] in xs){}",
     ]);
     expectError(parse, ["for(const i of t)"]);
   });
   test("while", () => {
     const parse = compile($.seq([whileStatement, $.eof()]));
-    expectSame(parse, ["while(1) 1", "while(1) { break; }"]);
+    expectSame(parse, ["while(1)1", "while(1){break;}"]);
     expectError(parse, ["while(1)"]);
   });
 
   test("if", () => {
     const parse = compile($.seq([ifStatement, $.eof()]));
     expectSame(parse, [
-      "if(1) 1",
-      `if(1) { return 1; }`,
-      `if(1) 1 else 2`,
-      `if (1) 1 else if (1) return`,
-      `if (1) 1 else if (1) return else 1`,
-      `if (1) { if(2) return; }`,
+      "if(1)1",
+      `if(1){return 1;}`,
+      `if(1){}else 2`,
+      `if(1){}else{}`,
+      // `if(1){} else if(1) {};`,
+      // `if(1){} else if(1)return else 1`,
+      `if(1){if(2)return;}`,
     ]);
   });
 
   test("switch", () => {
     const parse = compile($.seq([switchStatement, $.eof()]));
     expectSame(parse, [
-      `switch (x) {}`,
-      `switch(true){ default: 1 }`,
-      `switch(x){ case 1: 1 }`,
-      `switch(x){
-        case 1:
-        case 2:
-      }`,
-      `switch(x){
-        case 1:
-        case 2:
-          return
-      }`,
-      `switch(x){
-        case 1: {}
-        case 2: {}
-      }`,
+      `switch(x){}`,
+      `switch(true){default:1}`,
+      `switch(x){case 1:1}`,
+      `switch(x){case 1:case 2:}`,
+      `switch(x){case 1:case 2:return}`,
+      `switch(x){case 1:{}case 2:{}}`,
     ]);
   });
 
@@ -1553,19 +1675,13 @@ if (process.env.NODE_ENV === "test") {
       "let x,y,z",
       "let x,y=1,z",
       "let x=1",
-      "const [] = []",
-      "const {} = {}, [] = a",
+      "const []=[]",
+      "const {}={},[]=a",
+      // "let x: number = 1",
+      "let x:number = 1",
+      `let x: any`,
+      "let x: number = 1, y: number = 2",
     ]);
-    is(parse("let x = 1").result, "let x = 1");
-    is(parse("let x: number = 1").result, "let x= 1");
-  });
-
-  test("variableStatement2", () => {
-    const parse = compile(variableStatement, { end: true });
-    expectSame(parse, ["let x", "let x = 1", "let x,y"]);
-    is(parse("let x:number = 1"), { result: "let x= 1" });
-    is(parse("let x:any"), { result: "let x" });
-    is(parse("let x:number = 1,y:number=2"), { result: "let x= 1,y=2" });
   });
 
   test("importStatement", () => {
@@ -1684,7 +1800,7 @@ if (process.env.NODE_ENV === "test") {
   //     is(parse(code2), { error: false });
   //   });
 
-  test("long program", () => {
+  test("multiline program control", () => {
     const parse = compile(program, { end: true });
     expectSame(parse, [
       // xxx,
@@ -1718,10 +1834,9 @@ if (process.env.NODE_ENV === "test") {
       `if(1){}\n;a`,
       `if(1){}\n;\na`,
       `if(1){}\n\na`,
-      // `if(1){} else {}\n\na`,
+      `if(1){} else {}\n\na`,
       `if(1){} else {}\na;`,
     ]);
-    // is(parse`class {};a;b`), { error: false });
   });
 
   run({ stopOnFail: true, stub: true, isMain });
