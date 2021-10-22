@@ -37,29 +37,72 @@ export const defaultReshape: Reshape<any, any> = <T>(i: T): T => i;
 
 // basic parser rule
 
+export type RuleBase = {
+  id: number;
+  kind: NodeKind;
+  key?: string | void;
+  optional?: boolean;
+  skip?: boolean;
+  reshape?: Reshape;
+};
+
+export type SerializedRuleBody = [
+  id: number,
+  flags: number,
+  keyPtr: number,
+  reshapePtr: number
+];
+
 export type Atom = RuleBase & {
   kind: NodeKind.ATOM;
   parse: InternalParser;
 };
 
+export type SerializedAtom = [
+  kind: NodeKind.EOF,
+  parsePtr: number,
+  ...body: SerializedRuleBody
+];
+
 export type Eof = RuleBase & {
   kind: NodeKind.EOF;
 };
+
+// Atom can not serialize
+export type SerializedEof = [kind: NodeKind.EOF, ...body: SerializedRuleBody];
 
 export type Not = RuleBase & {
   kind: NodeKind.NOT;
   child: Rule;
 };
 
+export type SerializedNot = [
+  kind: NodeKind.NOT,
+  childPtr: number,
+  ...body: SerializedRuleBody
+];
+
 export type Seq = RuleBase & {
   kind: NodeKind.SEQ;
   children: Rule[];
 };
 
+export type SerializedSeq = [
+  kind: NodeKind.SEQ,
+  childrenPtr: number,
+  ...body: SerializedRuleBody
+];
+
 export type Ref = RuleBase & {
   kind: NodeKind.REF;
   ref: string;
 };
+
+export type SerializedRef = [
+  kind: NodeKind.REF,
+  ref: number,
+  ...body: SerializedRuleBody
+];
 
 export type Repeat = RuleBase & {
   kind: NodeKind.REPEAT;
@@ -68,20 +111,57 @@ export type Repeat = RuleBase & {
   max?: number | void;
 };
 
+export type SerializedRepeat = [
+  kind: NodeKind.REPEAT,
+  patternPtr: number,
+  min: number,
+  max: number,
+  ...body: SerializedRuleBody
+];
+
 export type Or = RuleBase & {
   kind: NodeKind.OR;
   patterns: Array<Seq | Token | Ref | Regex>;
 };
+
+export type SerializedOr = [
+  kind: NodeKind.OR,
+  patternsPtr: number,
+  ...body: SerializedRuleBody
+];
 
 export type Token = RuleBase & {
   kind: NodeKind.TOKEN;
   expr: string;
 };
 
+export type SerializedToken = [
+  kind: NodeKind.TOKEN,
+  exprPtr: string,
+  ...body: SerializedRuleBody
+];
+
 export type Regex = RuleBase & {
   kind: NodeKind.REGEX;
   expr: string;
 };
+
+export type SerializedRegex = [
+  kind: NodeKind.REGEX,
+  exprPtr: number,
+  ...body: SerializedRuleBody
+];
+
+export type SerializedRule =
+  | SerializedSeq
+  | SerializedToken
+  | SerializedOr
+  | SerializedRepeat
+  | SerializedRef
+  | SerializedEof
+  | SerializedNot
+  | SerializedAtom
+  | SerializedRegex;
 
 export type Rule = Seq | Token | Or | Repeat | Ref | Eof | Not | Atom | Regex;
 
@@ -236,15 +316,3 @@ export type ParseError =
         children: Array<ParseError[]>;
       };
     });
-
-// ==== rules ====
-
-// old rules
-export type RuleBase = {
-  id: string;
-  kind: NodeKind;
-  key?: string | void;
-  optional?: boolean;
-  skip?: boolean;
-  reshape?: Reshape;
-};

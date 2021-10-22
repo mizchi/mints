@@ -95,13 +95,13 @@ export function createCompiler(partial: Partial<Compiler>): Compiler {
     const resolved = typeof node === "number" ? createRef(node) : node;
     const out = end
       ? ({
-          id: "entry:" + Math.random().toString(),
+          id: 0, // shoud be zero
           kind: NodeKind.SEQ,
           primitive: true,
           children: [
             resolved,
             {
-              id: "eof:" + Math.random().toString(),
+              id: 1,
               kind: NodeKind.EOF,
               primitive: true,
             },

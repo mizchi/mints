@@ -43,7 +43,7 @@ const typeDeclareParameters = $.def(() =>
   $.seq([
     "<",
     _,
-    $.repeat_seq([typeDeclareParameter, _, ",", _]),
+    $["*"]([typeDeclareParameter, _, ",", _]),
     $.seq([typeDeclareParameter, _, $.opt(",")]),
     _,
     ">",
@@ -55,7 +55,7 @@ const typeParameters = $.def(() =>
   $.seq([
     "<",
     _,
-    $.repeat_seq([typeExpression, _, ",", _]),
+    $["*"]([typeExpression, _, ",", _]),
     $.seq([typeExpression, _, $.r`,?`]),
     _,
     ">",
@@ -83,7 +83,7 @@ const typePrimary = $.def(() =>
 const typeReference = $.def(() =>
   $.seq([
     typePrimary,
-    $.repeat_seq([
+    $["*"]([
       _,
       $.or([
         $.seq([".", _, typeIdentifier]),
@@ -114,7 +114,7 @@ const typeArrayLiteral = $.def(() =>
     "[",
     _,
     // repeat
-    $.repeat_seq([_typeNameableItem, _, ",", _]),
+    $["*"]([_typeNameableItem, _, ",", _]),
     _,
     // optional last
     $.or([
@@ -139,7 +139,7 @@ const typeArrayLiteral = $.def(() =>
 
 const typeFunctionArgs = $.def(() =>
   $.seq([
-    $.repeat_seq([
+    $["*"]([
       // args
       identifier,
       _,
@@ -195,7 +195,7 @@ const typeObjectLiteral = $.def(() =>
     // object
     "{",
     _,
-    $.repeat_seq([_typeObjectItem, _, $.r`(,|;)`, _]),
+    $["*"]([_typeObjectItem, _, $.r`(,|;)`, _]),
     $.opt(_typeNameableItem),
     _,
     $.r`(,|;)?`,
@@ -245,7 +245,7 @@ const typeUnaryExpression = $.def(() =>
 
 const typeBinaryExpression = $.def(() =>
   $.seq([
-    $.repeat_seq([typeUnaryExpression, _, $.or(["|", "&"]), _]),
+    $["*"]([typeUnaryExpression, _, $.or(["|", "&"]), _]),
     typeUnaryExpression,
   ])
 );
@@ -261,7 +261,7 @@ const destructiveArrayPattern = $.def(() =>
   $.seq([
     "[",
     _,
-    $.repeat_seq([$.opt(destructivePattern), _, ",", _]),
+    $["*"]([$.opt(destructivePattern), _, ",", _]),
     _,
     $.or([
       $.seq([REST_SPREAD, _, identifier]),
@@ -292,7 +292,7 @@ const destructiveObjectPattern = $.def(() =>
   $.seq([
     "{",
     _,
-    $.repeat_seq([destructiveObjectItem, _, ",", _]),
+    $["*"]([destructiveObjectItem, _, ",", _]),
     $.or([$.seq([REST_SPREAD, _, identifier]), destructiveObjectItem, _]),
     _,
     "}",
@@ -310,7 +310,7 @@ const lefthand = $.def(() => destructivePattern);
 
 const functionArguments = $.def(() =>
   $.seq([
-    $.repeat_seq([lefthand, _s, $.skip_opt(_typeAnnotation), _s, ","]),
+    $["*"]([lefthand, _s, $.skip_opt(_typeAnnotation), _s, ","]),
     _s,
     $.or([
       // rest spread
@@ -323,7 +323,7 @@ const functionArguments = $.def(() =>
 
 const callArguments = $.def(() =>
   $.seq([
-    $.repeat_seq([anyExpression, _, ","]),
+    $["*"]([anyExpression, _, ","]),
     _,
     $.or([
       // rest spread
@@ -351,7 +351,7 @@ export const templateLiteral = $.def(() =>
   $.seq([
     "`",
     // aaa${}
-    $.repeat_seq([$.regex(nonBacktickChars), "${", _, anyExpression, _, "}"]),
+    $["*"]([$.regex(nonBacktickChars), "${", _, anyExpression, _, "}"]),
     $.regex(nonBacktickChars),
     "`",
   ])
@@ -453,7 +453,6 @@ const classField = $.def(() =>
   $.or([
     $.seq([
       $.skip_opt(accessModifier),
-      // $.tok("constructor"),
       "constructor",
       _s,
       "(",
@@ -514,7 +513,7 @@ export const classExpression = $.def(() =>
     _s,
     "{",
     _s,
-    $.repeat_seq([_s, classField, _s]),
+    $["*"]([_s, classField, _s]),
     _s,
     // TODO: class field
     "}",
@@ -627,7 +626,7 @@ const memberable = $.def(() =>
 const accessible = $.def(() =>
   $.or([
     // call chain
-    $.seq([memberable, _s, __call, _s, $.repeat_seq([memberAccess])]),
+    $.seq([memberable, _s, __call, _s, $["*"]([memberAccess])]),
     memberable,
   ])
 );
@@ -658,7 +657,7 @@ const unary = $.def(() =>
 const binaryExpression = $.def(() =>
   $.seq([
     unary,
-    $.repeat_seq([
+    $["*"]([
       // _s,
       $.or([
         ...SPACE_REQUIRED_OPERATORS.map((op) => $.seq([__, op, __])),
@@ -728,7 +727,7 @@ const _importRightSide = $.def(() =>
       $.seq([
         "{",
         _s,
-        $.repeat_seq([
+        $["*"]([
           identifier,
           $.opt($.seq([__, "as", __, identifier])),
           _s,
@@ -775,7 +774,7 @@ const exportStatement = $.def(() =>
       _s,
       "{",
       _s,
-      $.repeat_seq([
+      $["*"]([
         defaultOrIdentifer,
         $.opt($.seq([__, "as", __, defaultOrIdentifer])),
         _s,
@@ -830,35 +829,33 @@ const ifStatement = $.def(() =>
 );
 
 const switchStatement = $.def(() =>
-  $.or([
-    $.seq([
-      "switch",
-      _s,
-      "(",
-      _s,
+  $.seq([
+    "switch",
+    _s,
+    "(",
+    _s,
+    anyExpression,
+    _s,
+    ")",
+    _s,
+    "{",
+    _s,
+    $["*"]([
+      "case ",
       anyExpression,
       _s,
-      ")",
+      ":",
       _s,
-      "{",
+      // include empty statement
+      $.opt(blockOrStatement),
       _s,
-      $.repeat_seq([
-        "case ",
-        anyExpression,
-        _s,
-        ":",
-        _s,
-        // include empty statement
-        $.opt(blockOrStatement),
-        _s,
-        $.opt(";"),
-        _s,
-      ]),
+      $.opt(";"),
       _s,
-      $.opt($.seq(["default", _s, ":", _s, blockOrStatement])),
-      _s,
-      "}",
     ]),
+    _s,
+    $.opt($.seq(["default", _s, ":", _s, blockOrStatement])),
+    _s,
+    "}",
   ])
 );
 
@@ -868,7 +865,7 @@ export const variableStatement = $.def(() =>
     // single
     $.r`(var|const|let) `,
     // x, y=1,
-    $.repeat_seq([
+    $["*"]([
       destructivePattern,
       _s,
       $.skip_opt(_typeAnnotation),
@@ -988,7 +985,7 @@ const doWhileStatement = $.def(() =>
 );
 
 const expressionStatement = $.def(() =>
-  $.seq([anyExpression, $.repeat_seq([",", _s, anyExpression])])
+  $.seq([anyExpression, $["*"]([",", _s, anyExpression])])
 );
 
 const semicolonlessStatement = $.def(() =>
@@ -1030,7 +1027,7 @@ const anyStatement = $.def(() =>
 );
 
 const lines = $.seq([
-  $.repeat_seq([
+  $["*"]([
     $.or([
       $.seq([
         // class{}(;\n)

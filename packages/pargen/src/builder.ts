@@ -20,10 +20,13 @@ import {
   InternalParser,
 } from "./types";
 
+let cnt = 2;
+const genId = () => cnt++;
+
 export function createRef(refId: string | number, reshape?: Reshape): Ref {
   return {
     ...nodeBaseDefault,
-    id: "symbol:" + Math.random().toString(36).substr(2, 9),
+    id: genId(),
     kind: NodeKind.REF,
     ref: refId.toString(),
     reshape,
@@ -31,8 +34,6 @@ export function createRef(refId: string | number, reshape?: Reshape): Ref {
 }
 
 export function createBuilder(compiler: Compiler) {
-  let cnt = 0;
-  const genId = () => (cnt++).toString();
   const toNode = (input: InputNodeExpr): Rule => {
     if (input === "constructor") {
       throw new Error("constructor is not allowed in token");
@@ -48,17 +49,21 @@ export function createBuilder(compiler: Compiler) {
   };
 
   const registeredPatterns: Array<[number, () => InputNodeExpr]> = [];
+
   const _hydratePatterns = () => {
+    const nodes: Rule[] = [];
     registeredPatterns.forEach(([id, nodeCreator]) => {
       const node = nodeCreator();
       const n = toNode(node);
       const parser = compileFragment(n, compiler, n.id);
       compiler.defs[id] = parser;
+      nodes.push(n);
     });
     registeredPatterns.length = 0;
+    nodes.length = 0;
   };
 
-  let _cnt = 1024;
+  let _cnt = 2;
   function def(nodeCreator: () => InputNodeExpr): number {
     const id = _cnt++;
     registeredPatterns.push([id as any, nodeCreator]);
@@ -68,9 +73,9 @@ export function createBuilder(compiler: Compiler) {
   function ref(refId: string | number, reshape?: Reshape): Ref {
     return {
       ...nodeBaseDefault,
-      id: "symbol:" + genId(),
+      id: genId(),
       kind: NodeKind.REF,
-      ref: refId.toString(),
+      ref: refId,
       reshape,
     } as Ref;
   }
@@ -127,7 +132,7 @@ export function createBuilder(compiler: Compiler) {
     return {
       ...nodeBaseDefault,
       reshape,
-      id: "seq:" + genId(),
+      id: genId(),
       kind: NodeKind.SEQ,
       children: nodes,
     } as Seq;
@@ -140,7 +145,7 @@ export function createBuilder(compiler: Compiler) {
       kind: NodeKind.NOT,
       child: childNode,
       reshape,
-      id: "not:" + childNode.id,
+      id: genId(),
     } as Not;
   }
 
@@ -156,7 +161,7 @@ export function createBuilder(compiler: Compiler) {
       kind: NodeKind.OR,
       patterns: patterns.map(toNode) as Array<Seq | Token | Ref>,
       reshape,
-      id: "or:" + genId(),
+      id: genId(),
     } as Or;
   }
 
@@ -168,7 +173,7 @@ export function createBuilder(compiler: Compiler) {
     const [min = 0, max = undefined] = minmax ?? [];
     return {
       ...nodeBaseDefault,
-      id: "repeat:" + genId(),
+      id: genId(),
       kind: NodeKind.REPEAT,
       pattern: toNode(pattern),
       min,
@@ -181,23 +186,11 @@ export function createBuilder(compiler: Compiler) {
   function token(expr: string, reshape?: Reshape<any, any>): Token {
     return {
       ...nodeBaseDefault,
-      id: `expr:${expr}`,
+      id: genId(),
       kind: NodeKind.TOKEN,
       expr,
       reshape,
     };
-
-    // if (tokenCache[expr]) return tokenCache[expr];
-    // if (expr === "constructor") {
-    //   throw new Error("constructor is not allowed in token");
-    // }
-    // return (tokenCache[expr] = {
-    //   ...nodeBaseDefault,
-    //   id: `expr:${expr}`,
-    //   kind: NodeKind.TOKEN,
-    //   expr,
-    //   reshape,
-    // });
   }
 
   const regexCache: { [key: string]: Regex } = {};
@@ -205,7 +198,7 @@ export function createBuilder(compiler: Compiler) {
     if (regexCache[expr]) return regexCache[expr];
     return (regexCache[expr] = {
       ...nodeBaseDefault,
-      id: `regex:${expr}`,
+      id: genId(),
       kind: NodeKind.REGEX,
       expr,
       reshape,
@@ -219,7 +212,7 @@ export function createBuilder(compiler: Compiler) {
   function eof(): Eof {
     return {
       ...nodeBaseDefault,
-      id: "EOF",
+      id: genId(),
       kind: NodeKind.EOF,
       reshape: undefined,
     };
@@ -228,7 +221,7 @@ export function createBuilder(compiler: Compiler) {
   function atom(parser: InternalParser): Atom {
     return {
       ...nodeBaseDefault,
-      id: "atom:" + genId(),
+      id: genId(),
       kind: NodeKind.ATOM,
       parse: parser,
     };
@@ -251,7 +244,7 @@ export function createBuilder(compiler: Compiler) {
     param,
     eof,
     regex,
-    r: r,
+    r,
     repeat_seq(input, minmax, reshape) {
       return repeat(seq(input), minmax, reshape);
     },
@@ -263,9 +256,6 @@ export function createBuilder(compiler: Compiler) {
     },
     skip_opt<T extends Rule>(input: InputNodeExpr): T {
       return { ...toNode(input), skip: true, optional: true } as T;
-    },
-    join(...expr: string[]): Token {
-      return token(expr.join(""));
     },
     ["!"]: not,
     ["*"](input: InputNodeExpr[]) {
