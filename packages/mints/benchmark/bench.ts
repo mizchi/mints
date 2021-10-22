@@ -4,6 +4,7 @@ import fs from "fs";
 import { printPerfResult } from "@mizchi/pargen/src";
 import { formatError } from "../src/_testHelpers";
 import prettier from "prettier";
+import { preprocess, preprocessLight } from "../src/preprocess";
 
 const code = fs.readFileSync(__dirname + "/cases/example0.ts", "utf-8");
 
@@ -33,6 +34,7 @@ export function main() {
   ];
 
   for (const compiler of compilers) {
+    // console.log("[pre]", preprocessLight(code));
     for (let i = 0; i < 3; i++) {
       const now = Date.now();
       const out = compiler(code);

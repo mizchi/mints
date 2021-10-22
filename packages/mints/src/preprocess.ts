@@ -40,7 +40,7 @@ export function preprocessLight(input: string) {
     .replace(/\/\*([.\n]*?)\*\//gmu, "")
     .replace(/[ ]+/gmu, " ")
     // delete line comments
-    .replace(/(.*)(\/\/.*)/gu, "$1")
+    .replace(/(.*?)(\/\/.*)/gu, "$1")
     .replace(/[\n\r]+/gmu, "\n")
     .replace(/(?<!for\s?\()([\n; ]*;[\n ;]*)(?!\))/gmu, ";")
     .replace(/\}\n/gmu, "}");
@@ -86,6 +86,11 @@ if (process.env.NODE_ENV === "test") {
     is(preprocessLight(`  a  \n`), ` a \n`);
     is(preprocessLight(`  a  \nb`), ` a \nb`);
   });
+
+  test("preprocessLight://x", () => {
+    is(preprocessLight(`// //xx`), ``);
+  });
+
   test("strip inline comment", () => {
     is(preprocess("/**/").out, "");
     is(preprocess("/**/a/**/").out, "a");

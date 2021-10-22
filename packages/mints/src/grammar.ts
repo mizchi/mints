@@ -292,10 +292,10 @@ const destructiveObjectItem = $.def(() =>
 const destructiveObjectPattern = $.def(() =>
   $.seq([
     "{",
-    _,
+    _s,
     $["*"]([destructiveObjectItem, _, ",", _]),
     $.or([$.seq([REST_SPREAD, _, identifier]), destructiveObjectItem, _]),
-    _,
+    _s,
     "}",
   ])
 );
@@ -303,7 +303,7 @@ const destructiveObjectPattern = $.def(() =>
 export const destructivePattern = $.def(() =>
   $.seq([
     $.or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
-    $.opt($.seq([_, "=", _, anyExpression])),
+    $.opt($.seq([_s, "=", _s, anyExpression])),
   ])
 );
 
@@ -311,10 +311,11 @@ const lefthand = $.def(() => destructivePattern);
 
 const functionArguments = $.def(() =>
   $.seq([
-    $["*"]([lefthand, _s, $.skip_opt(_typeAnnotation), _s, ","]),
+    $["*"]([lefthand, _s, $.skip_opt(_typeAnnotation), _s, ",", _s]),
     _s,
     $.or([
       // rest spread
+      // $.seq([$.or([REST_SPREAD, lefthand]), $.seq([_s, $.skip])]),
       $.seq([REST_SPREAD, _s, identifier, _s, $.skip_opt(_typeAnnotation)]),
       $.seq([lefthand, _s, $.skip_opt(_typeAnnotation)]),
       _s,
@@ -324,13 +325,13 @@ const functionArguments = $.def(() =>
 
 const callArguments = $.def(() =>
   $.seq([
-    $["*"]([anyExpression, _, ","]),
-    _,
+    $["*"]([anyExpression, _s, ","]),
+    _s,
     $.or([
       // rest spread
-      $.seq([REST_SPREAD, _, anyExpression]),
+      $.seq([REST_SPREAD, _s, anyExpression]),
       anyExpression,
-      _,
+      _s,
     ]),
   ])
 );
@@ -407,14 +408,22 @@ const objectItem = $.def(() =>
     $.seq([
       // function
       $.r`((async|get|set) )?`,
-      $.or([stringLiteral, $.seq(["[", _, anyExpression, _, "]"]), identifier]),
-      $.seq([_, "(", _, functionArguments, _, ")", _, block]),
+      $.or([
+        stringLiteral,
+        $.seq(["[", _s, anyExpression, _s, "]"]),
+        identifier,
+      ]),
+      $.seq([_s, "(", _s, functionArguments, _s, ")", _s, block]),
     ]),
     $.seq([
       // value
-      $.or([stringLiteral, $.seq(["[", _, anyExpression, _, "]"]), identifier]),
+      $.or([
+        stringLiteral,
+        $.seq(["[", _s, anyExpression, _s, "]"]),
+        identifier,
+      ]),
       // value or shorthand
-      $.seq([_, ":", _, anyExpression]),
+      $.seq([_s, ":", _s, anyExpression]),
     ]),
     identifier,
   ])
@@ -424,10 +433,10 @@ const objectItem = $.def(() =>
 const objectLiteral = $.def(() =>
   $.seq([
     "{",
-    $.repeat($.seq([_, objectItem, _, ","])),
-    _,
-    $.or([$.opt<any>(restSpread), objectItem, _]),
-    _,
+    $.repeat($.seq([_s, objectItem, _s, ","])),
+    _s,
+    $.or([$.opt<any>(restSpread), objectItem, _s]),
+    _s,
     "}",
   ])
 );
@@ -577,7 +586,9 @@ const newExpression = $.def(() =>
   ])
 );
 
-const paren = $.def(() => $.seq(["\\(", _s, anyExpression, _s, "\\)"]));
+const paren = $.def(() =>
+  $.seq(["\\(", _s, anyExpression, _s, "\\)", $.not("=>")])
+);
 const primary = $.or([
   paren,
   newExpression,
@@ -613,8 +624,8 @@ const __call = $.def(() =>
 const memberAccess = $.def(() =>
   $.or([
     // ?. | .#a | .a
-    $.seq([$.r`(\\?)?\\.`, $.r`\\#?`, identifier]),
-    $.seq([$.r`(\\?\\.)?`, "[", _s, anyExpression, _s, "]"]),
+    $.seq([_s, $.r`(\\?)?\\.`, $.r`\\#?`, identifier]),
+    $.seq([_s, $.r`(\\?\\.)?`, "[", _s, anyExpression, _s, "]"]),
     __call,
   ])
 );
@@ -842,12 +853,16 @@ const switchStatement = $.def(() =>
     "{",
     _s,
     $["*"]([
-      "case ",
-      anyExpression,
+      $["+"](["case ", anyExpression, _s, ":", _s]),
+      $.opt(
+        $.seq([
+          // xxx
+          $.or([block, anyStatement]),
+          _s,
+          $.opt(";"),
+        ])
+      ),
       _s,
-      ":",
-      _s,
-      $.opt($.seq([_s, $.or([block, anyStatement]), _s, $.opt(";")])),
     ]),
     _s,
     $.opt($.seq(["default", _s, ":", _s, blockOrStatement])),
@@ -1252,21 +1267,21 @@ if (process.env.NODE_ENV === "test") {
       parseExpression,
       [
         `{}`,
-        `{ a: 1 }`,
-        `{ a: 1, b: 2 }`,
-        `{ a: 1, b: 2,}`,
-        `{ a: 1, b: 2, ...rest}`,
-        `{ a }`,
-        `{ a,b }`,
-        `{ [1]: 1 }`,
-        `{ a() {} }`,
-        `{ [1]() {} }`,
-        `{ async a(){} }`,
-        `{ get a() {} }`,
-        `{ set a() {} }`,
-        `{ get 'aaa'() {} }`,
-        `{ "a" : 1, "b": "text", "c" : true, "d": null }`,
-        `{ "a": { "b": "2" }, c: {}, "d": [1], "e": [{} ] }`,
+        `{a:1}`,
+        `{a:1,b:2}`,
+        `{a:1,b:2,}`,
+        `{a:1,b:2,...rest}`,
+        `{a}`,
+        `{a,b}`,
+        `{[1]:1}`,
+        `{a(){}}`,
+        `{[1](){}}`,
+        `{async a(){}}`,
+        `{get a(){}}`,
+        `{set a(){}}`,
+        `{get 'aaa'(){}}`,
+        `{"a":1,"b":"text","c":true,"d":null}`,
+        `{"a":{"b":"2"},c:{},"d":[1],"e":[{}]}`,
       ],
       { format: false }
     );
@@ -1280,6 +1295,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("memberExpression", () => {
     const parse = compile(memberable, { end: true });
+    expectSame(parse, ["a.b", "a\n.b"]);
     expectError(parse, ["a.new X()", "a.this", "(a).(b)"]);
   });
 
@@ -1312,6 +1328,11 @@ if (process.env.NODE_ENV === "test") {
       "function f(a){}",
       "function f(a,){}",
       "function f(a,b){}",
+      "function f(a,b,c){}",
+      "function f(a,b,c,){}",
+      "function f(a,b,c,d){}",
+      "function f(a,b,c,...args){}",
+
       "function f({a, b}){}",
       "function f({a, b})return 1",
       "function f({a})1",
@@ -1337,6 +1358,14 @@ if (process.env.NODE_ENV === "test") {
       "()=>{}",
       // "*()=>{}",
       "(a)=>1",
+      "(a,b)=>1",
+      "(a,b,)=>1",
+      "(a,b,c)=>1",
+      "(a,b,c,)=>1",
+      "(a:number)=>1",
+      "<T>(a:number)=>1",
+      "<T>(a:number,b:number)=>1",
+
       "a=>1",
       "({})=>1",
       "async ()=>{}",
@@ -1458,6 +1487,7 @@ if (process.env.NODE_ENV === "test") {
       "import('aaa')",
       "(()=>{})()",
       "(async ()=>{})()",
+      "a\n.b",
     ]);
     is(parse("a!"), { result: "a" });
     is(parse("(a.b)!"), { result: "(a.b)" });
@@ -1475,28 +1505,28 @@ if (process.env.NODE_ENV === "test") {
       parse,
       [
         "a",
-        "a = 1",
+        "a=1",
         `{a}`,
-        `{a: b}`,
+        `{a:b}`,
         `{a:{b,c}}`,
-        `{a: [a]}`,
-        "{a = 1}",
-        "{a: b = 1}",
-        "{a, ...b}",
+        `{a:[a]}`,
+        "{a=1}",
+        "{a:b=1}",
+        "{a,...b}",
         "[]",
-        "[ ]",
+        "[]",
         "[,,,]",
         "[a]",
         "[,a]",
-        "[a, ...b]",
-        "[a = 1, ...b]",
+        "[a,...b]",
+        "[a=1,...b]",
         "[,...b]",
         "[[]]",
         "[{}]",
-        "[{} = {}]",
+        "[{}={}]",
         "[[a]]",
-        "[[a], ...x]",
-        "[[a,b, [c, d, e], [, g]],, [{x, y}], ...x]",
+        "[[a],...x]",
+        "[[a,b,[c,d,e],[,g]],,[{x,y}],...x]",
       ],
       { format: false, stripTypes: false }
     );
@@ -1655,6 +1685,9 @@ if (process.env.NODE_ENV === "test") {
       `switch(x){}`,
       `switch(true){default:1}`,
       `switch(x){case 1:1;case 2:2}`,
+      `switch(x){case 1:1;case 2:{}}`,
+      `switch(x){case 1: case 2:{}}`,
+
       // `switch(x){case 1: case 2: {}}`,
       // `switch(x){case 1:case 2:return}`,
       `switch(x){case 1:{}case 2:{}}`,
@@ -1831,6 +1864,15 @@ if (process.env.NODE_ENV === "test") {
       `if(1){}\n\na`,
       `if(1){} else {}\n\na`,
       `if(1){} else {}\na;`,
+      "f(() => 1);",
+      "f(1, () => {});",
+      "f(1, (a) => {});",
+      "f(1, (a,b) => {});",
+      "f(1, (a,b,c) => {});",
+      `function f(){
+        return input.replace(/@(W|L|N)(\d+)\}/, (full, x, y) => {});
+      }`,
+
       // `const el = document.querySelector("#app");`,
       // "do.querySelector",
       // `document.query;`,
