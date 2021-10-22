@@ -1,6 +1,8 @@
 // , b: number[], c: Array<string>;
 const x: number = 1;
 
+let a,b,c;
+
 function square(x: number): number {
   return x ** 2;
 };
@@ -41,4 +43,12 @@ export const v = 1;
 
 export class Foo {
   x: number = 1;
-}
+};
+
+// console.log("aaa");
+
+const el = document.querySelector("#app");console.log("el", el);
+
+// const querySelector = "1";
+
+// declare const foo: any;

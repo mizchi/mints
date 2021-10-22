@@ -13,12 +13,13 @@ const _ = $.regex(_w);
 const _s = $.skip($.regex(_w));
 const __ = $.regex(__w);
 
+const reserved = RESERVED_WORDS.join("|");
 export const identifier = $.def(() =>
   $.seq([
-    // TODO
-    $.not($.or([...RESERVED_WORDS])),
-    // $.r`(?!${RESERVED_WORDS.join("|")})([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
-    $.r`([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
+    // TODO: doc
+    // $.not($.or([...RESERVED_WORDS])),
+    // $.r`([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
+    $.regex(`(?!(${reserved})$)([a-zA-Z_$][a-zA-Z_$0-9]*)`),
   ])
 );
 
@@ -846,11 +847,7 @@ const switchStatement = $.def(() =>
       _s,
       ":",
       _s,
-      // include empty statement
-      $.opt(blockOrStatement),
-      _s,
-      $.opt(";"),
-      _s,
+      $.opt($.seq([_s, $.or([block, anyStatement]), _s, $.opt(";")])),
     ]),
     _s,
     $.opt($.seq(["default", _s, ":", _s, blockOrStatement])),
@@ -1189,8 +1186,8 @@ if (process.env.NODE_ENV === "test") {
 
   test("identifier", () => {
     const parse = compile(identifier);
-    expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1", "aAa"]);
-    expectError(parse, ["1", "1_", "const", "public"]);
+    expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1", "aAa", "doc"]);
+    expectError(parse, ["1", "1_", "const", "public", "do", " do", ""]);
   });
 
   test("string", () => {
@@ -1359,12 +1356,12 @@ if (process.env.NODE_ENV === "test") {
     expectSame(parse, [
       "class{}",
       "class{}",
-      "class extends A{}",
+      // "class extends A{}",
       "class{x;}",
       "class{x=1;}",
       "class{x=1;#y=2;}",
       "class{constructor(){}}",
-      // "class{constructor(){this.val = 1;}}",
+      "class{constructor(){this.val = 1;}}",
       "class{foo(){}}",
       "class{get foo(){}}",
       "class{set foo(){}}",
@@ -1657,10 +1654,11 @@ if (process.env.NODE_ENV === "test") {
     expectSame(parse, [
       `switch(x){}`,
       `switch(true){default:1}`,
-      `switch(x){case 1:1}`,
-      `switch(x){case 1:case 2:}`,
-      `switch(x){case 1:case 2:return}`,
+      `switch(x){case 1:1;case 2:2}`,
+      // `switch(x){case 1: case 2: {}}`,
+      // `switch(x){case 1:case 2:return}`,
       `switch(x){case 1:{}case 2:{}}`,
+      `switch(x){case 1:{}default:{}}`,
     ]);
   });
 
@@ -1833,6 +1831,10 @@ if (process.env.NODE_ENV === "test") {
       `if(1){}\n\na`,
       `if(1){} else {}\n\na`,
       `if(1){} else {}\na;`,
+      // `const el = document.querySelector("#app");`,
+      // "do.querySelector",
+      // `document.query;`,
+      // `document.querySelector`,
     ]);
   });
 
