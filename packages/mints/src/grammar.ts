@@ -1,3 +1,4 @@
+import { NodeKind, Token } from "./../../pargen/src/types";
 import {
   OPERATORS,
   RESERVED_WORDS,
@@ -377,6 +378,8 @@ const functionArguments = $.def(() =>
       // ]),
       // _s,
     ]),
+    $.skip_opt($.seq([_s, ","])),
+    _s,
   ])
 );
 
@@ -1128,30 +1131,6 @@ const lines = $.seq([
   $.opt(anyStatement),
   $.skip_opt(";"),
 ]);
-// const statementLine = $.or([
-//   // $.seq([
-//   //   _,
-//   //   $.or([
-//   //     "\\/\\/[^\\n]*",
-//   //     // semicolon less allowed statements
-//   //     blockStatement,
-//   //     ifStatement,
-//   //     whileStatement,
-//   //     blockStatement,
-//   //     forItemStatement,
-//   //     interfaceStatement,
-//   //     functionExpression,
-//   //     classExpression,
-//   //   ]),
-//   //   _,
-//   //   "(\\;?\\n?|\\n)",
-//   // ]),
-//   // semicolon
-//   // $.seq([_, anyStatement, _, "(\\;\\n?|\\n)"]),
-//   $.seq([_, anyStatement, _, $.r`[;\n]`, _]),
-//   // empty line
-//   $.seq([_, ";", _]),
-// ]);
 
 export const block = $.def(() => $.seq(["{", _s, lines, _s, "}"]));
 
@@ -1189,7 +1168,8 @@ if (process.env.NODE_ENV === "test") {
       const input = preprocessLight(raw);
       const result = parse(input);
       if (result.error) {
-        formatError(input, result);
+        // formatError(input, result);
+        reportError(input, result);
         // throw "Unexpected";
         throw new Error("Unexpected Result:" + input);
         // throw `Expect: ${input}\nOutput: ${result}`;
@@ -1220,11 +1200,32 @@ if (process.env.NODE_ENV === "test") {
     _formatError(input, deepError);
   }
 
+  function reportError(input: string, error: ParseError) {
+    const deepError = findMaxPosError(error, error);
+    const sliced = input.slice(0, deepError.pos);
+    const lines = sliced.split(/\n|;/);
+    const lastLine = lines[lines.length - 1];
+    const nextLine = input.slice(deepError.pos).split(/\n|;/)[0];
+    const expect =
+      error.errorType === ErrorType.Token_Unmatch ? `^[${error.detail}]` : "^";
+    console.log(
+      `$$ error at ${deepError.pos}:${NodeKind[error.kind]}(${error.rootId}>${
+        error.id
+      })|${ErrorType[error.errorType]}\n... ${lastLine}${expect}${nextLine} ...`
+    );
+  }
+
   function findMaxPosError(
     error: ParseError,
     currentError: ParseError
   ): ParseError {
-    currentError = error.pos > currentError.pos ? error : currentError;
+    if (error.pos === currentError.pos) {
+      if (error.errorType === ErrorType.Token_Unmatch) {
+        currentError = error;
+      }
+    } else {
+      currentError = error.pos > currentError.pos ? error : currentError;
+    }
 
     if (error.errorType === ErrorType.Seq_Stop) {
       currentError = findMaxPosError(error.detail.child, currentError);
@@ -1235,6 +1236,10 @@ if (process.env.NODE_ENV === "test") {
         currentError = findMaxPosError(e, currentError);
       }
     }
+    // if (error.kind === "") {
+    //   currentError = findMaxPosError(error.detail.child, currentError);
+    // }
+
     return currentError;
   }
 
@@ -1967,12 +1972,24 @@ if (process.env.NODE_ENV === "test") {
         public foo(x, {}: {} = {}){}
       }`,
       `class{
+        foo(x,){}
+      }`,
+      `class{
+        foo(
+          x,
+        ){}
+      }`,
+      `class{
         public async foobar(x, {}: {} = {}){}
       }`,
       `({...a, ...b})`,
       // `f({\n })`,
       `function f(a={\n }){}`,
-      // `class{f(a={\n }){}}`,
+      `class{f(a={\n}){}}`,
+      `class{f(a={\n}){\n}}`,
+
+      `class{f(a={\n\n}){}}`,
+      `class{f(a={\n }){}}`,
       // `class{f({}:{}={\n }){}}`,
 
       // `const el = document.querySelector("#app");`,

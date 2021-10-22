@@ -177,11 +177,15 @@ export const createParseError = <ET extends ErrorType>(
   kind: NodeKind,
   errorType: ET,
   pos: number,
+  rootId: number,
+  rule: Rule,
   detail?: any
 ): ParseError => {
   return {
     error: true,
     kind,
+    rootId,
+    id: rule.id,
     errorType,
     pos,
     detail,
@@ -191,7 +195,7 @@ export const createParseError = <ET extends ErrorType>(
 function compileFragmentInternal(
   rule: Rule,
   compiler: Compiler,
-  rootId: number | string
+  rootId: number
 ): InternalParser {
   // if (rule.id === "seq:222") {
   //   throw rule;
@@ -216,6 +220,8 @@ function compileFragmentInternal(
           rule.kind,
           ErrorType.Not_IncorrectMatch,
           pos,
+          rootId,
+          rule,
           result.len
         );
       };
@@ -241,7 +247,14 @@ function compileFragmentInternal(
         if (ended) {
           return createParseSuccess("", pos, 0);
         }
-        return createParseError(rule.kind, ErrorType.Eof_Unmatch, pos);
+        return createParseError(
+          rule.kind,
+          ErrorType.Eof_Unmatch,
+          pos,
+          rootId,
+          rule,
+          rule.id
+        );
       };
     }
 
@@ -258,6 +271,8 @@ function compileFragmentInternal(
               rule.kind,
               ErrorType.Token_Unmatch,
               pos,
+              rootId,
+              rule,
               expr
             );
           }
@@ -284,6 +299,8 @@ function compileFragmentInternal(
               rule.kind,
               ErrorType.Token_Unmatch,
               pos,
+              rootId,
+              rule,
               expr
             );
           }
@@ -315,9 +332,16 @@ function compileFragmentInternal(
           }
           return parsed as ParseResult;
         }
-        return createParseError(rule.kind, ErrorType.Or_UnmatchAll, pos, {
-          children: errors,
-        });
+        return createParseError(
+          rule.kind,
+          ErrorType.Or_UnmatchAll,
+          pos,
+          rootId,
+          rule,
+          {
+            children: errors,
+          }
+        );
       };
     }
     case NodeKind.REPEAT: {
@@ -349,9 +373,8 @@ function compileFragmentInternal(
             rule.kind,
             ErrorType.Repeat_RangeError,
             pos,
-            `not fill range: ${xs.length} in [${repeat.min}, ${
-              repeat.max ?? ""
-            }] `
+            rootId,
+            rule
           );
         }
         return createParseSuccess(
@@ -377,9 +400,16 @@ function compileFragmentInternal(
             const parseResult = parser.parse(ctx, cursor);
             if (parseResult.error) {
               if (parser.node.optional) continue;
-              return createParseError(rule.kind, ErrorType.Seq_Stop, pos, {
-                child: parseResult,
-              });
+              return createParseError(
+                rule.kind,
+                ErrorType.Seq_Stop,
+                pos,
+                rootId,
+                rule,
+                {
+                  child: parseResult,
+                }
+              );
             }
             if (parser.node.key && !parser.node.skip) {
               const reshaped = parseResult.result;
@@ -397,9 +427,16 @@ function compileFragmentInternal(
             const parseResult = parser.parse(ctx, cursor);
             if (parseResult.error) {
               if (parser.node.optional) continue;
-              return createParseError(rule.kind, ErrorType.Seq_Stop, pos, {
-                child: parseResult,
-              });
+              return createParseError(
+                rule.kind,
+                ErrorType.Seq_Stop,
+                pos,
+                rootId,
+                rule,
+                {
+                  child: parseResult,
+                }
+              );
             }
             if (!parser.node.skip) {
               // drop zero
@@ -424,7 +461,7 @@ function compileFragmentInternal(
 export function compileFragment(
   rule: Rule,
   compiler: Compiler,
-  rootId: string | number
+  rootId: number
 ): InternalParser {
   const internalParser = compileFragmentInternal(rule, compiler, rootId);
   // generic cache

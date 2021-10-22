@@ -54,8 +54,17 @@ export const expectError = (parse: any, inputs: string[]) => {
 
 export function formatError(input: string, error: ParseError) {
   const deepError = findMaxPosError(error, error);
-  console.log("max depth", deepError.pos);
-  _formatError(input, deepError);
+  // console.log("max depth", deepError.pos);
+  // _formatError(input, deepError);
+
+  const sliced = input.slice(0, deepError.pos);
+  const lines = sliced.split(/\n|;/);
+  const lastLine = lines[lines.length - 1];
+  console.log(
+    "[error]",
+
+    `${lastLine}^`
+  );
 }
 
 export function findMaxPosError(

@@ -212,7 +212,6 @@ export type Builder = {
   skip_opt<T extends Rule>(node: InputNodeExpr): T;
   param<T extends Rule>(key: string, node: InputNodeExpr, reshape?: Reshape): T;
   skip<T extends Rule>(node: T | string): T;
-  join(...expr: string[]): Token;
   eof(): Eof;
   ["!"]: (child: InputNodeExpr) => Not;
   ["*"](
@@ -280,6 +279,8 @@ export type ParseSuccess = {
 
 export type ParseErrorBase = {
   error: true;
+  rootId: number;
+  id: number;
   pos: number;
   errorType: ErrorType;
   kind: NodeKind;
