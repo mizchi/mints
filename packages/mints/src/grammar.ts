@@ -198,9 +198,8 @@ const typeObjectLiteral = $.def(() =>
   $.seq([
     // object
     "{",
-    _,
-    $["*"]([_typeObjectItem, _, $.r`(,|;)`, _]),
-    $.opt(_typeNameableItem),
+    $["*"]([_, _typeObjectItem, _, $.r`(,|;)`]),
+    $.opt($.seq([_, _typeNameableItem])),
     _,
     $.r`(,|;)?`,
     _,
@@ -264,16 +263,21 @@ const typeExpression = $.def(() => $.or([typeBinaryExpression]));
 const destructiveArrayPattern = $.def(() =>
   $.seq([
     "[",
-    _,
-    $["*"]([$.opt(destructivePattern), _, ",", _]),
-    _,
-    $.or([
-      $.seq([REST_SPREAD, _, identifier]),
-      $.opt<any>(destructivePattern),
-      _,
+    _s,
+    $["*"]([
+      // item, {},,
+      $.opt($.seq([destructive, _s, $.opt($.seq([_s, assign]))])),
+      _s,
+      ",",
+      _s,
     ]),
-    _,
-    $.r`,?`,
+    $.or([
+      // [,...i]
+      $.seq([REST_SPREAD, _, identifier]),
+      // [,a = 1 ,]
+      $.seq([destructive, _s, $.opt($.seq([_s, assign])), $.opt(",")]),
+      $.seq([_, $.opt(",")]),
+    ]),
     _,
     "]",
   ])
@@ -285,9 +289,9 @@ const destructiveObjectItem = $.def(() =>
       // a : b
       identifier,
       _,
-      $.opt($.seq([":", _, destructivePattern])),
+      $.opt($.seq([":", _, destructive])),
       // a: b = 1,
-      $.opt($.seq([_, "=", _, anyExpression])),
+      $.opt($.seq([_s, assign])),
     ]),
   ])
 );
@@ -297,38 +301,88 @@ const destructiveObjectPattern = $.def(() =>
     "{",
     _s,
     $["*"]([destructiveObjectItem, _, ",", _]),
-    $.or([$.seq([REST_SPREAD, _, identifier]), destructiveObjectItem, _]),
+    $.or([
+      // ...
+      $.seq([REST_SPREAD, _, identifier]),
+      destructiveObjectItem,
+      _s,
+    ]),
     _s,
     "}",
   ])
 );
 
-export const destructivePattern = $.def(() =>
+export const destructive = $.def(() =>
   $.seq([
     $.or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
-    $.opt($.seq([_s, "=", _s, anyExpression])),
+    // { a = 1 } = {}
+    $.opt($.seq([_s, assign])),
   ])
 );
 
-const lefthand = $.def(() => destructivePattern);
+export const destructiveNoAssign = $.def(() =>
+  $.or([
+    // {} | [] | a
+    destructiveObjectPattern,
+    destructiveArrayPattern,
+    identifier,
+  ])
+);
+
+export const functionArgWithAssign = $.def(() =>
+  $.seq([
+    $.or([
+      // pattern(:T)?
+      destructiveObjectPattern,
+      destructiveArrayPattern,
+      identifier,
+    ]),
+    $.skip_opt($.seq([_, ":", _, typeExpression])),
+    $.opt($.seq([_, "=", _, anyExpression])),
+  ])
+);
+// const lefthand = $.def(() => destructivePattern);
+
+// const x = $.opt(destructivePattern);
 
 const functionArguments = $.def(() =>
   $.seq([
-    $["*"]([lefthand, _s, $.skip_opt(_typeAnnotation), _s, ",", _s]),
-    _s,
+    // (a: T = 1,)+
+    $["*"]([functionArgWithAssign, _s, ",", _s]),
     $.or([
-      // rest spread
-      // $.seq([$.or([REST_SPREAD, lefthand]), $.seq([_s, $.skip])]),
-      $.seq([REST_SPREAD, _s, identifier, _s, $.skip_opt(_typeAnnotation)]),
-      $.seq([lefthand, _s, $.skip_opt(_typeAnnotation)]),
+      // ...args
+      $.seq([
+        _s,
+        // ...args(:T)?
+        REST_SPREAD,
+        _s,
+        identifier,
+        $.skip_opt($.seq([_s, _typeAnnotation])),
+      ]),
+      // a: T
+      $.seq([
+        _s,
+        $.seq([functionArgWithAssign, _s, $.opt(",")]),
+        $.skip_opt($.seq([_s, ","])),
+      ]),
+      // no arg
       _s,
+      // $.seq([
+      //   destructive,
+      //   _s,
+      //   $.skip_opt(_typeAnnotation),
+
+      //   // x:number[ = 1]
+      //   $.opt($.seq([_s, assign])),
+      // ]),
+      // _s,
     ]),
   ])
 );
 
 const callArguments = $.def(() =>
   $.seq([
-    $["*"]([anyExpression, _s, ","]),
+    $["*"]([anyExpression, _s, ",", _s]),
     _s,
     $.or([
       // rest spread
@@ -421,13 +475,19 @@ const objectItem = $.def(() =>
     $.seq([
       // value
       $.or([
+        // key:
         stringLiteral,
+        // [key]:
         $.seq(["[", _s, anyExpression, _s, "]"]),
+        // a
         identifier,
       ]),
       // value or shorthand
       $.seq([_s, ":", _s, anyExpression]),
     ]),
+    // rest spread
+    $.seq([REST_SPREAD, _s, anyExpression]),
+    // shothand
     identifier,
   ])
 );
@@ -436,8 +496,10 @@ const objectItem = $.def(() =>
 const objectLiteral = $.def(() =>
   $.seq([
     "{",
-    $.repeat($.seq([_s, objectItem, _s, ","])),
     _s,
+    $.repeat($.seq([objectItem, _s, ",", _s])),
+    _s,
+    // $.opt($.or([restSpread, objectItem])),
     $.or([$.opt<any>(restSpread), objectItem, _s]),
     _s,
     "}",
@@ -469,9 +531,7 @@ const classField = $.def(() =>
       "constructor",
       _s,
       "(",
-      _s,
       functionArguments,
-      _s,
       ")",
       _s,
       block,
@@ -491,9 +551,7 @@ const classField = $.def(() =>
       $.seq([
         // foo(): void {}
         "(",
-        _s,
         functionArguments,
-        _s,
         ")",
         $.skip_opt($.seq([_, _typeAnnotation])),
         _s,
@@ -581,8 +639,7 @@ const arrowFunctionExpression = $.def(() =>
 
 const newExpression = $.def(() =>
   $.seq([
-    "new",
-    __,
+    "new ",
     memberable,
     _s,
     $.opt($.seq(["(", _s, functionArguments, _s, ")"])),
@@ -597,6 +654,10 @@ const primary = $.or([
   newExpression,
   ImportKeyword,
   ThisKeyword,
+  objectLiteral,
+  stringLiteral,
+  regexpLiteral,
+  templateLiteral,
   identifier,
 ]);
 
@@ -874,26 +935,26 @@ const switchStatement = $.def(() =>
   ])
 );
 
-const __assignSeq = $.seq(["=", _s, anyExpression]);
+const assign = $.def(() => $.seq(["=", _s, anyExpression]));
 export const variableStatement = $.def(() =>
   $.seq([
     // single
     $.r`(var|const|let) `,
     // x, y=1,
     $["*"]([
-      destructivePattern,
+      destructive,
       _s,
       $.skip_opt(_typeAnnotation),
-      $.opt($.seq([_s, __assignSeq])),
+      $.opt($.seq([_s, assign])),
       _s,
       ",",
       _s,
     ]),
     _s,
-    destructivePattern,
+    destructive,
     _s,
     $.skip_opt(_typeAnnotation),
-    $.opt($.seq([_s, __assignSeq])),
+    $.opt($.seq([_s, assign])),
   ])
 );
 
@@ -966,7 +1027,7 @@ const forItemStatement = $.def(() =>
     _s,
     $.r`(var|const|let) `,
     _s,
-    destructivePattern,
+    destructive,
     __,
     $.r`(of|in)`,
     __,
@@ -1005,6 +1066,9 @@ const expressionStatement = $.def(() =>
 
 const semicolonlessStatement = $.def(() =>
   $.or([
+    // export function/class
+    $.seq(["export ", $.or([functionExpression, classExpression])]),
+
     classExpression,
     functionExpression,
     ifStatement,
@@ -1023,6 +1087,7 @@ const anyStatement = $.def(() =>
     debuggerStatement,
     breakStatement,
     returnStatement,
+    throwStatement,
     declareVariableStatement,
     variableStatement,
     typeStatement,
@@ -1270,6 +1335,7 @@ if (process.env.NODE_ENV === "test") {
       parseExpression,
       [
         `{}`,
+        `{}`,
         `{a:1}`,
         `{a:1,b:2}`,
         `{a:1,b:2,}`,
@@ -1289,6 +1355,7 @@ if (process.env.NODE_ENV === "test") {
       { format: false }
     );
     expectError(parseExpression, [`{ async a: 1 }`, `{ async get a() {} }`]);
+    is(parseExpression(`{\n }`).result, "{}");
   });
 
   test("newExpression", () => {
@@ -1503,7 +1570,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("destructivePattern", () => {
-    const parse = compile(destructivePattern, { end: true });
+    const parse = compile(destructive, { end: true });
     expectSame(
       parse,
       [
@@ -1619,6 +1686,12 @@ if (process.env.NODE_ENV === "test") {
         "infer U",
       ],
       { stripTypes: false, format: false }
+    );
+    is(
+      parse(`{
+
+    }`),
+      { result: "{\n }" }
     );
   });
 
@@ -1881,6 +1954,26 @@ if (process.env.NODE_ENV === "test") {
       `function f(){
         return input.replace(/@(W|L|N)(\d+)\}/, (full, x, y) => {});
       }`,
+      `function _formatError(depth: number) {}`,
+      `function _formatError(depth: number = 0) {}`,
+      `"".foo`,
+      `/x/.exec`,
+      `f(1, 2, 3)`,
+      `new Error()`,
+      `new A.b()`,
+      `throw new Error();`,
+      `function a(a){}`,
+      `class{
+        public foo(x, {}: {} = {}){}
+      }`,
+      `class{
+        public async foobar(x, {}: {} = {}){}
+      }`,
+      `({...a, ...b})`,
+      // `f({\n })`,
+      `function f(a={\n }){}`,
+      // `class{f(a={\n }){}}`,
+      // `class{f({}:{}={\n }){}}`,
 
       // `const el = document.querySelector("#app");`,
       // "do.querySelector",

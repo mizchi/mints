@@ -33,7 +33,8 @@ class Point<T extends IPoint = any> implements Object {
 }
 
 const p = new Point(1, 2);
-console.log(p.x);
+
+// console.log(p.x);
 
 // func<T>();
 

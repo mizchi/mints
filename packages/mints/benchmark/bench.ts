@@ -1,13 +1,26 @@
 import { transform } from "../src/index";
 import ts from "typescript";
 import fs from "fs";
+import path from "path";
 import { printPerfResult } from "@mizchi/pargen/src";
 import { formatError } from "../src/_testHelpers";
 import prettier from "prettier";
 import { preprocess, preprocessLight } from "../src/preprocess";
 
-const code1 = fs.readFileSync(__dirname + "/cases/example0.ts", "utf-8");
-const code2 = fs.readFileSync(__dirname + "/cases/example1.ts", "utf-8");
+const code0 = fs.readFileSync(
+  path.join(__dirname, "cases/example0.ts"),
+  "utf-8"
+);
+
+const code1 = fs.readFileSync(
+  path.join(__dirname, "cases/example1.ts"),
+  "utf-8"
+);
+// pargen
+const code2 = fs.readFileSync(
+  path.join(__dirname, "cases/example2.ts"),
+  "utf-8"
+);
 
 function compileTsc(input: string) {
   return ts.transpileModule(input, {
@@ -21,7 +34,7 @@ function compileTsc(input: string) {
 function compileMints(input: string) {
   const out = transform(input);
   if (out.error) {
-    formatError(code1, out);
+    formatError(code0, out);
     throw out;
   }
   return out.result as string;
@@ -34,7 +47,10 @@ export function main() {
     compileMints,
   ];
 
-  for (const code of [code1, code2]) {
+  // const targets = [code1, code2, code3];
+  const targets = [code0, code1, code2];
+
+  for (const code of targets) {
     for (const compiler of compilers) {
       // console.log("[pre]", preprocessLight(code));
       for (let i = 0; i < 2; i++) {
