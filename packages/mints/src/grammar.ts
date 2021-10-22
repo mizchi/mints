@@ -99,6 +99,7 @@ const _typeNameableItem = $.def(() =>
     $.seq([
       // start: number,
       identifier,
+      $.opt($.seq([_, "?"])),
       _,
       ":",
       _,
@@ -183,8 +184,10 @@ const _typeObjectItem = $.def(() =>
     $.seq([
       $.opt($.seq(["readonly", __])),
       identifier,
+      // $.opt($.seq([_, "?"])),
       _,
-      ":",
+      $.or([":", "?:"]),
+      // ":",
       _,
       typeExpression,
     ]),
@@ -1581,6 +1584,9 @@ if (process.env.NODE_ENV === "test") {
         "{ a: number; }",
         "{ a: number, }",
         "{ a: number, b: number }",
+        "{ a: number, b?: number }",
+        "{ a?: number }",
+
         "{ a: number, b: { x: 1; } }",
         "{ a: number; }['a']",
         "{ a: () => void; }",
@@ -1864,6 +1870,9 @@ if (process.env.NODE_ENV === "test") {
       `if(1){}\n\na`,
       `if(1){} else {}\n\na`,
       `if(1){} else {}\na;`,
+      `type X = { xxx: number }`,
+      // `type X = { xxx?: number }`,
+
       "f(() => 1);",
       "f(1, () => {});",
       "f(1, (a) => {});",
