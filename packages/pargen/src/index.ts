@@ -164,12 +164,28 @@ export const createParseSuccess = (
   len: number,
   ranges: Range[] = [[pos, pos + len]]
 ) => {
+  let newRanges: Range[] = [];
+  if (ranges.length > 0) {
+    // let start = ranges[0][0];
+    newRanges = ranges.reduce((acc, [nextStart, end], index) => {
+      // omit [a,a]
+      if (nextStart === end) return acc;
+      // first item
+      if (index === 0) return [...acc, [nextStart, end]];
+      const [lastStart, lastEnd] = acc.slice(-1)[0];
+      if (lastEnd === nextStart) {
+        return [...acc.slice(0, -1), [lastStart, end]];
+      }
+      return [...acc, [nextStart, end]];
+    }, [] as Range[]);
+  }
+
   return {
     error: false,
     result,
     len,
     pos,
-    ranges,
+    ranges: newRanges,
   } as ParseSuccess;
 };
 
@@ -440,7 +456,7 @@ function compileFragmentInternal(
             }
             if (!parser.node.skip) {
               // drop zero
-              ranges.push(...parseResult.ranges.filter(([a, b]) => a !== b));
+              ranges.push(...parseResult.ranges);
             }
             cursor += parseResult.len;
           }
