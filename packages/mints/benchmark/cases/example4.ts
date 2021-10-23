@@ -57,7 +57,7 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
     //   // readonly providerId: string,
     //   // readonly canSignOut?: boolean,
     //   // readonly scopes: string[][]
-    // } | undefined;
+    // } | undefined
 		const authSessionElement = document.getElementById('vscode-workbench-auth-session');
 		const authSessionElementAttribute = authSessionElement ? authSessionElement.getAttribute('data-settings') : undefined;
 		if (authSessionElementAttribute) {

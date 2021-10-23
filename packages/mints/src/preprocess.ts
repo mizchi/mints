@@ -41,11 +41,13 @@ export function preprocessLight(input: string) {
     // delete comment line
     .replace(/(.*?)(\/\/.*)/gu, "$1")
     // delete redundunt semicollon except for statement
-    .replace(/(?<!for\s?\()([\n; ]*;[\n ;]*)(?!\))/gmu, ";")
+    .replace(/(?<!for\s?\()([\n\r\t; ]*;[\n\r\t ;]*)(?!\))/gmu, ";")
     // delete redundant whitespaces
     .replace(/[ ]+/gmu, " ")
     // delete redundunt whitespaces after control token
-    .replace(/([\}\{\(\)\n\r,;><])\n+\s*/gmu, (_, $1) => $1);
+    .replace(/([\}\{\(\)\n\r\t,;><])[\n\r\t]+\s*/gmu, (_, $1) =>
+      $1 === "\t" ? "\n" : $1
+    );
   return restoreEscaped(out, literals);
 }
 export function preprocess(input: string) {
@@ -82,13 +84,24 @@ if (process.env.NODE_ENV === "test") {
     is(restoreEscaped(escapeWhistespace(`  a  `), new Map()), `  a  `);
   });
 
-  test("preprocess light", () => {
+  // class X{f() {1;\t\t\n \nconst y = 1;\t}}
+  test("preprocessLight", () => {
     is(preprocessLight(`  a  \n`), ` a \n`);
     is(preprocessLight(`  a  \nb`), ` a \nb`);
-  });
+    is(
+      preprocessLight(`class X{
+	f() {
+    1;
+		// x
+    // y
 
-  test("preprocessLight://x", () => {
-    is(preprocessLight(`// //xx`), ``);
+		const y = 1;
+	}
+}
+`),
+      `class X{f() {1;const y = 1;}}`
+    );
+    is(preprocessLight(``), ``);
   });
 
   test("strip inline comment", () => {

@@ -253,12 +253,13 @@ const typeUnaryExpression = $.def(() =>
 
 const typeBinaryExpression = $.def(() =>
   $.seq([
+    $.opt($.seq([$.or(["|", "&"]), _s])),
     $["*"]([typeUnaryExpression, _, $.or(["|", "&"]), _]),
     typeUnaryExpression,
   ])
 );
 
-const typeExpression = $.def(() => $.or([typeBinaryExpression]));
+const typeExpression = $.def(() => typeBinaryExpression);
 
 /*
   patterns
@@ -757,12 +758,10 @@ const binaryExpression = $.def(() =>
   $.seq([
     unary,
     $["*"]([
-      // _s,
       $.or([
         ...SPACE_REQUIRED_OPERATORS.map((op) => $.seq([__, op, __])),
         ...OPERATORS.map((op) => $.seq([_s, op, _s])),
       ]),
-      // _s,
       unary,
     ]),
   ])
@@ -1664,6 +1663,7 @@ if (process.env.NODE_ENV === "test") {
         "T['K']['X']",
         "T['K']['X'].val",
         "string",
+        "|a",
         "a | b",
         "a | b | c",
         "a & b",
