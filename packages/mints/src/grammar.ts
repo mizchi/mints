@@ -377,7 +377,8 @@ const functionArguments = $.def(() =>
       // ]),
       // _s,
     ]),
-    $.skip_opt($.seq([_s, ","])),
+    // last comma ,?
+    $.skip_opt($.seq([_s, ",", _s])),
     _s,
   ])
 );
@@ -550,10 +551,13 @@ const classField = $.def(() =>
       // <T>
       $.skip_opt($.seq([_, typeDeclareParameters])),
       _,
+      // class member
       $.seq([
         // foo(): void {}
         "(",
+        _s,
         functionArguments,
+        _s,
         ")",
         $.skip_opt($.seq([_, _typeAnnotation])),
         _s,
@@ -1895,11 +1899,6 @@ if (process.env.NODE_ENV === "test") {
       //   foo(x,){}
       // }`,
       `class{
-        foo(
-          x,
-        ){}
-      }`,
-      `class{
         public async foobar(x, {}: {} = {}){}
       }`,
       `({...a, ...b})`,
@@ -1909,7 +1908,35 @@ if (process.env.NODE_ENV === "test") {
       `class{f(a={\n}){\n}}`,
 
       `class{f(a={\n\n}){}}`,
-      `class{f(a={\n }){}}`,
+      `class{f(a={a:1}){}}`,
+      `class{f(a={a:1,b:\n1}){}}`,
+      `class{f(a={a:1\n,b:\n1}){}}`,
+      `class{f(a={a:1\n,b:\n1,\n}){}}`,
+      `class{f(a={\na:1\n,b:\n1,\n}){}}`,
+      `class{f(a={\n a:1\n,b:\n1,\n}){}}`,
+      `class{f(a={\n a:1\n,b:\n1,\n}){}}`,
+      `class{f(a={\n a,}){}}`,
+      `class{f(a={\n a}){}}`,
+      `class{f(a={\n a: 1}){}}`,
+      `class{f(a={\n a(){}}){}}`,
+      `class{f(a={\n}){}}`,
+
+      `class{f(x,){}}`,
+      `class{f(x,\n){}}`,
+      `class{f(x, ){}}`,
+      `class{f(x, \n){}}`,
+      `function foo(x,\n ){}`,
+      `class{f(x, \n){}}`,
+      `class{f(x,\n ){}}`, // fail. why?
+
+      // `function foo(x\n ,\n){}`,
+      // `class{
+      //   foo(
+      //     x,
+      //   ){}
+      // }`,
+
+      // `class{f(a={\n }){}}`,
       // `class{f({}:{}={\n }){}}`,
 
       // `const el = document.querySelector("#app");`,
@@ -1917,6 +1944,7 @@ if (process.env.NODE_ENV === "test") {
       // `document.query;`,
       // `document.querySelector`,
     ]);
+    expectError(parse, [`class{f(a={a = 1}){}}`]);
   });
 
   run({ stopOnFail: true, stub: true, isMain });
