@@ -35,7 +35,7 @@ const typeDeclareParameter = $.def(() =>
     // extends T
     $.opt($.seq([_, "extends ", typeExpression])),
     _,
-    $.opt($.seq(["=", _, typeExpression])),
+    $.opt($.seq(["=", $.not(">"), _, typeExpression])),
   ])
 );
 
@@ -68,12 +68,15 @@ const typeParen = $.def(() =>
 );
 
 const typeIdentifier = $.def(() =>
-  $.or([
-    // type's reserved words
-    "void",
-    "any",
-    "unknown",
-    $.seq([identifier, _, $.opt(typeParameters)]),
+  $.seq([
+    $.not("readonly "),
+    $.or([
+      // "readonly",
+      "void",
+      "any",
+      "unknown",
+      $.seq([identifier, _, $.opt(typeParameters)]),
+    ]),
   ])
 );
 
@@ -145,6 +148,7 @@ const typeFunctionArgs = $.def(() =>
       // args
       identifier,
       _,
+      $.opt("?"),
       ":",
       _,
       typeExpression,
@@ -155,7 +159,7 @@ const typeFunctionArgs = $.def(() =>
     $.or([
       // last
       $.seq([REST_SPREAD, _, identifier, _, ":", _, typeExpression]),
-      $.seq([identifier, _, ":", _, typeExpression, _, $.opt(",")]),
+      $.seq([identifier, _, $.opt("?"), ":", _, typeExpression, _, $.opt(",")]),
       _,
     ]),
   ])
@@ -176,17 +180,18 @@ const _typeObjectItem = $.def(() =>
       _,
       ")",
       _,
+      $.opt("?"),
       ":",
       _,
       typeExpression,
     ]),
     // member
     $.seq([
-      $.opt($.seq(["readonly", __])),
+      $.opt($.seq(["readonly ", _s])),
       identifier,
-      // $.opt($.seq([_, "?"])),
       _,
-      $.or([":", "?:"]),
+      $.skip_opt("?"),
+      ":",
       // ":",
       _,
       typeExpression,
@@ -337,8 +342,10 @@ export const functionArgWithAssign = $.def(() =>
       destructiveArrayPattern,
       identifier,
     ]),
-    $.skip_opt($.seq([_, ":", _, typeExpression])),
-    $.opt($.seq([_, "=", _, anyExpression])),
+    $.skip_opt(
+      $.seq([_, $.skip_opt("?"), $.skip_opt("?"), ":", _, typeExpression])
+    ),
+    $.opt($.seq([_, $.skip_opt("?"), "=", $.not(">"), _, anyExpression])),
   ])
 );
 // const lefthand = $.def(() => destructivePattern);
@@ -441,13 +448,7 @@ export const arrayLiteral = $.def(() =>
     $.seq([
       "[",
       $.repeat(
-        $.seq([
-          // , item
-          _,
-          $.opt(anyExpression),
-          _,
-          ",",
-        ])
+        $.seq([_, $.or([$.opt<any>(restSpread), anyExpression, _]), _, ","])
       ),
       _,
       $.or([$.opt<any>(restSpread), anyExpression, _]),
@@ -520,6 +521,8 @@ const anyLiteral = $.def(() =>
 /* Class */
 const accessModifier = $.r`(private|public|protected) `;
 const staticModifier = $.tok(`static `);
+const readonlyModifier = $.tok(`static `);
+
 const asyncModifier = $.tok("async ");
 const getOrSetModifier = $.r`(get|set) `;
 const classField = $.def(() =>
@@ -563,13 +566,17 @@ const classField = $.def(() =>
     ]),
     // field
     $.seq([
+      // private|static|readonly
       $.skip_opt(accessModifier),
+      // static
       $.opt(staticModifier),
-      $.opt("#"),
+      $.skip_opt($.seq(["readonly", __])),
+      $.opt($.seq([_s, "#"])),
       identifier,
+      // :xxx
       $.skip_opt($.seq([_s, _typeAnnotation])),
       _s,
-      $.opt($.seq(["=", _s, anyExpression])),
+      $.opt($.seq(["=", $.not(">"), _s, anyExpression])),
       ";",
     ]),
   ])
@@ -636,6 +643,7 @@ const arrowFunctionExpression = $.def(() =>
     _s,
     "=>",
     _s,
+    // $.r`[ \\s\\n]*`,
     $.or([block, anyStatement]),
   ])
 );
@@ -655,13 +663,14 @@ const paren = $.def(() =>
 const primary = $.or([
   paren,
   newExpression,
-  ImportKeyword,
   ThisKeyword,
   objectLiteral,
   stringLiteral,
   regexpLiteral,
   templateLiteral,
   identifier,
+  // should be last
+  ImportKeyword,
 ]);
 
 const __call = $.def(() =>
@@ -690,9 +699,20 @@ const __call = $.def(() =>
 
 const memberAccess = $.def(() =>
   $.or([
-    // ?. | .#a | .a
-    $.seq([_s, $.r`(\\?)?\\.`, $.r`\\#?`, identifier]),
-    $.seq([_s, $.r`(\\?\\.)?`, "[", _s, anyExpression, _s, "]"]),
+    // ?. | !. | .
+    $.seq([_s, $.or(["!.", "?.", "."]), $.opt($.seq([_s, "#"])), identifier]),
+
+    // $.seq([_s, $.r`(\\?)?\\.`, $.r`\\#?`, identifier]),
+    $.seq([
+      _s,
+      // ?.
+      $.opt($.seq(["?.", _s])),
+      "[",
+      _s,
+      anyExpression,
+      _s,
+      "]",
+    ]),
     __call,
   ])
 );
@@ -938,7 +958,7 @@ const switchStatement = $.def(() =>
   ])
 );
 
-const assign = $.def(() => $.seq(["=", _s, anyExpression]));
+const assign = $.def(() => $.seq(["=", $.not(">"), _s, anyExpression]));
 export const variableStatement = $.def(() =>
   $.seq([
     // single
@@ -975,6 +995,7 @@ const typeStatement = $.def(() =>
         identifier,
         _,
         "=",
+        $.not(">"),
         _,
         typeExpression,
       ])
@@ -1063,7 +1084,32 @@ const doWhileStatement = $.def(() =>
   ])
 );
 
+// try{}finally{};
+const _finally = $.def(() => $.seq(["finally", _s, block]));
+const tryCatchStatement = $.def(() =>
+  $.or([
+    $.seq([
+      // try
+      "try",
+      _s,
+      block,
+      _s,
+      $.or([
+        $.seq([
+          "catch",
+          $.opt($.seq([_s, "(", _s, anyExpression, _s, ")"])),
+          _s,
+          block,
+          $.opt($.seq([_s, _finally])),
+        ]),
+        _finally,
+      ]),
+    ]),
+  ])
+);
+
 const expressionStatement = $.def(() =>
+  // $.seq([anyExpression)
   $.seq([anyExpression, $["*"]([",", _s, anyExpression])])
 );
 
@@ -1074,6 +1120,7 @@ const semicolonlessStatement = $.def(() =>
 
     classExpression,
     functionExpression,
+    tryCatchStatement,
     ifStatement,
     whileStatement,
     switchStatement,
@@ -1087,24 +1134,44 @@ const semicolonlessStatement = $.def(() =>
 
 const anyStatement = $.def(() =>
   $.or([
+    // "debbuger"
     debuggerStatement,
+    // break ...
     breakStatement,
+    // return ...
     returnStatement,
+    // throw ...
     throwStatement,
+    // try
+    tryCatchStatement,
+    // declare ...
     declareVariableStatement,
+    // const ...
     variableStatement,
+    // type ...
     typeStatement,
+    // interface ...
     interfaceStatement,
+    // if ...
     ifStatement,
+    // import ...
     importStatement,
+    // export ...
     exportStatement,
+    // for ...
     forItemStatement,
     forStatement,
+    // do ...
     doWhileStatement,
+    // while ...
     whileStatement,
+    // switch ...
     switchStatement,
+    // foo: ...
     labeledStatement,
+    // { ...
     blockStatement,
+    // other expression
     expressionStatement,
   ])
 );
@@ -1139,7 +1206,6 @@ export const program = $.def(() => $.seq([_s, lines, _s, $.eof()]));
 import { test, run, is } from "@mizchi/test";
 // import { expectError, expectSame } from "./_testHelpers";
 import { preprocessLight } from "./preprocess";
-import { ErrorType, ParseError } from "../../pargen/src/types";
 // import { reportError } from "../../pargen/src/error_reporter";
 
 const isMain = require.main === module;
@@ -1194,9 +1260,29 @@ if (process.env.NODE_ENV === "test") {
   };
 
   test("identifier", () => {
-    const parse = compile(identifier);
-    expectSame(parse, ["a", "aa", "_", "_a", "$", "$_", "_1", "aAa", "doc"]);
-    expectError(parse, ["1", "1_", "const", "public", "do", " do", ""]);
+    const parse = compile(identifier, { end: true });
+    expectSame(parse, [
+      "a",
+      "aa",
+      "_",
+      "_a",
+      "$",
+      "$_",
+      "_1",
+      "aAa",
+      "doc",
+      "importS",
+    ]);
+    expectError(parse, [
+      "1",
+      "1_",
+      "const",
+      "public",
+      "do",
+      " do",
+      "",
+      "import",
+    ]);
   });
 
   test("string", () => {
@@ -1307,6 +1393,7 @@ if (process.env.NODE_ENV === "test") {
       "!x",
       "~~x",
       "!!x",
+      "importS",
       // "++x++",
     ]);
     // expectError(parse, ["a.new X()", "a.this"]);
@@ -1362,11 +1449,15 @@ if (process.env.NODE_ENV === "test") {
       "<T>(a:number)=>1",
       "<T>(a:number,b:number)=>1",
 
-      "a=>1",
       "({})=>1",
       "async ()=>{}",
       "async ()=>await p",
       "async ()=>await new Promise(r=>setTimeout(r))",
+
+      "a=>1",
+      `()=>g`,
+      `()=> g`,
+      `()=>\ng`,
     ]);
     is(parse("() => {}"), { result: "()=>{}" });
     is(parse("<T>() => {}"), { result: "()=>{}" });
@@ -1380,11 +1471,18 @@ if (process.env.NODE_ENV === "test") {
     expectSame(parse, ["class X{}", "class{}", "class X extends Y{}"]);
     expectSame(parse, [
       "class{}",
-      "class{}",
+      "class{readonly onDidChange = Event.None;}",
       // "class extends A{}",
       "class{x;}",
+      "class{readonly x;}",
+      "class{readonly x: number;}",
+
+      "class{readonly x = 1;}",
+
       "class{x=1;}",
       "class{x=1;#y=2;}",
+      // `class{readonly x: number = 1;}`,
+      // "class{static readonly x = 1;}",
       "class{constructor(){}}",
       "class{constructor(){this.val = 1;}}",
       "class{foo(){}}",
@@ -1484,6 +1582,7 @@ if (process.env.NODE_ENV === "test") {
       "(()=>{})()",
       "(async ()=>{})()",
       "a\n.b",
+      "importS",
     ]);
     is(parse("a!"), { result: "a" });
     is(parse("(a.b)!"), { result: "(a.b)" });
@@ -1491,7 +1590,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("identifier", () => {
     const parse = compile(identifier, { end: true });
-    expectSame(parse, ["a", "$1", "abc", "a_e"]);
+    expectSame(parse, ["a", "$1", "abc", "a_e", "importS"]);
     expectError(parse, ["1_", "const", "typeof", "a-e"]);
   });
 
@@ -1579,7 +1678,6 @@ if (process.env.NODE_ENV === "test") {
         "{ a: number, b: number }",
         "{ a: number, b?: number }",
         "{ a?: number }",
-
         "{ a: number, b: { x: 1; } }",
         "{ a: number; }['a']",
         "{ a: () => void; }",
@@ -1604,12 +1702,14 @@ if (process.env.NODE_ENV === "test") {
         "<T extends X>() => void",
         "<T extends X = any>() => void",
         "(a: number) => void",
+        "(a?: number) => void",
         "(a: A) => void",
         "(a: A, b: B) => void",
         "(...args: any[]) => void",
         "(...args: any[]) => A | B",
         "((...args: any[]) => A | B) | () => void",
         "infer U",
+        "{ readonly x: number; }",
       ],
       { stripTypes: false, format: false }
     );
@@ -1752,8 +1852,17 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("expressionStatement", () => {
-    const parse = compile(expressionStatement);
-    expectSame(parse, ["1", "func()", "a = 1", "a.b = 1", "1, 1", "a=1"]);
+    const parse = compile(expressionStatement, { end: true });
+    expectSame(parse, [
+      "1",
+      "func()",
+      "a = 1",
+      "a.b = 1",
+      "1, 1",
+      "a=1",
+      "impor",
+      "importS",
+    ]);
     expectSame(parse, ["1", "func()"]);
   });
 
@@ -1925,22 +2034,21 @@ if (process.env.NODE_ENV === "test") {
       `function foo(x,\n ){}`,
       `class{f(x, \n){}}`,
       `class{f(x,\n ){}}`,
+      `f(()=>g);`,
+      `f(a=>g);`,
       `f(()=>\ng);`,
-
-      // `function foo(x\n ,\n){}`,
-      // `class{
-      //   foo(
-      //     x,
-      //   ){}
-      // }`,
-
-      // `class{f(a={\n }){}}`,
-      // `class{f({}:{}={\n }){}}`,
-
-      // `const el = document.querySelector("#app");`,
-      // "do.querySelector",
-      // `document.query;`,
-      // `document.querySelector`,
+      `if (process.env.NODE_ENV === "test") {
+// xxx
+}
+`,
+      `importS`,
+      `[...XS,...YS,]`,
+      `(x: number, y?: number) => {}`,
+      `class{f(x?:T){}}`,
+      `try{}catch(e){}`,
+      `try{}catch{}`,
+      `try{}catch(e){}finally{}`,
+      `try{}finally{}`,
     ]);
     expectError(parse, [`class{f(a={a = 1}){}}`]);
   });

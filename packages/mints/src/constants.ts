@@ -1,4 +1,5 @@
-export const _ = "[\\s\\n]*";
+// export const _ = "[\\s\\n]*";
+export const _ = "([\\s\\n]+)?";
 export const __ = `[\\s\\n]+`;
 
 // "(?!.*@N).*?"

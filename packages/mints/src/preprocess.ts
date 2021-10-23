@@ -45,7 +45,7 @@ export function preprocessLight(input: string) {
     // delete redundant whitespaces
     .replace(/[ ]+/gmu, " ")
     // delete redundunt whitespaces after control token
-    .replace(/([\}\{\(\)\n\r,;])\n+\s*/gmu, (_, $1) => $1);
+    .replace(/([\}\{\(\)\n\r,;><])\n+\s*/gmu, (_, $1) => $1);
   return restoreEscaped(out, literals);
 }
 export function preprocess(input: string) {

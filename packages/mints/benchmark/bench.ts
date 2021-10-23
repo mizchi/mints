@@ -21,6 +21,18 @@ const code2 = fs.readFileSync(
   "utf-8"
 );
 
+// pargen
+const code3 = fs.readFileSync(
+  path.join(__dirname, "cases/example3.ts"),
+  "utf-8"
+);
+
+// pargen
+const code4 = fs.readFileSync(
+  path.join(__dirname, "cases/example4.ts"),
+  "utf-8"
+);
+
 function compileTsc(input: string) {
   return ts.transpileModule(input, {
     compilerOptions: {
@@ -43,7 +55,7 @@ export function main() {
   const compilers = [compileTsc, compileMints];
 
   // const targets = [code1, code2, code3];
-  const targets = [code0, code1, code2];
+  const targets = [code0, code1, code2, code3, code4];
 
   for (const code of targets) {
     for (const compiler of compilers) {
@@ -61,7 +73,7 @@ export function main() {
         // console.log(prettier.format(out, { parser: "typescript" }));
       }
       if (compiler === compileMints) {
-        printPerfResult();
+        // printPerfResult();
       }
     }
   }
