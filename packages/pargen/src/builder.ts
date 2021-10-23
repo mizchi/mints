@@ -1,4 +1,4 @@
-import { compileFragment } from ".";
+import { compileFragment } from "./compiler";
 import {
   Rule,
   Compiler,

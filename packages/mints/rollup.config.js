@@ -1,6 +1,7 @@
 import esbuild from "rollup-plugin-esbuild";
 import { terser } from "rollup-plugin-terser";
 import replace from "@rollup/plugin-replace";
+import nodeResolve from "@rollup/plugin-node-resolve";
 
 export default {
   input: ["src/index.ts"],
@@ -15,6 +16,7 @@ export default {
     },
   ],
   plugins: [
+    nodeResolve(),
     replace({
       preventAssignment: true,
       "require.main === module": JSON.stringify(false),

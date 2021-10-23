@@ -1,4 +1,3 @@
-import { NodeKind, Token } from "./../../pargen/src/types";
 import {
   OPERATORS,
   RESERVED_WORDS,
@@ -1139,7 +1138,8 @@ export const program = $.def(() => $.seq([_s, lines, _s, $.eof()]));
 import { test, run, is } from "@mizchi/test";
 // import { expectError, expectSame } from "./_testHelpers";
 import { preprocessLight } from "./preprocess";
-import { ErrorType, ParseError } from "@mizchi/pargen/src/types";
+import { ErrorType, ParseError } from "../../pargen/src/types";
+import { reportError } from "./error_reporter";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
   const ts = require("typescript");
@@ -1195,61 +1195,6 @@ if (process.env.NODE_ENV === "test") {
       }
     });
   };
-
-  function formatError(input: string, error: ParseError) {
-    const deepError = findMaxPosError(error, error);
-    console.log("max depth", deepError.pos);
-    _formatError(input, deepError);
-  }
-
-  function reportError(input: string, error: ParseError) {
-    const deepError = findMaxPosError(error, error);
-    const sliced = input.slice(0, deepError.pos);
-    const lines = sliced.split(/[\n;]/);
-    const errorLine = lines[lines.length - 1];
-    const errorLineStart = Array.from(lines.slice(0, -1).join("\n")).length;
-    const errorLineNumber = lines.length;
-    const errorColumn = deepError.pos - errorLineStart;
-
-    const linePrefix = `L${errorLineNumber}:${errorColumn}\t`;
-    const errorNextLine = input.slice(deepError.pos).split(/[\n;]/)[0];
-    const errorSummary = `${deepError.pos}:${NodeKind[error.kind]}(${
-      error.rootId
-    }>${error.id}|${ErrorType[error.errorType]}`;
-    const outputLine = `${linePrefix}${errorLine}${errorNextLine}`;
-    const errorCursor =
-      linePrefix + " ".repeat(deepError.pos - errorLineStart) + "^";
-    console.log(`${errorSummary}}\n${outputLine}\n${errorCursor}`);
-    // console.log(error);
-  }
-
-  function findMaxPosError(
-    error: ParseError,
-    currentError: ParseError
-  ): ParseError {
-    if (error.pos === currentError.pos) {
-      if (error.errorType === ErrorType.Token_Unmatch) {
-        currentError = error;
-      }
-    } else {
-      currentError = error.pos > currentError.pos ? error : currentError;
-    }
-
-    if (error.errorType === ErrorType.Seq_Stop) {
-      currentError = findMaxPosError(error.detail.child, currentError);
-    }
-
-    if (error.errorType === ErrorType.Or_UnmatchAll) {
-      for (const e of error.detail.children) {
-        currentError = findMaxPosError(e, currentError);
-      }
-    }
-    // if (error.kind === "") {
-    //   currentError = findMaxPosError(error.detail.child, currentError);
-    // }
-
-    return currentError;
-  }
 
   function _formatError(input: string, error: ParseError, depth: number = 0) {
     if (depth === 0) {

@@ -1,13 +1,8 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "declaration": true,
-    "target": "ESNext",
-    "module": "ESNext",
-    "outDir": "types",
-    "noUnusedLocals": false
+    "emitDeclarationOnly": false,
+    "noEmit": true
   },
-  "include": ["src"],
   "exclude": ["benchmark/cases"]
 }

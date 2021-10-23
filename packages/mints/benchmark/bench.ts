@@ -3,9 +3,10 @@ import ts from "typescript";
 import fs from "fs";
 import path from "path";
 import { printPerfResult } from "@mizchi/pargen/src";
-import { formatError } from "../src/_testHelpers";
+// import { formatError } from "../src/_testHelpers";
 import prettier from "prettier";
 import { preprocess, preprocessLight } from "../src/preprocess";
+import { reportError } from "../src/error_reporter";
 
 const code0 = fs.readFileSync(
   path.join(__dirname, "cases/example0.ts"),
@@ -34,7 +35,7 @@ function compileTsc(input: string) {
 function compileMints(input: string) {
   const out = transform(input);
   if (out.error) {
-    formatError(code0, out);
+    reportError(input, out);
     throw out;
   }
   return out.result as string;

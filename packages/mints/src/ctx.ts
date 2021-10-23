@@ -1,5 +1,5 @@
-import { RootCompiler, RootParser } from "@mizchi/pargen/src/types";
-import { createContext } from "@mizchi/pargen/src";
+import { RootCompiler, RootParser } from "../../pargen/src/types";
+import { createContext } from "../../pargen/src/index";
 import { preprocessLight } from "./preprocess";
 const { compile, builder } = createContext<number>({
   composeTokens: true,
