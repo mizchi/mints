@@ -1,6 +1,5 @@
 import { program } from "./grammar";
 import { compile } from "./ctx";
-export { reportError } from "./error_reporter";
 
 const parse = compile(program, { end: true });
 

@@ -5,10 +5,10 @@ import {
   InternalParser,
   NodeKind,
   ParseError,
+  ParseErrorData,
   ParseResult,
   ParseSuccess,
   Range,
-  Ref,
   Repeat,
   Rule,
   Seq,
@@ -46,24 +46,20 @@ export const createParseSuccess = (
   } as ParseSuccess;
 };
 
-export const createParseError = <ET extends ErrorType>(
-  kind: NodeKind,
-  errorType: ET,
+export function createParseError<ErrorData extends ParseErrorData>(
+  rule: Rule,
   pos: number,
   rootId: number,
-  rule: Rule,
-  detail?: any
-): ParseError => {
+  errorData: ErrorData
+): ParseError {
   return {
     error: true,
-    kind,
     rootId,
-    id: rule.id,
-    errorType,
+    rule,
     pos,
-    detail,
+    ...errorData,
   };
-};
+}
 
 export function compileFragment(
   rule: Rule,
@@ -85,16 +81,6 @@ function compileFragmentInternal(
   compiler: Compiler,
   rootId: number
 ): InternalParser {
-  // if (rule.id === "seq:222") {
-  //   throw rule;
-  // }
-  // TODO: why?
-  // @ts-ignore
-  if (rule === Object) {
-    console.log("compiler", rootId);
-    throw new Error("Object is not allowed in rule");
-  }
-  // console.log("rule.id", rule.id);
   const reshape = rule.reshape ?? defaultReshape;
   switch (rule.kind) {
     case NodeKind.NOT: {
@@ -104,22 +90,14 @@ function compileFragmentInternal(
         if (result.error === true) {
           return createParseSuccess(result, pos, 0);
         }
-        return createParseError(
-          rule.kind,
-          ErrorType.Not_IncorrectMatch,
-          pos,
-          rootId,
-          rule,
-          result.len
-        );
+        return createParseError(rule, pos, rootId, {
+          errorType: ErrorType.Not_IncorrectMatch,
+        });
       };
     }
     case NodeKind.REF: {
       return (ctx, pos) => {
-        const resolved = compiler.defs[rule.ref];
-        if (!resolved) {
-          throw new Error(`symbol not found: ${(rule as Ref).ref}`);
-        }
+        const resolved = compiler.parsers.get(rule.ref);
         return resolved!(ctx, pos);
       };
     }
@@ -135,14 +113,9 @@ function compileFragmentInternal(
         if (ended) {
           return createParseSuccess("", pos, 0);
         }
-        return createParseError(
-          rule.kind,
-          ErrorType.Eof_Unmatch,
-          pos,
-          rootId,
-          rule,
-          rule.id
-        );
+        return createParseError(rule, pos, rootId, {
+          errorType: ErrorType.Eof_Unmatch,
+        });
       };
     }
 
@@ -155,14 +128,10 @@ function compileFragmentInternal(
           if (rule.optional) {
             return createParseSuccess(null, pos, 0);
           } else {
-            return createParseError(
-              rule.kind,
-              ErrorType.Token_Unmatch,
-              pos,
-              rootId,
-              rule,
-              expr
-            );
+            return createParseError(rule, pos, rootId, {
+              errorType: ErrorType.Regex_Unmatch,
+              expr: expr,
+            });
           }
         }
         return createParseSuccess(
@@ -183,14 +152,9 @@ function compileFragmentInternal(
           if (rule.optional) {
             return createParseSuccess(null, pos, 0);
           } else {
-            return createParseError(
-              rule.kind,
-              ErrorType.Token_Unmatch,
-              pos,
-              rootId,
-              rule,
-              expr
-            );
+            return createParseError(rule, pos, rootId, {
+              errorType: ErrorType.Token_Unmatch,
+            });
           }
         }
         return createParseSuccess(
@@ -220,16 +184,10 @@ function compileFragmentInternal(
           }
           return parsed as ParseResult;
         }
-        return createParseError(
-          rule.kind,
-          ErrorType.Or_UnmatchAll,
-          pos,
-          rootId,
-          rule,
-          {
-            children: errors,
-          }
-        );
+        return createParseError(rule, pos, rootId, {
+          errorType: ErrorType.Or_UnmatchAll,
+          errors,
+        });
       };
     }
     case NodeKind.REPEAT: {
@@ -257,13 +215,9 @@ function compileFragmentInternal(
           // @ts-ignore
           (repeat.max && xs.length > repeat.max)
         ) {
-          return createParseError(
-            rule.kind,
-            ErrorType.Repeat_RangeError,
-            pos,
-            rootId,
-            rule
-          );
+          return createParseError(rule, pos, rootId, {
+            errorType: ErrorType.Repeat_RangeError,
+          });
         }
         return createParseSuccess(
           xs.map(reshape as any),
@@ -288,16 +242,11 @@ function compileFragmentInternal(
             const parseResult = parser.parse(ctx, cursor);
             if (parseResult.error) {
               if (parser.node.optional) continue;
-              return createParseError(
-                rule.kind,
-                ErrorType.Seq_Stop,
-                pos,
-                rootId,
-                rule,
-                {
-                  child: parseResult,
-                }
-              );
+              return createParseError(rule, cursor, rootId, {
+                errorType: ErrorType.Seq_Stop,
+                childError: parseResult,
+                index: parsers.indexOf(parser),
+              });
             }
             if (parser.node.key && !parser.node.skip) {
               const reshaped = parseResult.result;
@@ -315,16 +264,11 @@ function compileFragmentInternal(
             const parseResult = parser.parse(ctx, cursor);
             if (parseResult.error) {
               if (parser.node.optional) continue;
-              return createParseError(
-                rule.kind,
-                ErrorType.Seq_Stop,
-                pos,
-                rootId,
-                rule,
-                {
-                  child: parseResult,
-                }
-              );
+              return createParseError(rule, cursor, rootId, {
+                errorType: ErrorType.Seq_Stop,
+                childError: parseResult,
+                index: parsers.indexOf(parser),
+              });
             }
             if (!parser.node.skip) {
               // drop zero

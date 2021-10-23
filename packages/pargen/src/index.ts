@@ -13,6 +13,8 @@ import {
   Seq,
 } from "./types";
 
+export { reportError } from "./error_reporter";
+
 // impl
 function createPackratCache(): PackratCache {
   const cache: CacheMap = {};
@@ -59,8 +61,8 @@ function createPackratCache(): PackratCache {
 export function createCompiler(partial: Partial<Compiler>): Compiler {
   const compiler: Compiler = {
     composeTokens: true,
-    rules: {},
-    defs: {},
+    parsers: new Map(),
+    definitions: new Map(),
     ...partial,
     compile: null as any,
   };
@@ -69,6 +71,7 @@ export function createCompiler(partial: Partial<Compiler>): Compiler {
   const compile: RootCompiler = (node) => {
     const resolved = typeof node === "number" ? createRef(node) : node;
     const parse = compileFragment(resolved, compiler, resolved.id);
+
     const parser: RootParser = (input: string) => {
       const cache = createPackratCache();
       return parse(
@@ -114,7 +117,7 @@ let cacheMissCount = 0;
 const addPerfTime = (id: string, time: number) => {
   const prev = perfTimes.get(id);
   if (prev) {
-    perfTimes.set(id, { sum: prev.count + time, count: prev.count + 1 });
+    perfTimes.set(id, { sum: prev.sum + time, count: prev.count + 1 });
   } else {
     perfTimes.set(id, { sum: time, count: 1 });
   }
@@ -124,9 +127,12 @@ const measurePerf = <Fn extends (...args: any[]) => any>(
   id: string,
   fn: Fn
 ): ReturnType<Fn> => {
-  const start = Date.now();
+  // const start = Date.now();
+  // const ret = fn();
+  // addPerfTime(id, Date.now() - start);
+  const start = process.hrtime.bigint();
   const ret = fn();
-  addPerfTime(id, Date.now() - start);
+  addPerfTime(id, Number(process.hrtime.bigint() - start));
   return ret;
 };
 
@@ -135,28 +141,40 @@ export const printPerfResult = () => {
   console.log("cache hit", cacheHitCount, "cache miss", cacheMissCount);
   const ts = [...perfTimes.entries()].sort((a, b) => b[1].sum - a[1].sum);
   for (const [id, ret] of ts) {
-    console.log(`[${id}] total:${ret.sum} count:${ret.count}`);
+    // over 30ms
+    if (ret.sum > 30_000_000) {
+      console.log(
+        `[${id}] total:${Math.floor(ret.sum / 1_000_000)}ms ref_count:${
+          ret.count
+        }`
+      );
+    }
   }
 };
 
 export function createContext<ID extends number = number>(
   partialOpts: Partial<Compiler> = {}
 ) {
-  const ctx = createCompiler(partialOpts);
-  const builder = createBuilder(ctx);
+  const compiler = createCompiler(partialOpts);
+  const builder = createBuilder(compiler);
   const compile: RootCompiler = (...args) => {
+    // close on first compile
     builder.close();
-    const rootParser = ctx.compile(...args);
+    const rootParser = compiler.compile(...args);
     return rootParser;
   };
-  return { builder, compile };
+  return {
+    builder,
+    compile,
+    compiler,
+  };
 }
 
 if (process.env.NODE_ENV === "test" && require.main === module) {
   test("whitespace", () => {
     const { compile, builder: $ } = createContext();
-    is(compile($.r`\\s`)(" ").result, " ");
-    is(compile($.r`\\s+`)("  ").result, "  ");
+    is(compile($.r`\\s`)(" "), { result: " " });
+    is(compile($.r`\\s+`)("  "), { result: "  " });
     // is(compile($.r`(\\s+)?`)(" ").result, " ");
     // is(compile($.r`(\\s+)?`)(" \n ").result, " \n ");
     // is(compile($.r`(\\s+)?`)(" \t ").result, " \t ");
@@ -165,34 +183,34 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   test("token", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.seq(["a"]));
-    is(parser("a").result, "a");
+    is(parser("a"), { result: "a" });
   });
 
   test("regex sharthand", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.r`\\w`, { end: true });
-    is(parser("a").result, "a");
+    is(parser("a"), { result: "a" });
   });
 
   test("token2", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.r`\\s*a`);
-    is(parser("a").result, "a");
-    is(parser(" a").result, " a");
-    is(parser("  y").error, true);
+    is(parser("a"), { result: "a" });
+    is(parser(" a"), { result: " a" });
+    is(parser("  y"), { error: true });
   });
 
   test("nested-token", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.seq(["a", $.seq(["b", "c"])]));
-    is(parser("abc").result, "abc");
+    is(parser("abc"), { result: "abc" });
     is(parser("adb").error, true);
   });
 
   test("not", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.seq([$.not("a"), $.r`\\w`, $.not("b"), $.r`\\w`]));
-    is(parser("ba").result, "ba");
+    is(parser("ba"), { result: "ba" });
     is(parser("ab").error, true);
     is(parser("aa").error, true);
     is(parser("bb").error, true);
@@ -218,9 +236,11 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const seq = $.seq([$.param("a", "x"), $.param("b", "y")]);
     const parser = compile(seq);
     is(parser("xy"), {
+      error: false,
       result: { a: "x", b: "y" },
       len: 2,
       pos: 0,
+      ranges: [[0, 2]],
     });
     is(parser("xyz"), {
       result: { a: "x", b: "y" },
@@ -230,35 +250,37 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("xz"), {
       error: true,
       errorType: ErrorType.Seq_Stop,
-      pos: 0,
-      detail: {
-        child: {
-          pos: 1,
-          // detail: '"z" does not fill: y',
-          error: true,
-          errorType: ErrorType.Token_Unmatch,
-        },
-      },
+      pos: 1,
+      errorChild: {},
+      // detail: {
+      //   child: {
+      //     pos: 1,
+      //     // detail: '"z" does not fill: y',
+      //     error: true,
+      //     errorType: ErrorType.Token_Unmatch,
+      //   },
+      // },
     });
     is(parser(" xy"), {
       error: true,
       errorType: ErrorType.Seq_Stop,
       pos: 0,
-      detail: {
-        child: {
-          error: true,
-          pos: 0,
-          errorType: ErrorType.Token_Unmatch,
-          // detail: '" xy" does not fill: x',
-        },
-      },
+      errorChild: {},
+      // detail: {
+      //   child: {
+      //     error: true,
+      //     pos: 0,
+      //     errorType: ErrorType.Token_Unmatch,
+      //     // detail: '" xy" does not fill: x',
+      //   },
+      // },
     });
   });
 
   test("seq:skip", () => {
     const { compile, builder: $ } = createContext();
     const parser = compile($.seq(["a", $.skip($.r`\\s*`), "b"]));
-    is(parser("a   b").result, "ab");
+    is(parser("a   b"), { result: "ab" });
   });
 
   test("seq:skip_opt", () => {
@@ -275,11 +297,11 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const { compile, builder: $ } = createContext();
     const parser = compile($.seq(["a", $.eof()]));
     // console.log("parse", parser("a"));
-    is(parser("a").result, "a");
+    is(parser("a"), { result: "a" });
     is(parser("a ").error, true);
 
     const parser2 = compile($.seq([$.eof()]));
-    is(parser2("").result, "");
+    is(parser2(""), { result: "" });
   });
 
   test("seq:eof-eof", () => {
@@ -302,7 +324,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const { compile, builder: $ } = createContext();
     const seq = $.seq([$.param("a", "a")]);
     const parser = compile(seq);
-
     is(parser("a"), { result: { a: "a" }, len: 1, pos: 0 });
     is(parser("ab"), {
       result: { a: "a" },
@@ -313,13 +334,10 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       error: true,
       errorType: ErrorType.Seq_Stop,
       pos: 0,
-      detail: {
-        child: {
-          pos: 0,
-          error: true,
-          errorType: ErrorType.Token_Unmatch,
-          // detail: `"x" does not fill: a`,
-        },
+      childError: {
+        pos: 0,
+        error: true,
+        errorType: ErrorType.Token_Unmatch,
       },
     });
   });
@@ -542,23 +560,21 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       error: true,
       errorType: ErrorType.Or_UnmatchAll,
       pos: 0,
-      detail: {
-        // message: '"z" does not match any pattern',
-        children: [
-          {
-            error: true,
-            pos: 0,
-            errorType: ErrorType.Token_Unmatch,
-            // detail: "x",
-          },
-          {
-            error: true,
-            pos: 0,
-            errorType: ErrorType.Token_Unmatch,
-            // detail: "y",
-          },
-        ],
-      },
+      errors: [
+        {
+          error: true,
+          pos: 0,
+          errorType: ErrorType.Token_Unmatch,
+          // detail: "x",
+        },
+        {
+          error: true,
+          pos: 0,
+          errorType: ErrorType.Token_Unmatch,
+          // detail: "y",
+        },
+      ],
+      // ]
     });
   });
 
@@ -576,37 +592,30 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       error: true,
       pos: 0,
       errorType: ErrorType.Or_UnmatchAll,
-      detail: {
-        // message: '"xyb" does not match any pattern',
-        children: [
-          {
+      errors: [
+        {
+          error: true,
+          errorType: ErrorType.Seq_Stop,
+          pos: 0,
+          childError: {
             error: true,
-            errorType: ErrorType.Seq_Stop,
             pos: 0,
-            detail: {
-              child: {
-                error: true,
-                pos: 0,
-                errorType: ErrorType.Token_Unmatch,
-                // detail: "xyz",
-              },
-            },
+            errorType: ErrorType.Token_Unmatch,
+            // detail: "xyz",
           },
-          {
+        },
+        {
+          error: true,
+          errorType: ErrorType.Seq_Stop,
+          pos: 0,
+          childError: {
             error: true,
-            errorType: ErrorType.Seq_Stop,
             pos: 0,
-            detail: {
-              child: {
-                error: true,
-                pos: 0,
-                errorType: ErrorType.Token_Unmatch,
-                // detail: "xya",
-              },
-            },
+            errorType: ErrorType.Token_Unmatch,
+            // detail: "xya",
           },
-        ],
-      },
+        },
+      ],
     });
   });
 

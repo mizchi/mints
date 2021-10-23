@@ -28,7 +28,7 @@ export function createRef(refId: string | number, reshape?: Reshape): Ref {
     ...nodeBaseDefault,
     id: genId(),
     kind: NodeKind.REF,
-    ref: refId.toString(),
+    ref: refId,
     reshape,
   } as Ref;
 }
@@ -52,20 +52,22 @@ export function createBuilder(compiler: Compiler) {
 
   const _hydratePatterns = () => {
     const nodes: Rule[] = [];
-    registeredPatterns.forEach(([id, nodeCreator]) => {
+    registeredPatterns.forEach(([rootId, nodeCreator]) => {
       const node = nodeCreator();
-      const n = toNode(node);
-      const parser = compileFragment(n, compiler, n.id);
-      compiler.defs[id] = parser;
-      nodes.push(n);
+      const resolvedNode = toNode(node);
+      const parser = compileFragment(resolvedNode, compiler, rootId);
+      compiler.parsers.set(rootId, parser);
+      // TODO: Remove on prod
+      compiler.definitions.set(rootId, resolvedNode);
+      nodes.push(resolvedNode);
     });
     registeredPatterns.length = 0;
     nodes.length = 0;
   };
 
-  let _cnt = 2;
+  let _defCounter = 2;
   function def(nodeCreator: () => InputNodeExpr): number {
-    const id = _cnt++;
+    const id = _defCounter++;
     registeredPatterns.push([id as any, nodeCreator]);
     return id;
   }

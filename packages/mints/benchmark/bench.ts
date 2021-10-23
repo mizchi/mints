@@ -4,9 +4,7 @@ import fs from "fs";
 import path from "path";
 import { printPerfResult } from "@mizchi/pargen/src";
 // import { formatError } from "../src/_testHelpers";
-import prettier from "prettier";
-import { preprocess, preprocessLight } from "../src/preprocess";
-import { reportError } from "../src/error_reporter";
+// import prettier from "prettier";
 
 const code0 = fs.readFileSync(
   path.join(__dirname, "cases/example0.ts"),
@@ -35,18 +33,14 @@ function compileTsc(input: string) {
 function compileMints(input: string) {
   const out = transform(input);
   if (out.error) {
-    reportError(input, out);
+    out.reportErrorDetail();
     throw out;
   }
   return out.result as string;
 }
 
 export function main() {
-  const compilers = [
-    // xx
-    compileTsc,
-    compileMints,
-  ];
+  const compilers = [compileTsc, compileMints];
 
   // const targets = [code1, code2, code3];
   const targets = [code0, code1, code2];
@@ -54,14 +48,20 @@ export function main() {
   for (const code of targets) {
     for (const compiler of compilers) {
       // console.log("[pre]", preprocessLight(code));
-      for (let i = 0; i < 2; i++) {
+      const N = 2;
+      for (let i = 0; i < N; i++) {
         const now = Date.now();
         const out = compiler(code);
         console.log(compiler.name, `[${i}]`, Date.now() - now);
-        // printPerfResult();
+        if (i === N - 1) {
+          // console.log("[out]", out);
+        }
         // console.log("raw:", out);
         // console.log("----");
         // console.log(prettier.format(out, { parser: "typescript" }));
+      }
+      if (compiler === compileMints) {
+        printPerfResult();
       }
     }
   }

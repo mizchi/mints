@@ -1139,7 +1139,8 @@ import { test, run, is } from "@mizchi/test";
 // import { expectError, expectSame } from "./_testHelpers";
 import { preprocessLight } from "./preprocess";
 import { ErrorType, ParseError } from "../../pargen/src/types";
-import { reportError } from "./error_reporter";
+// import { reportError } from "../../pargen/src/error_reporter";
+
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
   const ts = require("typescript");
@@ -1168,13 +1169,8 @@ if (process.env.NODE_ENV === "test") {
       const input = preprocessLight(raw);
       const result = parse(input);
       if (result.error) {
-        // formatError(input, result);
-        reportError(input, result);
-        // throw "Unexpected";
-        throw new Error(
-          "Unexpected Result: input|" + input.replace(/\n/g, "\\n")
-        );
-        // throw `Expect: ${input}\nOutput: ${result}`;
+        result.reportErrorDetail();
+        throw new Error("Unexpected Result: " + input.replace(/\n/g, "\\n"));
       } else {
         const resultf = format
           ? _format(result.result as string, format, stripTypes)
@@ -1195,35 +1191,6 @@ if (process.env.NODE_ENV === "test") {
       }
     });
   };
-
-  function _formatError(input: string, error: ParseError, depth: number = 0) {
-    if (depth === 0) {
-      console.error("[parse:fail]", error.pos);
-    }
-    const prefix = " ".repeat(depth * 2);
-    console.log(
-      prefix,
-      `${ErrorType?.[error.errorType]}[${error.pos}]`,
-      `<$>`,
-      input.substr(error.pos).split("\n")[0] + " ..."
-    );
-    if (error.errorType === ErrorType.Token_Unmatch && error.detail) {
-      console.log(prefix, ">", error.detail);
-    }
-    if (error.errorType === ErrorType.Not_IncorrectMatch) {
-      console.log(prefix, "matche", error);
-    }
-
-    if (error.errorType === ErrorType.Seq_Stop) {
-      _formatError(input, error.detail.child, depth + 1);
-    }
-
-    if (error.errorType === ErrorType.Or_UnmatchAll) {
-      for (const e of error.detail.children) {
-        _formatError(input, e, depth + 1);
-      }
-    }
-  }
 
   test("identifier", () => {
     const parse = compile(identifier);
@@ -1313,7 +1280,7 @@ if (process.env.NODE_ENV === "test") {
       { format: false }
     );
     expectError(parseExpression, [`{ async a: 1 }`, `{ async get a() {} }`]);
-    is(parseExpression(`{\n }`).result, "{}");
+    is(parseExpression(`{\n }`), { result: "{}" });
   });
 
   test("newExpression", () => {
@@ -1450,14 +1417,14 @@ if (process.env.NODE_ENV === "test") {
 
   test("callExpression", () => {
     const parse = compile(accessible);
-    is(parse("func()").result, "func()");
-    is(parse("func([])").result, "func([])");
-    is(parse("func(1,2)").result, "func(1,2)");
-    is(parse("func(1,2,)").result, "func(1,2,)");
-    is(parse("f<T>()").result, "f()");
-    is(parse("f?.()").result, "f?.()");
-    is(parse("x.f()").result, "x.f()");
-    is(parse("x.f<T>()").result, "x.f()");
+    is(parse("func()"), { result: "func()" });
+    is(parse("func([])"), { result: "func([])" });
+    is(parse("func(1,2)"), { result: "func(1,2)" });
+    is(parse("func(1,2,)"), { result: "func(1,2,)" });
+    is(parse("f<T>()"), { result: "f()" });
+    is(parse("f?.()"), { result: "f?.()" });
+    is(parse("x.f()"), { result: "x.f()" });
+    is(parse("x.f<T>()"), { result: "x.f()" });
   });
 
   test("anyExpression", () => {
@@ -1657,7 +1624,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("debugger", () => {
     const parse = compile(debuggerStatement);
-    is(parse("debugger").result, "debugger");
+    is(parse("debugger"), { result: "debugger" });
   });
   test("return", () => {
     const parse = compile(returnStatement);
@@ -1762,9 +1729,9 @@ if (process.env.NODE_ENV === "test") {
       'import {a as b, d as c,} from "x"',
     ]);
     // drop import type
-    is(parse("import type a from 'xxx'").result, "");
-    is(parse("import type * as b from 'xxx'").result, "");
-    is(parse("import type {a as b} from 'xxx'").result, "");
+    is(parse("import type a from 'xxx'"), { result: "" });
+    is(parse("import type * as b from 'xxx'"), { result: "" });
+    is(parse("import type {a as b} from 'xxx'"), { result: "" });
   });
   test("exportStatement", () => {
     const parse = compile(exportStatement, { end: true });

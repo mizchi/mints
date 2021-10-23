@@ -27,6 +27,7 @@ export enum ErrorType {
   Pair_Unmatch,
   Eof_Unmatch,
   Token_Unmatch,
+  Regex_Unmatch,
   Seq_Stop,
   Or_UnmatchAll,
   Repeat_RangeError,
@@ -95,7 +96,7 @@ export type SerializedSeq = [
 
 export type Ref = RuleBase & {
   kind: NodeKind.REF;
-  ref: string;
+  ref: number;
 };
 
 export type SerializedRef = [
@@ -167,9 +168,12 @@ export type Rule = Seq | Token | Or | Repeat | Ref | Eof | Not | Atom | Regex;
 
 // ==== public interface
 
+export type RootCompilerOptions = {
+  end?: boolean;
+};
 export type RootCompiler = (
   node: Rule | number,
-  opts?: { end: boolean }
+  opts?: RootCompilerOptions
 ) => RootParser;
 
 export type RootParser = (input: string, pos?: number) => ParseResult;
@@ -224,20 +228,22 @@ export type Builder = {
 
 // compiler internal
 
+export type DefinitionMap = Map<number, Rule>;
+
 export type Compiler = {
   composeTokens: boolean;
-  defs: DefsMap;
-  // pairs: string[];
-  rules: RulesMap<any>;
+  parsers: ParserMap;
+  definitions: DefinitionMap;
   compile: RootCompiler;
 };
 
-export type DefsMap = Record<string | number, InternalParser>;
+export type DevCompiler = Compiler & {
+  definitions: DefinitionMap;
+};
 
-export type RulesMap<T> = Record<
-  any,
-  (node: T, opts: Compiler) => InternalParser
->;
+// export type DefsMap = Record<number, InternalParser>;
+export type ParserMap = Map<number, InternalParser>;
+// export type DefsMap = Record<number, InternalParser>;
 
 export type PackratCache = {
   export(): CacheMap;
@@ -277,43 +283,63 @@ export type ParseSuccess = {
   ranges: Array<Range>;
 };
 
+type RepeatRangeError = {
+  errorType: ErrorType.Repeat_RangeError;
+};
+
+type NotIncorrectMatch = {
+  errorType: ErrorType.Not_IncorrectMatch;
+};
+
+type EofUnmatch = {
+  errorType: ErrorType.Eof_Unmatch;
+};
+
+type TokenUnmatch = {
+  errorType: ErrorType.Token_Unmatch;
+};
+
+type RegexUnmatch = {
+  errorType: ErrorType.Regex_Unmatch;
+};
+
+type SeqStop = {
+  errorType: ErrorType.Seq_Stop;
+  index: number;
+  childError: ParseError;
+};
+
+type UnmatchAll = {
+  errorType: ErrorType.Or_UnmatchAll;
+  errors: Array<ParseError>;
+};
+
+type AtomError = {
+  errorType: ErrorType.Atom_ParseError;
+  childError: ParseError;
+};
+
+export type ParseErrorData =
+  | RepeatRangeError
+  | NotIncorrectMatch
+  | EofUnmatch
+  | TokenUnmatch
+  | RegexUnmatch
+  | SeqStop
+  | AtomError
+  | UnmatchAll;
+
 export type ParseErrorBase = {
   error: true;
   rootId: number;
-  id: number;
   pos: number;
-  errorType: ErrorType;
-  kind: NodeKind;
-  result?: any;
-  detail?: any;
+  rule: Rule;
 };
 
-export type ParseError =
-  | (ParseErrorBase & {
-      errorType: ErrorType.Repeat_RangeError;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Not_IncorrectMatch;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Pair_Unmatch;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Eof_Unmatch;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Token_Unmatch;
-      detail?: string;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Seq_Stop;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Atom_ParseError;
-    })
-  | (ParseErrorBase & {
-      errorType: ErrorType.Or_UnmatchAll;
-      detail: {
-        children: Array<ParseError[]>;
-      };
-    });
+export type ParseError = ParseErrorData & ParseErrorBase;
+// export type ErrorCreator = <T extends ParseErrorData>(
+//   rootId: number,
+//   pos: number,
+//   rule: Rule,
+//   data: T
+// ) => ParseError;
