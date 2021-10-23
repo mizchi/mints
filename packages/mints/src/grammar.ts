@@ -1924,7 +1924,8 @@ if (process.env.NODE_ENV === "test") {
       `class{f(x, \n){}}`,
       `function foo(x,\n ){}`,
       `class{f(x, \n){}}`,
-      `class{f(x,\n ){}}`, // fail. why?
+      `class{f(x,\n ){}}`,
+      `f(()=>\ng);`,
 
       // `function foo(x\n ,\n){}`,
       // `class{
