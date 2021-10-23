@@ -36,17 +36,16 @@ export function escapeLiteral(input: string) {
 export function preprocessLight(input: string) {
   const { escaped, literals } = escapeLiteral(input);
   const out = escaped
-    // delete inline comments
-    .replace(/\/\*([.\n]*?)\*\//gmu, "")
-    .replace(/[ ]+/gmu, " ")
-    // delete line comments
+    // delete inline comments /*...*/
+    .replace(/\/\*(.*?)\*\//gmu, "")
+    // delete comment line
     .replace(/(.*?)(\/\/.*)/gu, "$1")
-    .replace(/[\n\r]+/gmu, "\n")
+    // delete redundunt semicollon except for statement
     .replace(/(?<!for\s?\()([\n; ]*;[\n ;]*)(?!\))/gmu, ";")
-    .replace(/\}\n+\s*/gmu, "}")
-    .replace(/\{\n+\s*/gmu, "{");
-
-  // .replace(/^/gmu, "\n")
+    // delete redundant whitespaces
+    .replace(/[ ]+/gmu, " ")
+    // delete redundunt whitespaces after control token
+    .replace(/([\}\{\(\)\n\r,;])\n+\s*/gmu, (_, $1) => $1);
   return restoreEscaped(out, literals);
 }
 export function preprocess(input: string) {

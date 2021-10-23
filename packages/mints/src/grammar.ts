@@ -346,40 +346,35 @@ export const functionArgWithAssign = $.def(() =>
 // const x = $.opt(destructivePattern);
 
 const functionArguments = $.def(() =>
-  $.seq([
-    // (a: T = 1,)+
-    $["*"]([functionArgWithAssign, _s, ",", _s]),
-    $.or([
-      // ...args
-      $.seq([
-        _s,
-        // ...args(:T)?
-        REST_SPREAD,
-        _s,
-        identifier,
-        $.skip_opt($.seq([_s, _typeAnnotation])),
-      ]),
-      // a: T
-      $.seq([
-        _s,
-        $.seq([functionArgWithAssign, _s, $.opt(",")]),
-        $.skip_opt($.seq([_s, ","])),
-      ]),
-      // no arg
+  $.or([
+    // a,b,c
+    $.seq([
+      $["*"]([functionArgWithAssign, _s, ",", _s]),
       _s,
-      // $.seq([
-      //   destructive,
-      //   _s,
-      //   $.skip_opt(_typeAnnotation),
-
-      //   // x:number[ = 1]
-      //   $.opt($.seq([_s, assign])),
-      // ]),
-      // _s,
+      $.or([
+        // rest spread
+        $.seq([REST_SPREAD, _s, functionArgWithAssign]),
+        functionArgWithAssign,
+        _s,
+      ]),
+      _s,
+      $.opt(","),
+      _s,
     ]),
-    // last comma ,?
-    $.skip_opt($.seq([_s, ",", _s])),
-    _s,
+    // one item
+    $.seq([
+      $.or([
+        $.seq([REST_SPREAD, _s, functionArgWithAssign]),
+        functionArgWithAssign,
+        _s,
+      ]),
+      _s,
+      $.opt(","),
+      _s,
+    ]),
+
+    // x,\n
+    $.seq([identifier, _s, $.opt(","), _s]),
   ])
 );
 
@@ -534,7 +529,9 @@ const classField = $.def(() =>
       "constructor",
       _s,
       "(",
+      _s,
       functionArguments,
+      _s,
       ")",
       _s,
       block,
