@@ -102,8 +102,8 @@ function App() {
         </div>
       </div>
       <div style={{ flex: 1 }}>
-        <h3>Output: {code.length}</h3>
-        <div>BuildTime: {buildTime}</div>
+        <h3>Output</h3>
+        <div>BuildTime: {buildTime}ms</div>
         <pre>
           <code style={{ whiteSpace: "pre-wrap" }}>{output}</code>
         </pre>
