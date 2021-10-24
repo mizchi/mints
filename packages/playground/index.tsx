@@ -62,7 +62,8 @@ function App() {
           setBuildTime(Date.now() - now);
           setOutput(
             // format
-            out.result.replace(/;/g, ";\n")
+            out.result
+            // .replace(/;/g, ";\n")
           );
         }
       }, 500);
@@ -104,7 +105,7 @@ function App() {
         <h3>Output: {code.length}</h3>
         <div>BuildTime: {buildTime}</div>
         <pre>
-          <code>{output}</code>
+          <code style={{ whiteSpace: "pre-wrap" }}>{output}</code>
         </pre>
       </div>
     </div>
