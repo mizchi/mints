@@ -984,17 +984,20 @@ const switchStatement = $.def(() =>
     $["*"]([
       $["+"](["case ", anyExpression, _s, ":", _s]),
       $.opt(
-        $.seq([
-          // xxx
-          $.or([block, anyStatement]),
-          _s,
-          $.opt(";"),
+        $.or([
+          $.seq([
+            // xxx
+            $.or([block, caseClause]),
+            _s,
+            $.opt(";"),
+          ]),
+          lines,
         ])
       ),
       _s,
     ]),
     _s,
-    $.opt($.seq(["default", _s, ":", _s, blockOrStatement])),
+    $.opt($.seq(["default", _s, ":", _s, $.or([block, caseClause])])),
     _s,
     "}",
   ])
@@ -1218,28 +1221,32 @@ const anyStatement = $.def(() =>
   ])
 );
 
-const lines = $.seq([
-  $["*"]([
-    $.or([
-      $.seq([
-        // class{}(;\n)
-        semicolonlessStatement,
-        $.or([$.skip($.tok("\n")), $.tok(";"), $.skip(_)]),
-      ]),
-      // $.seq([$.opt(anyStatement), _, $.r`[;\\n]+`, _]),
-      $.seq([
-        // enter or semicolon end statements
-        $.opt(anyStatement),
-        $.r`[ ]*`,
-        // $.r`[\\n;]`,
-        $.or([$.skip($.tok("\n")), $.tok(";")]),
-        _s,
-      ]),
+const line = $.def(() =>
+  $.or([
+    $.seq([
+      // class{}(;\n)
+      semicolonlessStatement,
+      $.or([$.skip($.tok("\n")), $.tok(";"), $.skip(_)]),
     ]),
-  ]),
-  $.opt(anyStatement),
+    // $.seq([$.opt(anyStatement), _, $.r`[;\\n]+`, _]),
+    $.seq([
+      // enter or semicolon end statements
+      $.opt(anyStatement),
+      $.r`[ ]*`,
+      // $.r`[\\n;]`,
+      $.or([$.skip($.tok("\n")), $.tok(";")]),
+      _s,
+    ]),
+  ])
+);
+
+const caseClause = $.seq([
+  $["*"]([$.not("case "), line]),
+  $.opt($.seq([$.not("case "), anyStatement])),
   $.skip_opt(";"),
 ]);
+
+const lines = $.seq([$["*"]([line]), $.opt(anyStatement), $.skip_opt(";")]);
 
 export const block = $.def(() => $.seq(["{", _s, lines, _s, "}"]));
 
@@ -1826,8 +1833,8 @@ if (process.env.NODE_ENV === "test") {
       `if(1){return 1;}`,
       `if(1){}else 2`,
       `if(1){}else{}`,
-      // `if(1){} else if(1) {};`,
-      // `if(1){} else if(1)return else 1`,
+      `if(1){} else if(1) {}`,
+      `if(1){} else if(1) {} else 1`,
       `if(1){if(2)return;}`,
     ]);
   });
@@ -2097,19 +2104,13 @@ if (process.env.NODE_ENV === "test") {
       `try{}catch{}`,
       `try{}catch(e){}finally{}`,
       `try{}finally{}`,
-      `switch (key) {
-  case WorkspaceProvider.QUERY_PARAM_FOLDER:
-    workspace = { folderUri: URI.parse(value) };
-    foundWorkspace = true;
-    break;
-  case WorkspaceProvider.QUERY_PARAM_WORKSPACE:
-    workspace = { workspaceUri: URI.parse(value) };
-    foundWorkspace = true;
-    break;
-}
-
-
-`,
+      `switch(1){case a:1;1;case b:2;2;default: 1}`,
+      `switch(1){case a:{};case 1:break;default: 1;break;}`,
+      `switch (1 as number) {
+  case 1:
+    try {} catch (error) {}
+  case 2:
+}`,
     ]);
     expectError(parse, [`class{f(a={a = 1}){}}`]);
   });

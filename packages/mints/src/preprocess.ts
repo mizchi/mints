@@ -43,11 +43,9 @@ export function preprocessLight(input: string) {
     // delete redundunt semicollon except for statement
     .replace(/(?<!for\s?\()([\n\r\t; ]*;[\n\r\t ;]*)(?!\))/gmu, ";")
     // delete redundant whitespaces
-    .replace(/[ ]+/gmu, " ")
+    .replace(/[ \t]+/gmu, " ")
     // delete redundunt whitespaces after control token
-    .replace(/([\}\{\(\)\n\r\t,;><])[\n\r\t]+\s*/gmu, (_, $1) =>
-      $1 === "\t" ? "\n" : $1
-    );
+    .replace(/([\}\{\(\)\n\r,;><])[\n\r\t]+\s*/gmu, (_, $1) => $1);
   return restoreEscaped(out, literals);
 }
 export function preprocess(input: string) {

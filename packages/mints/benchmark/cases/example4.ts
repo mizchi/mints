@@ -444,7 +444,6 @@ class WindowIndicator implements IWindowIndicator {
 	// const query = new URL(document.location.href).searchParams;
 	query.forEach((value, key) => {
 		switch (key) {
-
 			// Folder
 			// case WorkspaceProvider.QUERY_PARAM_FOLDER:
 			// 	workspace = { folderUri: URI.parse(value) };

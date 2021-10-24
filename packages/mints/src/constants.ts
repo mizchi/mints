@@ -1,6 +1,6 @@
 // export const _ = "[\\s\\n]*";
-export const _ = "([\\s\\n\\t]+)?";
-export const __ = `[\\s\\n\\t]+`;
+export const _ = "([\\s\\n]+)?";
+export const __ = `[\\s\\n]+`;
 
 // "(?!.*@N).*?"
 export const PAIRED_CHARS = ["(", ")", "{", "}", "[", "]", "<", ">"] as const;
