@@ -318,7 +318,7 @@ const destructiveObjectPattern = $.def(() =>
   ])
 );
 
-export const destructive = $.def(() =>
+const destructive = $.def(() =>
   $.seq([
     $.or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
     // { a = 1 } = {}
@@ -326,7 +326,7 @@ export const destructive = $.def(() =>
   ])
 );
 
-export const destructiveNoAssign = $.def(() =>
+const destructiveNoAssign = $.def(() =>
   $.or([
     // {} | [] | a
     destructiveObjectPattern,
@@ -335,7 +335,7 @@ export const destructiveNoAssign = $.def(() =>
   ])
 );
 
-export const functionArgWithAssign = $.def(() =>
+const functionArgWithAssign = $.def(() =>
   $.seq([
     $.or([
       // pattern(:T)?
@@ -526,61 +526,116 @@ const readonlyModifier = $.tok(`static `);
 
 const asyncModifier = $.tok("async ");
 const getOrSetModifier = $.r`(get|set) `;
-const classField = $.def(() =>
-  $.or([
-    $.seq([
-      $.skip_opt(accessModifier),
-      "constructor",
-      _s,
-      "(",
-      _s,
-      functionArguments,
-      _s,
-      ")",
-      _s,
-      block,
-    ]),
-    // class member
-    $.seq([
-      $.skip_opt(accessModifier),
-      $.opt(staticModifier),
-      $.opt(asyncModifier),
-      $.opt(getOrSetModifier),
-      $.opt("*"),
-      $.opt("#"),
-      identifier,
-      // <T>
-      $.skip_opt($.seq([_, typeDeclareParameters])),
-      _,
-      // class member
+
+const classConstructorArg = $.def(() =>
+  $.seq([
+    $.or([
+      // private
+      $.seq([$.or(["private", "public", "protected"]), __, identifier]),
+      // normal initializer
       $.seq([
-        // foo(): void {}
-        "(",
-        _s,
-        functionArguments,
-        _s,
-        ")",
-        $.skip_opt($.seq([_, _typeAnnotation])),
-        _s,
-        block,
+        $.or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
       ]),
     ]),
-    // field
     $.seq([
-      // private|static|readonly
-      $.skip_opt(accessModifier),
-      // static
-      $.opt(staticModifier),
-      $.skip_opt($.seq(["readonly", __])),
-      $.opt($.seq([_s, "#"])),
-      identifier,
-      // :xxx
-      $.skip_opt($.seq([_s, _typeAnnotation])),
-      _s,
-      $.opt($.seq(["=", $.not(">"), _s, anyExpression])),
-      ";",
+      $.skip_opt($.seq([_, $.opt("?"), $.opt("?"), ":", _, typeExpression])),
+      $.opt($.seq([_, $.skip_opt("?"), "=", $.not(">"), _, anyExpression])),
     ]),
   ])
+);
+
+const classField = $.def(() =>
+  $.or(
+    [
+      $.seq(
+        [
+          $.skip_opt(accessModifier),
+          "constructor",
+          _s,
+          "(",
+          _s,
+          // ["args", $.repeat($.seq([classConstructorArg, _s, ","]))],
+          // ["args", $.repeat($.seq([classConstructorArg, _s]))],
+          ["args", $.repeat($.seq([classConstructorArg, _s]))],
+
+          // ["last", $.seq([_s, classConstructorArg, _s, $.opt(",")])],
+          _s,
+          ")",
+          _s,
+          "{",
+          _s,
+          ["body", lines],
+          _s,
+          "}",
+        ],
+        (input: { args: string[]; last: string; body: string }) => {
+          // const inits: string[] = [];
+          let inits = "";
+          let args = "";
+          for (const arg of input.args) {
+            // extract ident
+            const m = arg.match(/^(private|public|protected) ([^=]+)(.*)$/);
+            if (m) {
+              const [, , init, rest] = m;
+              args += `${init}${rest}`;
+              inits += `this.${init}=${init};`;
+            }
+          }
+          console.log(
+            "input",
+            input.args,
+            inits,
+            `constructor(${args}){${inits}${input.body}}`
+          );
+          return `constructor(${args}){${inits}${input.body}}`;
+        }
+      ),
+      // class member
+      $.seq([
+        $.skip_opt(accessModifier),
+        $.opt(staticModifier),
+        $.opt(asyncModifier),
+        $.opt(getOrSetModifier),
+        $.opt("*"),
+        $.opt("#"),
+        identifier,
+        // <T>
+        $.skip_opt($.seq([_, typeDeclareParameters])),
+        _,
+        // class member
+        $.seq([
+          // foo(): void {}
+          "(",
+          _s,
+          functionArguments,
+          _s,
+          ")",
+          $.skip_opt($.seq([_, _typeAnnotation])),
+          _s,
+          block,
+        ]),
+      ]),
+      // field
+      $.seq([
+        // private|static|readonly
+        $.skip_opt(accessModifier),
+        // static
+        $.opt(staticModifier),
+        $.skip_opt($.seq(["readonly", __])),
+        $.opt($.seq([_s, "#"])),
+        identifier,
+        // :xxx
+        $.skip_opt($.seq([_s, _typeAnnotation])),
+        _s,
+        $.opt($.seq(["=", $.not(">"), _s, anyExpression])),
+        ";",
+      ]),
+    ],
+    (input) => {
+      console.log("or", input);
+      return input;
+    }
+  )
 );
 
 export const classExpression = $.def(() =>
@@ -2051,6 +2106,16 @@ if (process.env.NODE_ENV === "test") {
       `try{}finally{}`,
     ]);
     expectError(parse, [`class{f(a={a = 1}){}}`]);
+  });
+
+  test("transform: class constructor", () => {
+    const parse = compile(program, { end: true });
+    is(parse("class{ constructor(private x:number) {} }"), {
+      result: "class{constructor(x){this.x=x;}}",
+    });
+    // is(parse("class{ constructor(private x:number,y:number) {} }"), {
+    //   result: "class{constructor(x,y){this.x=x;}}",
+    // });
   });
 
   run({ stopOnFail: true, stub: true, isMain });

@@ -19,22 +19,30 @@ export const createParseSuccess = (
   result: any,
   pos: number,
   len: number,
-  ranges: Range[] = [[pos, pos + len]]
+  ranges: (Range | string)[] = [[pos, pos + len]]
 ) => {
-  let newRanges: Range[] = [];
+  let newRanges: (Range | string)[] = [];
   if (ranges.length > 0) {
     // let start = ranges[0][0];
-    newRanges = ranges.reduce((acc, [nextStart, end], index) => {
+    newRanges = ranges.reduce((acc, range, index) => {
+      // first item
+      if (index === 0) return [range] as (Range | string)[];
+      if (typeof range === "string") {
+        return [...acc, range] as (Range | string)[];
+      }
+      const [nextStart, end] = range;
       // omit [a,a]
       if (nextStart === end) return acc;
-      // first item
-      if (index === 0) return [...acc, [nextStart, end]];
-      const [lastStart, lastEnd] = acc.slice(-1)[0];
-      if (lastEnd === nextStart) {
-        return [...acc.slice(0, -1), [lastStart, end]];
+      const last = acc.slice(-1)[0];
+      if (typeof last === "string") {
+        return [...acc, last] as (Range | string)[];
+      }
+
+      if (last[1] === nextStart) {
+        return [...acc.slice(0, -1), [last[0], end]];
       }
       return [...acc, [nextStart, end]];
-    }, [] as Range[]);
+    }, [] as (Range | string)[]);
   }
 
   return {
@@ -175,6 +183,7 @@ function compileFragmentInternal(
         const errors: ParseError[] = [];
         for (const next of compiledPatterns) {
           const parsed = next.parse(ctx, pos);
+          // console.log("parsed:or", parsed);
           if (parsed.error === true) {
             if (rule.optional) {
               return createParseSuccess(null, pos, 0);
@@ -182,7 +191,7 @@ function compileFragmentInternal(
             errors.push(parsed);
             continue;
           }
-          return parsed as ParseResult;
+          return reshape(parsed) as ParseResult;
         }
         return createParseError(rule, pos, rootId, {
           errorType: ErrorType.Or_UnmatchAll,
@@ -195,7 +204,7 @@ function compileFragmentInternal(
       return (ctx, pos) => {
         const repeat = rule as Repeat;
         const xs: string[] = [];
-        let ranges: Range[] = [];
+        let ranges: (Range | string)[] = [];
         let cursor = pos;
         while (cursor < ctx.chars.length) {
           const parseResult = parser(ctx, cursor);
@@ -259,7 +268,7 @@ function compileFragmentInternal(
           return createParseSuccess(reshaped, pos, cursor - pos);
         } else {
           // string mode
-          let ranges: Range[] = [];
+          let ranges: (Range | string)[] = [];
           for (const parser of parsers) {
             const parseResult = parser.parse(ctx, cursor);
             if (parseResult.error) {
@@ -277,7 +286,13 @@ function compileFragmentInternal(
             cursor += parseResult.len;
           }
           const text = ranges
-            .map(([start, end]) => ctx.raw.slice(start, end))
+            .map((range) => {
+              if (typeof range === "string") {
+                return range;
+              } else {
+                return ctx.raw.slice(range[0], range[1]);
+              }
+            })
             .join("");
           return createParseSuccess(reshape(text), pos, cursor - pos, ranges);
         }

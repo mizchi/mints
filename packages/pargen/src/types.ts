@@ -280,7 +280,8 @@ export type ParseSuccess = {
   result: any;
   pos: number;
   len: number;
-  ranges: Array<Range>;
+  ranges: Array<Range | string>;
+  reshaped: boolean;
 };
 
 type RepeatRangeError = {

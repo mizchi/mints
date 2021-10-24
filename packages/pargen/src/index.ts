@@ -161,7 +161,22 @@ export function createContext<ID extends number = number>(
     // close on first compile
     builder.close();
     const rootParser = compiler.compile(...args);
-    return rootParser;
+    const newParser: RootParser = (input: string) => {
+      const out = rootParser(input, 0);
+      if (!out.error && out.result === "") {
+        const text = out.ranges
+          .map((range) => {
+            return typeof range === "string" ? range : input.slice(...range);
+          })
+          .join("");
+        return {
+          ...out,
+          result: text,
+        };
+      }
+      return out;
+    };
+    return newParser;
   };
   return {
     builder,
@@ -655,45 +670,36 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("((1)").error, true);
   });
 
-  // test("atom", () => {
-  //   const { compile, builder: $ } = createContext();
-  //   // read next >
-  //   const parser = compile(
-  //     $.atom((_node, _opts) => {
-  //       return (ctx) => {
-  //         const char = ctx.raw.indexOf(">", ctx.pos);
-  //         if (char === -1) {
-  //           return;
-  //         }
-  //         return char + 1;
-  //       };
-  //     })
-  //   );
-  //   is(parser("<>").result, "<>");
-  //   is(parser("< >").result, "< >");
-  // });
-
-  // test("atom:shape", () => {
-  //   const { compile, builder: $ } = createContext();
-  //   const parser = compile(
-  //     $.atom((_node, _opts) => {
-  //       return (ctx) => {
-  //         const char = ctx.raw.indexOf(">", ctx.pos);
-  //         if (char === -1) {
-  //           return;
-  //         }
-  //         return [{ atom: "x" }, 2];
-  //       };
-  //     })
-  //   );
-  //   is(parser("<>").result, {
-  //     atom: "x",
-  //   });
-  // });
+  test("skip in or", () => {
+    const { compile, builder: $ } = createContext();
+    // read next >
+    const parser = compile($.or([$.seq(["a", $.skip("b"), "c"]), "xxx"]));
+    is(parser("abc"), { result: "ac" });
+  });
+  test("skip in repeat", () => {
+    const { compile, builder: $ } = createContext();
+    // read next >
+    const parser = compile(
+      $.seq([$.repeat($.or([$.seq(["a", $.skip("b"), "c"]), "xxx"]))])
+    );
+    is(parser("abcabcxxx"), { result: "acacxxx" });
+  });
+  test("seq.skip with reshape", () => {
+    const { compile, builder: $ } = createContext();
+    // read next >
+    const parser = compile($.seq([$.seq(["a", $.skip("b"), "c"], () => "d")]));
+    is(parser("ac"), { result: "ad" });
+  });
 
   test("seq:skip-nested", () => {
     const { compile, builder: $ } = createContext();
-    const parser = compile($.seq(["a", $.seq([$.skip("b"), "c"])]));
+    const parser = compile(
+      $.seq([
+        //xx
+        "a",
+        $.seq([$.skip("b"), "c"]),
+      ])
+    );
     is(parser("abc"), { result: "ac" });
   });
   test("seq:skip-nested2", () => {
