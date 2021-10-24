@@ -1,9 +1,8 @@
-class X{
-	f() {
-    1;
-		// x
-    // y
+class LocalStorageCredentialsProvider {
 
-		const y = 1;
+	constructor() {
+		let authSessionInfo: {
+      readonly scopes: string
+    } | undefined;
 	}
 }

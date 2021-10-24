@@ -165,7 +165,7 @@ const typeFunctionArgs = $.def(() =>
   ])
 );
 
-const _typeObjectItem = $.def(() =>
+const typeObjectItem = $.def(() =>
   $.or([
     $.seq([
       // async foo<T>(arg: any): void;
@@ -190,7 +190,7 @@ const _typeObjectItem = $.def(() =>
       $.opt($.seq(["readonly ", _s])),
       identifier,
       _,
-      $.skip_opt("?"),
+      $.opt("?"),
       ":",
       // ":",
       _,
@@ -203,10 +203,12 @@ const typeObjectLiteral = $.def(() =>
   $.seq([
     // object
     "{",
-    $["*"]([_, _typeObjectItem, _, $.r`(,|;)`]),
-    $.opt($.seq([_, _typeNameableItem])),
     _,
-    $.r`(,|;)?`,
+    $["*"]([typeObjectItem, _, $.or([",", ";"]), _]),
+    $.opt(typeObjectItem),
+    _,
+    // $.r`(,|;)?`,
+    $.or([",", ";", _]),
     _,
     "}",
   ])
@@ -1731,6 +1733,11 @@ if (process.env.NODE_ENV === "test") {
         "{ f(...args: any): void; }",
         "{ f(...args: any): void; b: 1; }",
         "{ readonly b: number; }",
+        `{
+          readonly b: number,
+          a: number
+        }`,
+        // `{ readonly b, number, a: number }`,
         "[] & {}",
         "[number]",
         "[number,number]",
@@ -2090,6 +2097,19 @@ if (process.env.NODE_ENV === "test") {
       `try{}catch{}`,
       `try{}catch(e){}finally{}`,
       `try{}finally{}`,
+      `switch (key) {
+  case WorkspaceProvider.QUERY_PARAM_FOLDER:
+    workspace = { folderUri: URI.parse(value) };
+    foundWorkspace = true;
+    break;
+  case WorkspaceProvider.QUERY_PARAM_WORKSPACE:
+    workspace = { workspaceUri: URI.parse(value) };
+    foundWorkspace = true;
+    break;
+}
+
+
+`,
     ]);
     expectError(parse, [`class{f(a={a = 1}){}}`]);
   });
