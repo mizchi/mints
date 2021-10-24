@@ -445,36 +445,36 @@ class WindowIndicator implements IWindowIndicator {
 	query.forEach((value, key) => {
 		switch (key) {
 			// Folder
-			// case WorkspaceProvider.QUERY_PARAM_FOLDER:
-			// 	workspace = { folderUri: URI.parse(value) };
-			// 	foundWorkspace = true;
-			// 	break;
+			case WorkspaceProvider.QUERY_PARAM_FOLDER:
+				workspace = { folderUri: URI.parse(value) };
+				foundWorkspace = true;
+				break;
 
-			// // Workspace
-			// case WorkspaceProvider.QUERY_PARAM_WORKSPACE:
-			// 	workspace = { workspaceUri: URI.parse(value) };
-			// 	foundWorkspace = true;
-			// 	break;
+			// Workspace
+			case WorkspaceProvider.QUERY_PARAM_WORKSPACE:
+				workspace = { workspaceUri: URI.parse(value) };
+				foundWorkspace = true;
+				break;
 
-			// // Empty
-			// case WorkspaceProvider.QUERY_PARAM_EMPTY_WINDOW:
-			// 	workspace = undefined;
-			// 	foundWorkspace = true;
-			// 	break;
+			// Empty
+			case WorkspaceProvider.QUERY_PARAM_EMPTY_WINDOW:
+				workspace = undefined;
+				foundWorkspace = true;
+				break;
 
-			// // Payload
-			// case WorkspaceProvider.QUERY_PARAM_PAYLOAD:
-			// 	try {
-			// 		payload = JSON.parse(value);
-			// 	} catch (error) {
-			// 		console.error(error); // possible invalid JSON
-			// 	}
-			// 	break;
+			// Payload
+			case WorkspaceProvider.QUERY_PARAM_PAYLOAD:
+				try {
+					payload = JSON.parse(value);
+				} catch (error) {
+					console.error(error); // possible invalid JSON
+				}
+				break;
 
-			// // Log level
-			// case 'logLevel':
-			// 	logLevel = value;
-			// 	break;
+			// Log level
+			case 'logLevel':
+				logLevel = value;
+				break;
 		}
 	});
 
