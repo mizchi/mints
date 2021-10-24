@@ -152,9 +152,7 @@ export const printPerfResult = () => {
   }
 };
 
-export function createContext<ID extends number = number>(
-  partialOpts: Partial<Compiler> = {}
-) {
+export function createContext(partialOpts: Partial<Compiler> = {}) {
   const compiler = createCompiler(partialOpts);
   const builder = createBuilder(compiler);
   const compile: RootCompiler = (...args) => {
@@ -678,17 +676,26 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
   test("skip in repeat", () => {
     const { compile, builder: $ } = createContext();
-    // read next >
     const parser = compile(
       $.seq([$.repeat($.or([$.seq(["a", $.skip("b"), "c"]), "xxx"]))])
     );
     is(parser("abcabcxxx"), { result: "acacxxx" });
   });
-  test("seq.skip with reshape", () => {
+
+  test("seq-string with reshape", () => {
     const { compile, builder: $ } = createContext();
-    // read next >
-    const parser = compile($.seq([$.seq(["a", $.skip("b"), "c"], () => "d")]));
-    is(parser("ac"), { result: "ad" });
+    const parser = compile(
+      $.seq([
+        // a
+        "a",
+        $.seq(["bb"], () => "_"),
+        $.skip("c"),
+        "d",
+      ]),
+      { end: true }
+    );
+    is(parser("abbcd"), { result: "a_d" });
+    // is(parser("abbd"), { error: true });
   });
 
   test("seq:skip-nested", () => {

@@ -2,6 +2,21 @@ export type TokenMap<T extends string> = Record<T, Array<number>>;
 
 type StringMatcher = (input: string, pos: number) => string | null;
 
+export function buildRangesToString(
+  input: string,
+  ranges: Array<[number, number] | string>
+): string {
+  return ranges
+    .map((range) => {
+      if (typeof range === "string") {
+        return range;
+      } else {
+        return input.slice(range[0], range[1]);
+      }
+    })
+    .join("");
+}
+
 const REGEX_CHAR =
   /(?<!\\)[\(\)\[\]\+\?\+\^\*\.]|(\\[dDsSwWbB])|\{(\d*),?\d*\}/;
 

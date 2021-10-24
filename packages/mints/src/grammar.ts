@@ -522,7 +522,7 @@ const anyLiteral = $.def(() =>
 /* Class */
 const accessModifier = $.r`(private|public|protected) `;
 const staticModifier = $.tok(`static `);
-const readonlyModifier = $.tok(`static `);
+const readonlyModifier = $.tok(`readonly `);
 
 const asyncModifier = $.tok("async ");
 const getOrSetModifier = $.r`(get|set) `;
@@ -543,99 +543,85 @@ const classConstructorArg = $.def(() =>
     ]),
   ])
 );
-
-const classField = $.def(() =>
-  $.or(
+const classConstructor = $.def(() =>
+  $.seq(
     [
-      $.seq(
-        [
-          $.skip_opt(accessModifier),
-          "constructor",
-          _s,
-          "(",
-          _s,
-          // ["args", $.repeat($.seq([classConstructorArg, _s, ","]))],
-          // ["args", $.repeat($.seq([classConstructorArg, _s]))],
-          ["args", $.repeat($.seq([classConstructorArg, _s]))],
-
-          // ["last", $.seq([_s, classConstructorArg, _s, $.opt(",")])],
-          _s,
-          ")",
-          _s,
-          "{",
-          _s,
-          ["body", lines],
-          _s,
-          "}",
-        ],
-        (input: { args: string[]; last: string; body: string }) => {
-          // const inits: string[] = [];
-          let inits = "";
-          let args = "";
-          for (const arg of input.args) {
-            // extract ident
-            const m = arg.match(/^(private|public|protected) ([^=]+)(.*)$/);
-            if (m) {
-              const [, , init, rest] = m;
-              args += `${init}${rest}`;
-              inits += `this.${init}=${init};`;
-            }
-          }
-          console.log(
-            "input",
-            input.args,
-            inits,
-            `constructor(${args}){${inits}${input.body}}`
-          );
-          return `constructor(${args}){${inits}${input.body}}`;
-        }
-      ),
-      // class member
-      $.seq([
-        $.skip_opt(accessModifier),
-        $.opt(staticModifier),
-        $.opt(asyncModifier),
-        $.opt(getOrSetModifier),
-        $.opt("*"),
-        $.opt("#"),
-        identifier,
-        // <T>
-        $.skip_opt($.seq([_, typeDeclareParameters])),
-        _,
-        // class member
-        $.seq([
-          // foo(): void {}
-          "(",
-          _s,
-          functionArguments,
-          _s,
-          ")",
-          $.skip_opt($.seq([_, _typeAnnotation])),
-          _s,
-          block,
-        ]),
-      ]),
-      // field
-      $.seq([
-        // private|static|readonly
-        $.skip_opt(accessModifier),
-        // static
-        $.opt(staticModifier),
-        $.skip_opt($.seq(["readonly", __])),
-        $.opt($.seq([_s, "#"])),
-        identifier,
-        // :xxx
-        $.skip_opt($.seq([_s, _typeAnnotation])),
-        _s,
-        $.opt($.seq(["=", $.not(">"), _s, anyExpression])),
-        ";",
-      ]),
+      $.skip_opt(accessModifier),
+      "constructor",
+      _s,
+      "(",
+      ["args", $.repeat($.seq([_s, classConstructorArg, _s, $.skip(","), _s]))],
+      ["last", $.opt($.seq([_s, classConstructorArg, _s, $.skip_opt(",")]))],
+      _s,
+      ")",
+      _s,
+      "{",
+      _s,
+      ["body", lines],
+      _s,
+      "}",
     ],
-    (input) => {
-      console.log("or", input);
-      return input;
+    (input: { args: string[]; last: string; body: string }) => {
+      // const inits: string[] = [];
+      let bodyIntro = "";
+      let args = [];
+      for (const arg of [...input.args, ...(input.last ? [input.last] : [])]) {
+        const [, initOnBody, ident, assign] =
+          arg.match(/(private |public |protected )?([^=,]+)(=.+)?$/msu)! ?? [];
+        args.push(`${ident}${assign ?? ""}`);
+        if (initOnBody) {
+          bodyIntro += `this.${ident}=${ident};`;
+        }
+      }
+      return `constructor(${args.join(",")}){${bodyIntro}${input.body}}`;
     }
   )
+);
+
+const classField = $.def(() =>
+  $.or([
+    classConstructor,
+    // class member
+    $.seq([
+      $.skip_opt(accessModifier),
+      $.opt(staticModifier),
+      $.opt(asyncModifier),
+      $.opt(getOrSetModifier),
+      $.opt("*"),
+      $.opt("#"),
+      identifier,
+      // <T>
+      $.skip_opt($.seq([_, typeDeclareParameters])),
+      _,
+      // class member
+      $.seq([
+        // foo(): void {}
+        "(",
+        _s,
+        functionArguments,
+        _s,
+        ")",
+        $.skip_opt($.seq([_, _typeAnnotation])),
+        _s,
+        block,
+      ]),
+    ]),
+    // field
+    $.seq([
+      // private|static|readonly
+      $.skip_opt(accessModifier),
+      // static
+      $.opt(staticModifier),
+      $.skip_opt($.seq(["readonly", __])),
+      $.opt($.seq([_s, "#"])),
+      identifier,
+      // :xxx
+      $.skip_opt($.seq([_s, _typeAnnotation])),
+      _s,
+      $.opt($.seq(["=", $.not(">"), _s, anyExpression])),
+      ";",
+    ]),
+  ])
 );
 
 export const classExpression = $.def(() =>
@@ -2113,9 +2099,40 @@ if (process.env.NODE_ENV === "test") {
     is(parse("class{ constructor(private x:number) {} }"), {
       result: "class{constructor(x){this.x=x;}}",
     });
-    // is(parse("class{ constructor(private x:number,y:number) {} }"), {
-    //   result: "class{constructor(x,y){this.x=x;}}",
-    // });
+    is(parse("class{ constructor(private x:number) {foo;} }"), {
+      result: "class{constructor(x){this.x=x;foo;}}",
+    });
+
+    is(parse("class{constructor(private x:number,y:number){foo;}}"), {
+      result: "class{constructor(x,y){this.x=x;foo;}}",
+    });
+    is(parse("class{constructor(private x:number,public y:number){foo;}}"), {
+      result: "class{constructor(x,y){this.x=x;this.y=y;foo;}}",
+    });
+    is(parse("class{constructor(x,y:number){foo;}}"), {
+      result: "class{constructor(x,y){foo;}}",
+    });
+    is(parse("class{constructor(x,y:number,private z){foo;}}"), {
+      result: "class{constructor(x,y,z){this.z=z;foo;}}",
+    });
+    is(parse("class{constructor(x,y,z,){}}"), {
+      result: "class{constructor(x,y,z){}}",
+    });
+    is(parse("class{constructor(x,y,private z,){}}"), {
+      result: "class{constructor(x,y,z){this.z=z;}}",
+    });
+    is(parse("class{constructor(private x,){}}"), {
+      result: "class{constructor(x){this.x=x;}}",
+    });
+    is(parse("class{constructor(x,y,private z,){}}"), {
+      result: "class{constructor(x,y,z){this.z=z;}}",
+    });
+    is(parse("class{ constructor(private x:number, y: number) {} }"), {
+      result: "class{constructor(x,y){this.x=x;}}",
+    });
+    is(parse("class{ constructor(private x:number,y:number) {} }"), {
+      result: "class{constructor(x,y){this.x=x;}}",
+    });
   });
 
   run({ stopOnFail: true, stub: true, isMain });

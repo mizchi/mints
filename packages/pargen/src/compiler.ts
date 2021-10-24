@@ -13,37 +13,44 @@ import {
   Rule,
   Seq,
 } from "./types";
-import { createRegexMatcher, createStringMatcher } from "./utils";
+import {
+  buildRangesToString,
+  createRegexMatcher,
+  createStringMatcher,
+} from "./utils";
 
 export const createParseSuccess = (
   result: any,
   pos: number,
   len: number,
-  ranges: (Range | string)[] = [[pos, pos + len]]
+  ranges: (Range | string)[] = [[pos, pos + len]],
+  hasReshaper: boolean = false
 ) => {
   let newRanges: (Range | string)[] = [];
+  // console.log("createSuccess:raw", ranges);
   if (ranges.length > 0) {
     // let start = ranges[0][0];
     newRanges = ranges.reduce((acc, range, index) => {
       // first item
-      if (index === 0) return [range] as (Range | string)[];
+      if (index === 0) return [range];
       if (typeof range === "string") {
         return [...acc, range] as (Range | string)[];
       }
-      const [nextStart, end] = range;
+      const [nextStart, nextEnd] = range;
       // omit [a,a]
-      if (nextStart === end) return acc;
+      if (nextStart === nextEnd) return acc;
       const last = acc.slice(-1)[0];
       if (typeof last === "string") {
-        return [...acc, last] as (Range | string)[];
+        return [...acc, range];
       }
-
       if (last[1] === nextStart) {
-        return [...acc.slice(0, -1), [last[0], end]];
+        // lastStart => newEnd
+        return [...acc.slice(0, -1), [last[0], nextEnd]];
       }
-      return [...acc, [nextStart, end]];
+      return [...acc, [nextStart, nextEnd]];
     }, [] as (Range | string)[]);
   }
+  // console.log("createSuccess:raw", ranges, "=>", newRanges);
 
   return {
     error: false,
@@ -51,6 +58,7 @@ export const createParseSuccess = (
     len,
     pos,
     ranges: newRanges,
+    reshaped: hasReshaper,
   } as ParseSuccess;
 };
 
@@ -90,13 +98,14 @@ function compileFragmentInternal(
   rootId: number
 ): InternalParser {
   const reshape = rule.reshape ?? defaultReshape;
+  const hasReshaper = !!rule.reshape;
   switch (rule.kind) {
     case NodeKind.NOT: {
       const childParser = compileFragment(rule.child, compiler, rootId);
       return (ctx, pos) => {
         const result = childParser(ctx, pos);
         if (result.error === true) {
-          return createParseSuccess(result, pos, 0);
+          return createParseSuccess(result, pos, 0, undefined, hasReshaper);
         }
         return createParseError(rule, pos, rootId, {
           errorType: ErrorType.Not_IncorrectMatch,
@@ -119,7 +128,7 @@ function compileFragmentInternal(
       return (ctx, pos) => {
         const ended = ctx.chars.length === pos;
         if (ended) {
-          return createParseSuccess("", pos, 0);
+          return createParseSuccess("", pos, 0, undefined, hasReshaper);
         }
         return createParseError(rule, pos, rootId, {
           errorType: ErrorType.Eof_Unmatch,
@@ -134,7 +143,7 @@ function compileFragmentInternal(
         const matched: string | null = matcher(ctx.raw, pos);
         if (matched == null) {
           if (rule.optional) {
-            return createParseSuccess(null, pos, 0);
+            return createParseSuccess(null, pos, 0, undefined, hasReshaper);
           } else {
             return createParseError(rule, pos, rootId, {
               errorType: ErrorType.Regex_Unmatch,
@@ -158,7 +167,7 @@ function compileFragmentInternal(
         const matched: string | null = matcher(ctx.raw, pos);
         if (matched == null) {
           if (rule.optional) {
-            return createParseSuccess(null, pos, 0);
+            return createParseSuccess(null, pos, 0, undefined, hasReshaper);
           } else {
             return createParseError(rule, pos, rootId, {
               errorType: ErrorType.Token_Unmatch,
@@ -168,7 +177,9 @@ function compileFragmentInternal(
         return createParseSuccess(
           reshape(matched),
           pos,
-          Array.from(matched).length
+          Array.from(matched).length,
+          undefined,
+          hasReshaper
         );
       };
     }
@@ -186,7 +197,7 @@ function compileFragmentInternal(
           // console.log("parsed:or", parsed);
           if (parsed.error === true) {
             if (rule.optional) {
-              return createParseSuccess(null, pos, 0);
+              return createParseSuccess(null, pos, 0, undefined, hasReshaper);
             }
             errors.push(parsed);
             continue;
@@ -211,7 +222,7 @@ function compileFragmentInternal(
           if (parseResult.error === true) break;
           // stop infinite loop
           if (parseResult.len === 0) {
-            throw new Error(`Zero offset repeat item is not allowed`);
+            throw new Error(`Zero size repeat`);
           }
           xs.push(parseResult.result);
           ranges.push(...parseResult.ranges);
@@ -232,7 +243,8 @@ function compileFragmentInternal(
           xs.map(reshape as any),
           pos,
           cursor - pos,
-          ranges
+          ranges,
+          hasReshaper
         );
       };
     }
@@ -265,7 +277,13 @@ function compileFragmentInternal(
             cursor += parseResult.len;
           }
           const reshaped = reshape(result);
-          return createParseSuccess(reshaped, pos, cursor - pos);
+          return createParseSuccess(
+            reshaped,
+            pos,
+            cursor - pos,
+            undefined,
+            hasReshaper
+          );
         } else {
           // string mode
           let ranges: (Range | string)[] = [];
@@ -280,27 +298,30 @@ function compileFragmentInternal(
               });
             }
             if (!parser.node.skip) {
-              // drop zero
-              ranges.push(...parseResult.ranges);
+              if (parseResult.reshaped) {
+                // if result is reshaped, return raw to handle, not range
+                ranges.push(parseResult.result);
+                // console.log("pushed", ranges);
+              } else {
+                ranges.push(...parseResult.ranges);
+              }
             }
             cursor += parseResult.len;
           }
-          const text = ranges
-            .map((range) => {
-              if (typeof range === "string") {
-                return range;
-              } else {
-                return ctx.raw.slice(range[0], range[1]);
-              }
-            })
-            .join("");
-          return createParseSuccess(reshape(text), pos, cursor - pos, ranges);
+          const text = buildRangesToString(ctx.raw, ranges);
+          return createParseSuccess(
+            reshape(text),
+            pos,
+            cursor - pos,
+            ranges,
+            hasReshaper
+          );
         }
       };
     }
     default: {
       console.error(rule, rule === Object);
-      throw new Error("[compile] Unknown Rule");
+      throw new Error();
     }
   }
 }
