@@ -20,14 +20,15 @@ import { compileFragment } from "./compiler";
 import {
   CacheMap,
   Compiler,
+  EOF,
   ERROR_Or_UnmatchAll,
   ERROR_Seq_Stop,
   ERROR_Token_Unmatch,
-  NodeKind,
   PackratCache,
   ParseResult,
   RootCompiler,
   RootParser,
+  SEQ,
   Seq,
 } from "./types";
 
@@ -53,7 +54,7 @@ function createPackratCache(): PackratCache {
     pos: number,
     creator: () => ParseResult
   ): ParseResult => {
-    return measurePerf("cache-" + id, () => {
+    return measurePerf("c-" + id, () => {
       const cached = get(id as number, pos);
       if (cached) {
         cacheHitCount++;
@@ -76,6 +77,8 @@ function createPackratCache(): PackratCache {
   };
 }
 
+const isNumber = (x: any): x is number => typeof x === "number";
+
 export function createCompiler(partial: Partial<Compiler>): Compiler {
   const compiler: Compiler = {
     composeTokens: true,
@@ -87,7 +90,7 @@ export function createCompiler(partial: Partial<Compiler>): Compiler {
 
   // internal
   const compile: RootCompiler = (node) => {
-    const resolved = typeof node === "number" ? createRef(node) : node;
+    const resolved = isNumber(node) ? createRef(node) : node;
     const parse = compileFragment(resolved, compiler, resolved.id);
 
     const parser: RootParser = (input: string) => {
@@ -107,17 +110,17 @@ export function createCompiler(partial: Partial<Compiler>): Compiler {
 
   const rootCompiler: RootCompiler = (node, rootOpts) => {
     const end = rootOpts?.end ?? false;
-    const resolved = typeof node === "number" ? createRef(node) : node;
+    const resolved = isNumber(node) ? createRef(node) : node;
     const out = end
       ? ({
           id: 0, // shoud be zero
-          kind: NodeKind.SEQ,
+          kind: SEQ,
           primitive: true,
           children: [
             resolved,
             {
               id: 1,
-              kind: NodeKind.EOF,
+              kind: EOF,
               primitive: true,
             },
           ],
@@ -158,17 +161,19 @@ const measurePerf = <Fn extends (...args: any[]) => any>(
 };
 
 export const printPerfResult = () => {
-  console.log("========= perf ============");
-  console.log("cache hit", cacheHitCount, "cache miss", cacheMissCount);
-  const ts = [...perfTimes.entries()].sort((a, b) => b[1].sum - a[1].sum);
-  for (const [id, ret] of ts) {
-    // over 30ms
-    if (ret.sum > 30_000_000) {
-      console.log(
-        `[${id}] total:${Math.floor(ret.sum / 1_000_000)}ms ref_count:${
-          ret.count
-        }`
-      );
+  if (process.env.NODE_ENV === "perf") {
+    console.log("========= perf ============");
+    console.log("cache hit", cacheHitCount, "cache miss", cacheMissCount);
+    const ts = [...perfTimes.entries()].sort((a, b) => b[1].sum - a[1].sum);
+    for (const [id, ret] of ts) {
+      // over 30ms
+      if (ret.sum > 30_000_000) {
+        console.log(
+          `[${id}] total:${Math.floor(ret.sum / 1_000_000)}ms ref_count:${
+            ret.count
+          }`
+        );
+      }
     }
   }
 };

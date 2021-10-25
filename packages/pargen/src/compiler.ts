@@ -1,6 +1,8 @@
 import {
+  ATOM,
   Compiler,
   defaultReshape,
+  EOF,
   ERROR_Eof_Unmatch,
   ERROR_Not_IncorrectMatch,
   ERROR_Or_UnmatchAll,
@@ -9,15 +11,21 @@ import {
   ERROR_Seq_Stop,
   ERROR_Token_Unmatch,
   InternalParser,
-  NodeKind,
+  NOT,
+  OR,
   ParseError,
   ParseErrorData,
   ParseResult,
   ParseSuccess,
   Range,
+  REF,
+  REGEX,
+  REPEAT,
   Repeat,
   Rule,
+  SEQ,
   Seq,
+  TOKEN,
 } from "./types";
 import {
   buildRangesToString,
@@ -106,7 +114,7 @@ function compileFragmentInternal(
   const reshape = rule.reshape ?? defaultReshape;
   const hasReshaper = !!rule.reshape;
   switch (rule.kind) {
-    case NodeKind.NOT: {
+    case NOT: {
       const childParser = compileFragment(rule.child, compiler, rootId);
       return (ctx, pos) => {
         const result = childParser(ctx, pos);
@@ -118,19 +126,19 @@ function compileFragmentInternal(
         });
       };
     }
-    case NodeKind.REF: {
+    case REF: {
       return (ctx, pos) => {
         const resolved = compiler.parsers.get(rule.ref);
         return resolved!(ctx, pos);
       };
     }
-    case NodeKind.ATOM: {
+    case ATOM: {
       return (ctx, pos) => {
         return rule.parse(ctx, pos);
       };
     }
 
-    case NodeKind.EOF: {
+    case EOF: {
       return (ctx, pos) => {
         const ended = ctx.chars.length === pos;
         if (ended) {
@@ -142,7 +150,7 @@ function compileFragmentInternal(
       };
     }
 
-    case NodeKind.REGEX: {
+    case REGEX: {
       let expr = rule.expr;
       const matcher = createRegexMatcher(expr);
       return (ctx, pos) => {
@@ -165,7 +173,7 @@ function compileFragmentInternal(
       };
     }
 
-    case NodeKind.TOKEN: {
+    case TOKEN: {
       let expr = rule.expr;
       // const matcher = createMatcher(expr);
       const matcher = createStringMatcher(expr);
@@ -189,7 +197,7 @@ function compileFragmentInternal(
         );
       };
     }
-    case NodeKind.OR: {
+    case OR: {
       const compiledPatterns = rule.patterns.map((p) => {
         return {
           parse: compileFragment(p, compiler, rootId),
@@ -216,7 +224,7 @@ function compileFragmentInternal(
         });
       };
     }
-    case NodeKind.REPEAT: {
+    case REPEAT: {
       const parser = compileFragment(rule.pattern, compiler, rootId);
       return (ctx, pos) => {
         const repeat = rule as Repeat;
@@ -228,7 +236,7 @@ function compileFragmentInternal(
           if (parseResult.error === true) break;
           // stop infinite loop
           if (parseResult.len === 0) {
-            throw new Error(`Zero size repeat`);
+            throw new Error(`Zero Repeat`);
           }
           xs.push(parseResult.result);
           ranges.push(...parseResult.ranges);
@@ -254,7 +262,7 @@ function compileFragmentInternal(
         );
       };
     }
-    case NodeKind.SEQ: {
+    case SEQ: {
       let isObjectMode = false;
       const parsers = (rule as Seq).children.map((c) => {
         const parse = compileFragment(c, compiler, rootId);

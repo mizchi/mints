@@ -1,43 +1,38 @@
-# mints
+# mints: 5kb typescript compiler
 
-5kb(gzip) typescript compiler
+## Goal
 
-WIP. Lightweight but slow on runtime and imperfect, yet.
+- Just Strip Type Annotations by typescript
+- Imperfect Superset Syntax (expect prettier formatted code as input)
+- Not Fast
+- Extreme lightweight: 5.1kb (gzip)
 
-## Example
+## How to use
 
 ```ts
 import {transform} from "@mizchi/mints";
 const out = transform(`const x: number = 1;`);
-console.log(out);
+console.log(out.result);
 ```
 
 ## TODO
 
 ### TS
 
-- type as `import("").Foo`
+- `type T = import("path").Foo`;
+- `infer T`
 
 ### Advanced Transform
 
-- [ ] constructor's initialization(private/public/protected)
-- [ ] Enum
+- [x] constructor's initialization(private/public/protected)
+- [ ] enum
 - [ ] JSX
-- [ ] namespace (may not support)
-- [ ] decorator (may not support)
 
-### Perf
+## May not support
 
-- skip: zero-width whitespace
-- Backtrack Counter
-- enum => const to reduce size
-- optimize: flat or
-- optimize: flat seq
-- optimize: recursive token compose
-- optimize: dump syntax definition and load
-- cache clear on next statement
-- Profiler: Token
-- Profiler: Def Rules
+- with (may not support)
+- namespace (may not support)
+- decorator (may not support)
 
 ## LICENSE
 

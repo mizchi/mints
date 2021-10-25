@@ -1,4 +1,21 @@
 import {
+  $def,
+  $eof,
+  $not,
+  $opt,
+  $or,
+  $r,
+  $regex,
+  $repeat,
+  $repeat_seq,
+  $repeat_seq1,
+  $seq,
+  $skip,
+  $skip_opt,
+  $token,
+} from "../../pargen/src/builder";
+
+import {
   K_ABSTRACT,
   K_AS,
   K_ASYNC,
@@ -1351,22 +1368,6 @@ export const program = $def(() => $seq([_s, lines, _s, $eof()]));
 import { test, run, is } from "@mizchi/test";
 // import { expectError, expectSame } from "./_testHelpers";
 import { preprocessLight } from "./preprocess";
-import {
-  $def,
-  $eof,
-  $not,
-  $opt,
-  $or,
-  $r,
-  $regex,
-  $repeat,
-  $repeat_seq,
-  $repeat_seq1,
-  $seq,
-  $skip,
-  $skip_opt,
-  $token,
-} from "@mizchi/pargen/src/builder";
 // import { reportError } from "../../pargen/src/error_reporter";
 
 const isMain = require.main === module;

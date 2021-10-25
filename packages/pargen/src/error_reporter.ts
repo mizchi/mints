@@ -3,7 +3,6 @@ import {
   ERROR_Or_UnmatchAll,
   ERROR_Seq_Stop,
   ERROR_Token_Unmatch,
-  NodeKind,
   ParseError,
 } from "./types";
 
@@ -21,9 +20,7 @@ export function reportError(
   const linePrefix = `L${errorLineNumber}: `;
   const errorNextLine = input.slice(err.pos).split(/[\n;]/)[0];
 
-  const errorSummary = `ParseError: ${err.errorType}[${
-    NodeKind[err.rule.kind]
-  }] defId:${err.rootId} => nodeId:${err.rule.id}`;
+  const errorSummary = `ParseError: ${err.errorType}[${err.rule.kind}] defId:${err.rootId} => nodeId:${err.rule.id}`;
   const outputLine = `${linePrefix}${errorLine}${errorNextLine}`;
   const errorCursor =
     " ".repeat(linePrefix.length) + " ".repeat(err.pos - errorLineStart) + "^";

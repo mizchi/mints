@@ -7,8 +7,7 @@ import type { Api } from "./worker";
 import Worker from "./worker?worker";
 const api = wrap<Api>(new Worker());
 
-const initialCode = `// typescript
-
+const initialCode = `
 import { h, render } from "https://cdn.skypack.dev/preact";
 
 let a: number, b: number[], c: Array<string>;
@@ -30,10 +29,7 @@ interface X {}
 class Point<T extends IPoint = any> implements IPoint {
   public x: number;
   private y: number;
-  constructor() {
-    this.x = 1;
-    this.y = 2;
-  }
+  constructor(private x: number, private y: number) {}
   public static async foo(arg: number):  number {
     return x;
   }

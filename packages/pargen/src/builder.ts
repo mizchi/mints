@@ -5,7 +5,6 @@ import {
   InputNodeExpr,
   Token,
   nodeBaseDefault,
-  NodeKind,
   Reshape,
   Seq,
   Ref,
@@ -16,6 +15,15 @@ import {
   Atom,
   Regex,
   InternalParser,
+  REF,
+  SEQ,
+  NOT,
+  OR,
+  REPEAT,
+  TOKEN,
+  REGEX,
+  ATOM,
+  EOF,
 } from "./types";
 
 let cnt = 2;
@@ -25,17 +33,13 @@ export function createRef(refId: string | number, reshape?: Reshape): Ref {
   return {
     ...nodeBaseDefault,
     id: genId(),
-    kind: NodeKind.REF,
+    kind: REF,
     ref: refId,
     reshape,
   } as Ref;
 }
 
 const toNode = (input: InputNodeExpr): Rule => {
-  if (input === "constructor") {
-    throw new Error("constructor is not allowed in token");
-  }
-
   if (typeof input === "object") {
     return input;
   }
@@ -73,7 +77,7 @@ export function $ref(refId: string | number, reshape?: Reshape): Ref {
   return {
     ...nodeBaseDefault,
     id: genId(),
-    kind: NodeKind.REF,
+    kind: REF,
     ref: refId,
     reshape,
   } as Ref;
@@ -95,7 +99,7 @@ export function $seq(
   //       typeof child !== "number" &&
   //       !Array.isArray(child) &&
   //       !child.skip &&
-  //       child.kind === NodeKind.TOKEN &&
+  //       child.kind === TOKEN &&
   //       child.reshape === defaultReshape &&
   //       child.key == null
   //     ) {
@@ -132,7 +136,7 @@ export function $seq(
     ...nodeBaseDefault,
     reshape,
     id: genId(),
-    kind: NodeKind.SEQ,
+    kind: SEQ,
     children: nodes,
   } as Seq;
 }
@@ -141,7 +145,7 @@ export function $not(child: InputNodeExpr, reshape?: Reshape): Not {
   const childNode = toNode(child);
   return {
     ...nodeBaseDefault,
-    kind: NodeKind.NOT,
+    kind: NOT,
     child: childNode,
     reshape,
     id: genId(),
@@ -157,7 +161,7 @@ export function $or(
   }
   return {
     ...nodeBaseDefault,
-    kind: NodeKind.OR,
+    kind: OR,
     patterns: patterns.map(toNode) as Array<Seq | Token | Ref>,
     reshape,
     id: genId(),
@@ -173,7 +177,7 @@ export function $repeat(
   return {
     ...nodeBaseDefault,
     id: genId(),
-    kind: NodeKind.REPEAT,
+    kind: REPEAT,
     pattern: toNode(pattern),
     min,
     max,
@@ -186,7 +190,7 @@ export function $token(expr: string, reshape?: Reshape<any, any>): Token {
   return {
     ...nodeBaseDefault,
     id: genId(),
-    kind: NodeKind.TOKEN,
+    kind: TOKEN,
     expr,
     reshape,
   };
@@ -198,7 +202,7 @@ export function $regex(expr: string, reshape?: Reshape<any, any>): Regex {
   return (regexCache[expr] = {
     ...nodeBaseDefault,
     id: genId(),
-    kind: NodeKind.REGEX,
+    kind: REGEX,
     expr,
     reshape,
   });
@@ -213,7 +217,7 @@ export function $eof(): Eof {
   return {
     ...nodeBaseDefault,
     id: genId(),
-    kind: NodeKind.EOF,
+    kind: EOF,
     reshape: undefined,
   };
 }
@@ -222,7 +226,7 @@ export function $atom(parser: InternalParser): Atom {
   return {
     ...nodeBaseDefault,
     id: genId(),
-    kind: NodeKind.ATOM,
+    kind: ATOM,
     parse: parser,
   };
 }
@@ -238,20 +242,6 @@ export function $skip_opt<T extends Rule>(input: InputNodeExpr): T {
   return { ...toNode(input), skip: true, optional: true } as T;
 }
 
-// const builder: Builder = {
-// close: _hydratePatterns,
-// def,
-// ref,
-// tok: token,
-// repeat,
-// atom,
-// or,
-// seq,
-// not,
-// param,
-// eof,
-// regex,
-// r,
 export function $repeat_seq(
   input: InputNodeExpr[],
   minmax?: [number, number],

@@ -1,9 +1,11 @@
 import {
-  NodeKind,
+  REGEX,
   Rule,
+  SEQ,
   SerializedRule,
   SerializedRuleBody,
   SerializedToken,
+  TOKEN,
 } from "./types";
 
 const NULL_FUNCTION_PTR = 0;
@@ -53,13 +55,13 @@ export function createSerializer() {
       addString(node.key),
       addFunc(node.reshape),
     ];
-    if (node.kind === NodeKind.TOKEN) {
+    if (node.kind === TOKEN) {
       return [node.kind, node.expr, ...body] as SerializedToken;
     }
-    if (node.kind === NodeKind.REGEX) {
+    if (node.kind === REGEX) {
       return [node.kind, addString(node.expr), ...body];
     }
-    if (node.kind === NodeKind.SEQ) {
+    if (node.kind === SEQ) {
       node.children.forEach(serialize);
       return [node.kind, addChildren(node.children.map((x) => x.id)), ...body];
     }
