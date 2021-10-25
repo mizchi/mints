@@ -7,102 +7,102 @@ import {
   __ as __w,
 } from "./constants";
 
-import { compile, builder as $ } from "./ctx";
+import { compile } from "./ctx";
 
-const _ = $.regex(_w);
-const _s = $.skip($.regex(_w));
-const __ = $.regex(__w);
+const _ = $regex(_w);
+const _s = $skip($regex(_w));
+const __ = $regex(__w);
 
 const reserved = RESERVED_WORDS.join("|");
-export const identifier = $.def(() =>
-  $.seq([
+export const identifier = $def(() =>
+  $seq([
     // TODO: doc
-    // $.not($.or([...RESERVED_WORDS])),
-    // $.r`([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
-    $.regex(`(?!(${reserved})$)([a-zA-Z_$][a-zA-Z_$0-9]*)`),
+    // $not($or([...RESERVED_WORDS])),
+    // $r`([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
+    $regex(`(?!(${reserved})$)([a-zA-Z_$][a-zA-Z_$0-9]*)`),
   ])
 );
 
-const ThisKeyword = $.tok("this");
-const ImportKeyword = $.tok("import");
+const ThisKeyword = $token("this");
+const ImportKeyword = $token("import");
 
 // const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
 
 /* TypeExpression */
-const typeDeclareParameter = $.def(() =>
-  $.seq([
+const typeDeclareParameter = $def(() =>
+  $seq([
     typeExpression,
     // extends T
-    $.opt($.seq([_, "extends ", typeExpression])),
+    $opt($seq([_, "extends ", typeExpression])),
     _,
-    $.opt($.seq(["=", $.not(">"), _, typeExpression])),
+    $opt($seq(["=", $not(">"), _, typeExpression])),
   ])
 );
 
 // declare parameters
-const typeDeclareParameters = $.def(() =>
-  $.seq([
+const typeDeclareParameters = $def(() =>
+  $seq([
     "<",
     _,
-    $["*"]([typeDeclareParameter, _, ",", _]),
-    $.seq([typeDeclareParameter, _, $.opt(",")]),
+    $repeat_seq([typeDeclareParameter, _, ",", _]),
+    $seq([typeDeclareParameter, _, $opt(",")]),
     _,
     ">",
   ])
 );
 
 // apply parameters
-const typeParameters = $.def(() =>
-  $.seq([
+const typeParameters = $def(() =>
+  $seq([
     "<",
     _,
-    $["*"]([typeExpression, _, ",", _]),
-    $.seq([typeExpression, _, $.r`,?`]),
+    $repeat_seq([typeExpression, _, ",", _]),
+    $seq([typeExpression, _, $r`,?`]),
     _,
     ">",
   ])
 );
 
-const typeParen = $.def(() =>
-  $.seq(["(", _, typeExpression, _, ")", _, $.opt(typeParameters)])
+const typeParen = $def(() =>
+  $seq(["(", _, typeExpression, _, ")", _, $opt(typeParameters)])
 );
 
-const typeIdentifier = $.def(() =>
-  $.seq([
-    $.not("readonly "),
-    $.or([
+const typeIdentifier = $def(() =>
+  $seq([
+    $not("readonly "),
+    $or([
       // "readonly",
       "void",
       "any",
       "unknown",
-      $.seq([identifier, _, $.opt(typeParameters)]),
+      $seq([identifier, _, $opt(typeParameters)]),
     ]),
   ])
 );
 
-const typePrimary = $.def(() =>
-  $.or([typeParen, typeObjectLiteral, typeArrayLiteral, typeIdentifier])
+const typePrimary = $def(() =>
+  $or([typeParen, typeObjectLiteral, typeArrayLiteral, typeIdentifier])
 );
 
-const typeReference = $.def(() =>
-  $.seq([
+const typeReference = $def(() =>
+  $seq([
     typePrimary,
-    $["*"]([
+    $repeat_seq([
       _,
-      $.or([
-        $.seq([".", _, typeIdentifier]),
-        $.seq(["[", _, $.opt(typeExpression), _, "]"]),
+      $or([
+        $seq([".", _, typeIdentifier]),
+        $seq(["[", _, $opt(typeExpression), _, "]"]),
       ]),
     ]),
   ])
 );
 
-const _typeNameableItem = $.def(() =>
-  $.or([
-    $.seq([
+const _typeNameableItem = $def(() =>
+  $or([
+    $seq([
       // start: number,
       identifier,
-      $.opt($.seq([_, "?"])),
+      $opt($seq([_, "?"])),
       _,
       ":",
       _,
@@ -113,17 +113,17 @@ const _typeNameableItem = $.def(() =>
   ])
 );
 
-const typeArrayLiteral = $.def(() =>
-  $.seq([
+const typeArrayLiteral = $def(() =>
+  $seq([
     // array
     "[",
     _,
     // repeat
-    $["*"]([_typeNameableItem, _, ",", _]),
+    $repeat_seq([_typeNameableItem, _, ",", _]),
     _,
     // optional last
-    $.or([
-      $.seq([
+    $or([
+      $seq([
         // ...args: any
         REST_SPREAD,
         _,
@@ -142,13 +142,13 @@ const typeArrayLiteral = $.def(() =>
   ])
 );
 
-const typeFunctionArgs = $.def(() =>
-  $.seq([
-    $["*"]([
+const typeFunctionArgs = $def(() =>
+  $seq([
+    $repeat_seq([
       // args
       identifier,
       _,
-      $.opt("?"),
+      $opt("?"),
       ":",
       _,
       typeExpression,
@@ -156,23 +156,23 @@ const typeFunctionArgs = $.def(() =>
       ",",
       _,
     ]),
-    $.or([
+    $or([
       // last
-      $.seq([REST_SPREAD, _, identifier, _, ":", _, typeExpression]),
-      $.seq([identifier, _, $.opt("?"), ":", _, typeExpression, _, $.opt(",")]),
+      $seq([REST_SPREAD, _, identifier, _, ":", _, typeExpression]),
+      $seq([identifier, _, $opt("?"), ":", _, typeExpression, _, $opt(",")]),
       _,
     ]),
   ])
 );
 
-const typeObjectItem = $.def(() =>
-  $.or([
-    $.seq([
+const typeObjectItem = $def(() =>
+  $or([
+    $seq([
       // async foo<T>(arg: any): void;
-      $.opt("async "),
+      $opt("async "),
       identifier,
       _,
-      $.opt(typeDeclareParameters),
+      $opt(typeDeclareParameters),
       _,
       "(",
       _,
@@ -180,17 +180,17 @@ const typeObjectItem = $.def(() =>
       _,
       ")",
       _,
-      $.opt("?"),
+      $opt("?"),
       ":",
       _,
       typeExpression,
     ]),
     // member
-    $.seq([
-      $.opt($.seq(["readonly ", _s])),
+    $seq([
+      $opt($seq(["readonly ", _s])),
       identifier,
       _,
-      $.opt("?"),
+      $opt("?"),
       ":",
       // ":",
       _,
@@ -199,23 +199,23 @@ const typeObjectItem = $.def(() =>
   ])
 );
 
-const typeObjectLiteral = $.def(() =>
-  $.seq([
+const typeObjectLiteral = $def(() =>
+  $seq([
     // object
     "{",
     _,
-    $["*"]([typeObjectItem, _, $.or([",", ";"]), _]),
-    $.opt(typeObjectItem),
+    $repeat_seq([typeObjectItem, _, $or([",", ";"]), _]),
+    $opt(typeObjectItem),
     _,
-    // $.r`(,|;)?`,
-    $.or([",", ";", _]),
+    // $r`(,|;)?`,
+    $or([",", ";", _]),
     _,
     "}",
   ])
 );
 
-const typeLiteral = $.def(() =>
-  $.or([
+const typeLiteral = $def(() =>
+  $or([
     typeObjectLiteral,
     typeArrayLiteral,
     stringLiteral,
@@ -227,10 +227,10 @@ const typeLiteral = $.def(() =>
   ])
 );
 
-const typeFunctionExpression = $.def(() =>
-  $.seq([
+const typeFunctionExpression = $def(() =>
+  $seq([
     // function
-    $.opt(typeDeclareParameters),
+    $opt(typeDeclareParameters),
     _,
     "(",
     _,
@@ -245,73 +245,73 @@ const typeFunctionExpression = $.def(() =>
   ])
 );
 
-const typeUnaryExpression = $.def(() =>
-  $.seq([
-    $.opt($.seq([$.r`(keyof|typeof|infer)`, __])),
-    $.or([typeFunctionExpression, typeParen, typeReference, typeLiteral]),
+const typeUnaryExpression = $def(() =>
+  $seq([
+    $opt($seq([$r`(keyof|typeof|infer)`, __])),
+    $or([typeFunctionExpression, typeParen, typeReference, typeLiteral]),
     // generics parameter
   ])
 );
 
-const typeBinaryExpression = $.def(() =>
-  $.seq([
-    $.opt($.seq([$.or(["|", "&"]), _s])),
-    $["*"]([typeUnaryExpression, _, $.or(["|", "&"]), _]),
+const typeBinaryExpression = $def(() =>
+  $seq([
+    $opt($seq([$or(["|", "&"]), _s])),
+    $repeat_seq([typeUnaryExpression, _, $or(["|", "&"]), _]),
     typeUnaryExpression,
   ])
 );
 
-const typeExpression = $.def(() => typeBinaryExpression);
+const typeExpression = $def(() => typeBinaryExpression);
 
 /*
   patterns
 */
 
 // Destructive Pattren
-const destructiveArrayPattern = $.def(() =>
-  $.seq([
+const destructiveArrayPattern = $def(() =>
+  $seq([
     "[",
     _s,
-    $["*"]([
+    $repeat_seq([
       // item, {},,
-      $.opt($.seq([destructive, _s, $.opt($.seq([_s, assign]))])),
+      $opt($seq([destructive, _s, $opt($seq([_s, assign]))])),
       _s,
       ",",
       _s,
     ]),
-    $.or([
+    $or([
       // [,...i]
-      $.seq([REST_SPREAD, _, identifier]),
+      $seq([REST_SPREAD, _, identifier]),
       // [,a = 1 ,]
-      $.seq([destructive, _s, $.opt($.seq([_s, assign])), $.opt(",")]),
-      $.seq([_, $.opt(",")]),
+      $seq([destructive, _s, $opt($seq([_s, assign])), $opt(",")]),
+      $seq([_, $opt(",")]),
     ]),
     _,
     "]",
   ])
 );
 
-const destructiveObjectItem = $.def(() =>
-  $.or([
-    $.seq([
+const destructiveObjectItem = $def(() =>
+  $or([
+    $seq([
       // a : b
       identifier,
       _,
-      $.opt($.seq([":", _, destructive])),
+      $opt($seq([":", _, destructive])),
       // a: b = 1,
-      $.opt($.seq([_s, assign])),
+      $opt($seq([_s, assign])),
     ]),
   ])
 );
 
-const destructiveObjectPattern = $.def(() =>
-  $.seq([
+const destructiveObjectPattern = $def(() =>
+  $seq([
     "{",
     _s,
-    $["*"]([destructiveObjectItem, _, ",", _]),
-    $.or([
+    $repeat_seq([destructiveObjectItem, _, ",", _]),
+    $or([
       // ...
-      $.seq([REST_SPREAD, _, identifier]),
+      $seq([REST_SPREAD, _, identifier]),
       destructiveObjectItem,
       _s,
     ]),
@@ -320,16 +320,16 @@ const destructiveObjectPattern = $.def(() =>
   ])
 );
 
-const destructive = $.def(() =>
-  $.seq([
-    $.or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
+const destructive = $def(() =>
+  $seq([
+    $or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
     // { a = 1 } = {}
-    $.opt($.seq([_s, assign])),
+    $opt($seq([_s, assign])),
   ])
 );
 
-const destructiveNoAssign = $.def(() =>
-  $.or([
+const destructiveNoAssign = $def(() =>
+  $or([
     // {} | [] | a
     destructiveObjectPattern,
     destructiveArrayPattern,
@@ -337,64 +337,64 @@ const destructiveNoAssign = $.def(() =>
   ])
 );
 
-const functionArgWithAssign = $.def(() =>
-  $.seq([
-    $.or([
+const functionArgWithAssign = $def(() =>
+  $seq([
+    $or([
       // pattern(:T)?
       destructiveObjectPattern,
       destructiveArrayPattern,
       identifier,
     ]),
-    $.skip_opt(
-      $.seq([_, $.skip_opt("?"), $.skip_opt("?"), ":", _, typeExpression])
+    $skip_opt(
+      $seq([_, $skip_opt("?"), $skip_opt("?"), ":", _, typeExpression])
     ),
-    $.opt($.seq([_, $.skip_opt("?"), "=", $.not(">"), _, anyExpression])),
+    $opt($seq([_, $skip_opt("?"), "=", $not(">"), _, anyExpression])),
   ])
 );
-// const lefthand = $.def(() => destructivePattern);
+// const lefthand = $def(() => destructivePattern);
 
-// const x = $.opt(destructivePattern);
+// const x = $opt(destructivePattern);
 
-const functionArguments = $.def(() =>
-  $.or([
+const functionArguments = $def(() =>
+  $or([
     // a,b,c
-    $.seq([
-      $["*"]([functionArgWithAssign, _s, ",", _s]),
+    $seq([
+      $repeat_seq([functionArgWithAssign, _s, ",", _s]),
       _s,
-      $.or([
+      $or([
         // rest spread
-        $.seq([REST_SPREAD, _s, functionArgWithAssign]),
+        $seq([REST_SPREAD, _s, functionArgWithAssign]),
         functionArgWithAssign,
         _s,
       ]),
       _s,
-      $.opt(","),
+      $opt(","),
       _s,
     ]),
     // one item
-    $.seq([
-      $.or([
-        $.seq([REST_SPREAD, _s, functionArgWithAssign]),
+    $seq([
+      $or([
+        $seq([REST_SPREAD, _s, functionArgWithAssign]),
         functionArgWithAssign,
         _s,
       ]),
       _s,
-      $.opt(","),
+      $opt(","),
       _s,
     ]),
 
     // x,\n
-    $.seq([identifier, _s, $.opt(","), _s]),
+    $seq([identifier, _s, $opt(","), _s]),
   ])
 );
 
-const callArguments = $.def(() =>
-  $.seq([
-    $["*"]([anyExpression, _s, ",", _s]),
+const callArguments = $def(() =>
+  $seq([
+    $repeat_seq([anyExpression, _s, ",", _s]),
     _s,
-    $.or([
+    $or([
       // rest spread
-      $.seq([REST_SPREAD, _s, anyExpression]),
+      $seq([REST_SPREAD, _s, anyExpression]),
       anyExpression,
       _s,
     ]),
@@ -403,58 +403,58 @@ const callArguments = $.def(() =>
 
 /* Expression */
 
-export const stringLiteral = $.def(() =>
-  $.or([
+export const stringLiteral = $def(() =>
+  $or([
     // double quote
-    $.r`("[^"\\n]*")`,
+    $r`("[^"\\n]*")`,
     // single
-    $.r`('[^'\\n]*')`,
+    $r`('[^'\\n]*')`,
   ])
 );
 
 const nonBacktickChars = "[^`]*";
 
-export const templateLiteral = $.def(() =>
-  $.seq([
+export const templateLiteral = $def(() =>
+  $seq([
     "`",
     // aaa${}
-    $["*"]([$.regex(nonBacktickChars), "${", _, anyExpression, _, "}"]),
-    $.regex(nonBacktickChars),
+    $repeat_seq([$regex(nonBacktickChars), "${", _, anyExpression, _, "}"]),
+    $regex(nonBacktickChars),
     "`",
   ])
 );
 
-const regexpLiteral = $.def(() => $.seq([$.r`\\/[^\\/]+\\/([igmsuy]*)?`]));
+const regexpLiteral = $def(() => $seq([$r`\\/[^\\/]+\\/([igmsuy]*)?`]));
 
 // TODO: 111_000
 // TODO: 0b1011
-export const numberLiteral = $.def(() =>
-  $.or([
+export const numberLiteral = $def(() =>
+  $or([
     // 16
-    $.r`(0(x|X)[0-9a-fA-F]+)`,
+    $r`(0(x|X)[0-9a-fA-F]+)`,
     // 8
-    $.r`(0(o|O)[0-7]+)`,
+    $r`(0(o|O)[0-7]+)`,
     // 2
-    $.r`(0(b|B)[0-1]+)`,
+    $r`(0(b|B)[0-1]+)`,
     // decimal
-    $.r`([1-9][0-9_]*\\.\\d+|[1-9][0-9_]*|\\d)(e\\-?\\d+)?`,
+    $r`([1-9][0-9_]*\\.\\d+|[1-9][0-9_]*|\\d)(e\\-?\\d+)?`,
   ])
 );
 
-export const booleanLiteral = $.def(() => $.r`(true|false)`);
-export const nullLiteral = $.def(() => `null`);
+export const booleanLiteral = $def(() => $r`(true|false)`);
+export const nullLiteral = $def(() => `null`);
 
-const restSpread = $.def(() => $.seq([REST_SPREAD, _, anyExpression]));
+const restSpread = $def(() => $seq([REST_SPREAD, _, anyExpression]));
 
-export const arrayLiteral = $.def(() =>
-  $.or([
-    $.seq([
+export const arrayLiteral = $def(() =>
+  $or([
+    $seq([
       "[",
-      $.repeat(
-        $.seq([_, $.or([$.opt<any>(restSpread), anyExpression, _]), _, ","])
+      $repeat(
+        $seq([_, $or([$opt<any>(restSpread), anyExpression, _]), _, ","])
       ),
       _,
-      $.or([$.opt<any>(restSpread), anyExpression, _]),
+      $or([$opt<any>(restSpread), anyExpression, _]),
       _,
       "]",
     ]),
@@ -462,54 +462,50 @@ export const arrayLiteral = $.def(() =>
 );
 
 // key: val
-const objectItem = $.def(() =>
-  $.or([
-    $.seq([
+const objectItem = $def(() =>
+  $or([
+    $seq([
       // function
-      $.r`((async|get|set) )?`,
-      $.or([
-        stringLiteral,
-        $.seq(["[", _s, anyExpression, _s, "]"]),
-        identifier,
-      ]),
-      $.seq([_s, "(", _s, functionArguments, _s, ")", _s, block]),
+      $r`((async|get|set) )?`,
+      $or([stringLiteral, $seq(["[", _s, anyExpression, _s, "]"]), identifier]),
+      $seq([_s, "(", _s, functionArguments, _s, ")", _s, block]),
     ]),
-    $.seq([
+    $seq([
       // value
-      $.or([
+      $or([
         // key:
         stringLiteral,
         // [key]:
-        $.seq(["[", _s, anyExpression, _s, "]"]),
+        $seq(["[", _s, anyExpression, _s, "]"]),
         // a
         identifier,
       ]),
       // value or shorthand
-      $.seq([_s, ":", _s, anyExpression]),
+      $seq([_s, ":", _s, anyExpression]),
     ]),
     // rest spread
-    $.seq([REST_SPREAD, _s, anyExpression]),
+    $seq([REST_SPREAD, _s, anyExpression]),
     // shothand
     identifier,
   ])
 );
 
 // ref by key
-const objectLiteral = $.def(() =>
-  $.seq([
+const objectLiteral = $def(() =>
+  $seq([
     "{",
     _s,
-    $.repeat($.seq([objectItem, _s, ",", _s])),
+    $repeat($seq([objectItem, _s, ",", _s])),
     _s,
-    // $.opt($.or([restSpread, objectItem])),
-    $.or([$.opt<any>(restSpread), objectItem, _s]),
+    // $opt($or([restSpread, objectItem])),
+    $or([$opt<any>(restSpread), objectItem, _s]),
     _s,
     "}",
   ])
 );
 
-const anyLiteral = $.def(() =>
-  $.or([
+const anyLiteral = $def(() =>
+  $or([
     objectLiteral,
     arrayLiteral,
     stringLiteral,
@@ -522,38 +518,38 @@ const anyLiteral = $.def(() =>
 );
 
 /* Class */
-const accessModifier = $.r`(private|public|protected) `;
-const staticModifier = $.tok(`static `);
-const readonlyModifier = $.tok(`readonly `);
+const accessModifier = $r`(private|public|protected) `;
+const staticModifier = $token(`static `);
+const readonlyModifier = $token(`readonly `);
 
-const asyncModifier = $.tok("async ");
-const getOrSetModifier = $.r`(get|set) `;
+const asyncModifier = $token("async ");
+const getOrSetModifier = $r`(get|set) `;
 
-const classConstructorArg = $.def(() =>
-  $.seq([
-    $.or([
+const classConstructorArg = $def(() =>
+  $seq([
+    $or([
       // private
-      $.seq([$.or(["private", "public", "protected"]), __, identifier]),
+      $seq([$or(["private", "public", "protected"]), __, identifier]),
       // normal initializer
-      $.seq([
-        $.or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
+      $seq([
+        $or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
       ]),
     ]),
-    $.seq([
-      $.skip_opt($.seq([_, $.opt("?"), $.opt("?"), ":", _, typeExpression])),
-      $.opt($.seq([_, $.skip_opt("?"), "=", $.not(">"), _, anyExpression])),
+    $seq([
+      $skip_opt($seq([_, $opt("?"), $opt("?"), ":", _, typeExpression])),
+      $opt($seq([_, $skip_opt("?"), "=", $not(">"), _, anyExpression])),
     ]),
   ])
 );
-const classConstructor = $.def(() =>
-  $.seq(
+const classConstructor = $def(() =>
+  $seq(
     [
-      $.skip_opt(accessModifier),
-      "constructor",
+      $skip_opt(accessModifier),
+      $token("constructor"),
       _s,
       "(",
-      ["args", $.repeat($.seq([_s, classConstructorArg, _s, $.skip(","), _s]))],
-      ["last", $.opt($.seq([_s, classConstructorArg, _s, $.skip_opt(",")]))],
+      ["args", $repeat($seq([_s, classConstructorArg, _s, $skip(","), _s]))],
+      ["last", $opt($seq([_s, classConstructorArg, _s, $skip_opt(",")]))],
       _s,
       ")",
       _s,
@@ -580,79 +576,79 @@ const classConstructor = $.def(() =>
   )
 );
 
-const classField = $.def(() =>
-  $.or([
+const classField = $def(() =>
+  $or([
     classConstructor,
     // class member
-    $.seq([
-      $.skip_opt(accessModifier),
-      $.opt(staticModifier),
-      $.opt(asyncModifier),
-      $.opt(getOrSetModifier),
-      $.opt("*"),
-      $.opt("#"),
+    $seq([
+      $skip_opt(accessModifier),
+      $opt(staticModifier),
+      $opt(asyncModifier),
+      $opt(getOrSetModifier),
+      $opt("*"),
+      $opt("#"),
       identifier,
       // <T>
-      $.skip_opt($.seq([_, typeDeclareParameters])),
+      $skip_opt($seq([_, typeDeclareParameters])),
       _,
       // class member
-      $.seq([
+      $seq([
         // foo(): void {}
         "(",
         _s,
         functionArguments,
         _s,
         ")",
-        $.skip_opt($.seq([_, _typeAnnotation])),
+        $skip_opt($seq([_, _typeAnnotation])),
         _s,
         block,
       ]),
     ]),
     // field
-    $.seq([
+    $seq([
       // private|static|readonly
-      $.skip_opt(accessModifier),
+      $skip_opt(accessModifier),
       // static
-      $.opt(staticModifier),
-      $.skip_opt($.seq(["readonly", __])),
-      $.opt($.seq([_s, "#"])),
+      $opt(staticModifier),
+      $skip_opt($seq(["readonly", __])),
+      $opt($seq([_s, "#"])),
       identifier,
       // :xxx
-      $.skip_opt($.seq([_s, _typeAnnotation])),
+      $skip_opt($seq([_s, _typeAnnotation])),
       _s,
-      $.opt($.seq(["=", $.not(">"), _s, anyExpression])),
+      $opt($seq(["=", $not(">"), _s, anyExpression])),
       ";",
     ]),
   ])
 );
 
-export const classExpression = $.def(() =>
-  $.seq([
-    $.skip_opt("abstract "),
+export const classExpression = $def(() =>
+  $seq([
+    $skip_opt("abstract "),
     "class",
-    $.opt($.seq([__, identifier])),
+    $opt($seq([__, identifier])),
     // <T>
-    $.skip_opt(typeDeclareParameters),
-    $.opt($.seq([__, "extends", __, anyExpression])),
-    $.skip_opt($.seq([__, "implements", __, typeExpression])),
+    $skip_opt(typeDeclareParameters),
+    $opt($seq([__, "extends", __, anyExpression])),
+    $skip_opt($seq([__, "implements", __, typeExpression])),
     _s,
     "{",
     _s,
-    $["*"]([_s, classField, _s]),
+    $repeat_seq([_s, classField, _s]),
     _s,
     // TODO: class field
     "}",
   ])
 );
 
-export const functionExpression = $.def(() =>
-  $.seq([
-    $.opt(asyncModifier),
+export const functionExpression = $def(() =>
+  $seq([
+    $opt(asyncModifier),
     "function",
-    $.opt($.seq([_s, "*"])),
-    $.opt($.seq([__, identifier])),
+    $opt($seq([_s, "*"])),
+    $opt($seq([__, identifier])),
     _s,
-    $.skip_opt(typeDeclareParameters),
+    $skip_opt(typeDeclareParameters),
     _s,
     "(",
     _s,
@@ -660,51 +656,51 @@ export const functionExpression = $.def(() =>
     _s,
     ")",
     _s,
-    $.skip_opt(_typeAnnotation),
+    $skip_opt(_typeAnnotation),
     _s,
-    $.or([block, anyStatement]),
+    $or([block, anyStatement]),
   ])
 );
 
-const arrowFunctionExpression = $.def(() =>
-  $.seq([
-    $.opt(asyncModifier),
-    $.skip_opt(typeDeclareParameters),
+const arrowFunctionExpression = $def(() =>
+  $seq([
+    $opt(asyncModifier),
+    $skip_opt(typeDeclareParameters),
     _s,
-    $.r`(\\*)?`,
+    $r`(\\*)?`,
     _s,
-    $.or([
-      $.seq([
+    $or([
+      $seq([
         "(",
         _s,
         functionArguments,
         _s,
         ")",
-        $.skip_opt($.seq([_, _typeAnnotation])),
+        $skip_opt($seq([_, _typeAnnotation])),
       ]),
       identifier,
     ]),
     _s,
     "=>",
     _s,
-    // $.r`[ \\s\\n]*`,
-    $.or([block, anyStatement]),
+    // $r`[ \\s\\n]*`,
+    $or([block, anyStatement]),
   ])
 );
 
-const newExpression = $.def(() =>
-  $.seq([
+const newExpression = $def(() =>
+  $seq([
     "new ",
     memberable,
     _s,
-    $.opt($.seq(["(", _s, functionArguments, _s, ")"])),
+    $opt($seq(["(", _s, functionArguments, _s, ")"])),
   ])
 );
 
-const paren = $.def(() =>
-  $.seq(["\\(", _s, anyExpression, _s, "\\)", $.not("=>")])
+const paren = $def(() =>
+  $seq(["\\(", _s, anyExpression, _s, "\\)", $not("=>")])
 );
-const primary = $.or([
+const primary = $or([
   paren,
   newExpression,
   ThisKeyword,
@@ -717,11 +713,11 @@ const primary = $.or([
   ImportKeyword,
 ]);
 
-const __call = $.def(() =>
-  $.or([
-    $.seq([
+const __call = $def(() =>
+  $or([
+    $seq([
       "?.",
-      $.skip_opt($.seq([_, typeParameters])),
+      $skip_opt($seq([_, typeParameters])),
       _s,
       "(",
       _s,
@@ -729,8 +725,8 @@ const __call = $.def(() =>
       _s,
       ")",
     ]),
-    $.seq([
-      $.skip_opt($.seq([_, typeParameters])),
+    $seq([
+      $skip_opt($seq([_, typeParameters])),
       _,
       "(",
       _,
@@ -741,16 +737,16 @@ const __call = $.def(() =>
   ])
 );
 
-const memberAccess = $.def(() =>
-  $.or([
+const memberAccess = $def(() =>
+  $or([
     // ?. | !. | .
-    $.seq([_s, $.or(["!.", "?.", "."]), $.opt($.seq([_s, "#"])), identifier]),
+    $seq([_s, $or(["!.", "?.", "."]), $opt($seq([_s, "#"])), identifier]),
 
-    // $.seq([_s, $.r`(\\?)?\\.`, $.r`\\#?`, identifier]),
-    $.seq([
+    // $seq([_s, $r`(\\?)?\\.`, $r`\\#?`, identifier]),
+    $seq([
       _s,
       // ?.
-      $.opt($.seq(["?.", _s])),
+      $opt($seq(["?.", _s])),
       "[",
       _s,
       anyExpression,
@@ -761,49 +757,49 @@ const memberAccess = $.def(() =>
   ])
 );
 
-const memberable = $.def(() =>
-  $.or([$.seq([primary, $.repeat(memberAccess)]), anyLiteral])
+const memberable = $def(() =>
+  $or([$seq([primary, $repeat(memberAccess)]), anyLiteral])
 );
 
 // call chain access and member access
-const accessible = $.def(() =>
-  $.or([
+const accessible = $def(() =>
+  $or([
     // call chain
-    $.seq([memberable, _s, __call, _s, $["*"]([memberAccess])]),
+    $seq([memberable, _s, __call, _s, $repeat_seq([memberAccess])]),
     memberable,
   ])
 );
 
-const unary = $.def(() =>
-  $.or([
+const unary = $def(() =>
+  $or([
     // with unary prefix
-    $.seq([
-      $.or(["++", "--", "void ", "typeof ", "delete ", "await ", "~", "!"]),
+    $seq([
+      $or(["++", "--", "void ", "typeof ", "delete ", "await ", "~", "!"]),
       unary,
     ]),
-    $.seq([$.or([accessible, paren]), templateLiteral]),
-    $.seq([
-      $.or([
+    $seq([$or([accessible, paren]), templateLiteral]),
+    $seq([
+      $or([
         classExpression,
         functionExpression,
         arrowFunctionExpression,
         accessible,
         paren,
       ]),
-      $.opt($.or(["++", "--"])),
+      $opt($or(["++", "--"])),
       // ts bang operator
-      $.skip_opt("!"),
+      $skip_opt("!"),
     ]),
   ])
 );
 
-const binaryExpression = $.def(() =>
-  $.seq([
+const binaryExpression = $def(() =>
+  $seq([
     unary,
-    $["*"]([
-      $.or([
-        ...SPACE_REQUIRED_OPERATORS.map((op) => $.seq([__, op, __])),
-        ...OPERATORS.map((op) => $.seq([_s, op, _s])),
+    $repeat_seq([
+      $or([
+        ...SPACE_REQUIRED_OPERATORS.map((op) => $seq([__, op, __])),
+        ...OPERATORS.map((op) => $seq([_s, op, _s])),
       ]),
       unary,
     ]),
@@ -812,75 +808,60 @@ const binaryExpression = $.def(() =>
 
 /* TypeExpression */
 
-const asExpression = $.def(() =>
-  $.seq([
+const asExpression = $def(() =>
+  $seq([
     // foo as Type
     binaryExpression,
-    $.skip_opt<any>($.seq([__, "as", __, typeExpression])),
+    $skip_opt<any>($seq([__, "as", __, typeExpression])),
   ])
 );
 
 // a ? b: c
-const ternaryExpression = $.def(() =>
-  $.seq([
-    asExpression,
-    _s,
-    "\\?",
-    _s,
-    anyExpression,
-    _s,
-    ":",
-    _s,
-    anyExpression,
-  ])
+const ternaryExpression = $def(() =>
+  $seq([asExpression, _s, "\\?", _s, anyExpression, _s, ":", _s, anyExpression])
 );
 
-export const anyExpression = $.def(() =>
-  $.or([ternaryExpression, asExpression])
+export const anyExpression = $def(() => $or([ternaryExpression, asExpression]));
+
+const _typeAnnotation = $seq([":", _, typeExpression]);
+// const emptyStatement = $def(() => $seq([$r`(\\s)*`]));
+const breakStatement = $def(() => "break");
+const debuggerStatement = $def(() => "debugger");
+
+const returnStatement = $def(() =>
+  $seq([$r`(return|yield)`, $opt($seq([__, anyExpression]))])
 );
 
-const _typeAnnotation = $.seq([":", _, typeExpression]);
-// const emptyStatement = $.def(() => $.seq([$.r`(\\s)*`]));
-const breakStatement = $.def(() => "break");
-const debuggerStatement = $.def(() => "debugger");
+const throwStatement = $def(() => $seq(["throw", __, anyExpression]));
 
-const returnStatement = $.def(() =>
-  $.seq([$.r`(return|yield)`, $.opt($.seq([__, anyExpression]))])
+const blockOrStatement = $def(() => $or([block, anyStatement]));
+
+const blockStatement = $def(() => block);
+
+const labeledStatement = $def(() =>
+  $seq([identifier, _s, ":", _s, anyStatement])
 );
 
-const throwStatement = $.def(() => $.seq(["throw", __, anyExpression]));
-
-const blockOrStatement = $.def(() => $.or([block, anyStatement]));
-
-const blockStatement = $.def(() => block);
-
-const labeledStatement = $.def(() =>
-  $.seq([identifier, _s, ":", _s, anyStatement])
-);
-
-const _importRightSide = $.def(() =>
-  $.seq([
-    $.or([
+const _importRightSide = $def(() =>
+  $seq([
+    $or([
       // default only
       identifier,
-      $.seq(["*", __, "as", __, identifier]),
+      $seq(["*", __, "as", __, identifier]),
       // TODO: * as b
-      $.seq([
+      $seq([
         "{",
         _s,
-        $["*"]([
+        $repeat_seq([
           identifier,
-          $.opt($.seq([__, "as", __, identifier])),
+          $opt($seq([__, "as", __, identifier])),
           _s,
           ",",
           _s,
         ]),
         // last item
-        $.opt(
-          $.seq([
-            identifier,
-            $.opt($.seq([__, "as", __, identifier, _s, $.r`,?`])),
-          ])
+        $opt(
+          $seq([identifier, $opt($seq([__, "as", __, identifier, _s, $r`,?`]))])
         ),
         _s,
         "}",
@@ -893,58 +874,58 @@ const _importRightSide = $.def(() =>
   ])
 );
 
-const importStatement = $.def(() =>
-  $.or([
+const importStatement = $def(() =>
+  $or([
     // import 'specifier';
-    $.seq(["import", __, stringLiteral]),
+    $seq(["import", __, stringLiteral]),
     // import type
-    $.seq([$.skip($.seq(["import", __, "type", __, _importRightSide]))]),
+    $seq([$skip($seq(["import", __, "type", __, _importRightSide]))]),
     // import pattern
-    $.seq(["import", __, _importRightSide]),
+    $seq(["import", __, _importRightSide]),
   ])
 );
 
-const defaultOrIdentifer = $.or(["default", identifier]);
+const defaultOrIdentifer = $or(["default", identifier]);
 
-const exportStatement = $.def(() =>
-  $.or([
+const exportStatement = $def(() =>
+  $or([
     // TODO: skip: export type|interface
     // export clause
-    $.seq([
+    $seq([
       "export",
       _s,
       "{",
       _s,
-      $["*"]([
+      $repeat_seq([
         defaultOrIdentifer,
-        $.opt($.seq([__, "as", __, defaultOrIdentifer])),
+        $opt($seq([__, "as", __, defaultOrIdentifer])),
         _s,
         ",",
         _s,
       ]),
       // last item
-      $.opt(
-        $.seq([
+      $opt(
+        $seq([
           defaultOrIdentifer,
-          $.opt($.seq([__, "as", __, defaultOrIdentifer])),
-          $.opt(","),
+          $opt($seq([__, "as", __, defaultOrIdentifer])),
+          $opt(","),
         ])
       ),
       _s,
       "}",
-      $.opt($.seq([_s, "from ", stringLiteral])),
+      $opt($seq([_s, "from ", stringLiteral])),
     ]),
     // export named expression
-    $.seq([
+    $seq([
       "export ",
-      $.or([variableStatement, functionExpression, classExpression]),
+      $or([variableStatement, functionExpression, classExpression]),
     ]),
   ])
 );
 
-const ifStatement = $.def(() =>
-  // $.or([
-  $.seq([
+const ifStatement = $def(() =>
+  // $or([
+  $seq([
     // if
     "if",
     _s,
@@ -956,21 +937,21 @@ const ifStatement = $.def(() =>
     _s,
     blockOrStatement,
     _s,
-    $.opt(
-      $.seq([
+    $opt(
+      $seq([
         "else",
-        $.or([
+        $or([
           // xx
-          $.seq([_s, block]),
-          $.seq([__, anyStatement]),
+          $seq([_s, block]),
+          $seq([__, anyStatement]),
         ]),
       ])
     ),
   ])
 );
 
-const switchStatement = $.def(() =>
-  $.seq([
+const switchStatement = $def(() =>
+  $seq([
     "switch",
     _s,
     "(",
@@ -981,15 +962,15 @@ const switchStatement = $.def(() =>
     _s,
     "{",
     _s,
-    $["*"]([
-      $["+"](["case ", anyExpression, _s, ":", _s]),
-      $.opt(
-        $.or([
-          $.seq([
+    $repeat_seq([
+      $repeat_seq1(["case ", anyExpression, _s, ":", _s]),
+      $opt(
+        $or([
+          $seq([
             // xxx
-            $.or([block, caseClause]),
+            $or([block, caseClause]),
             _s,
-            $.opt(";"),
+            $opt(";"),
           ]),
           lines,
         ])
@@ -997,23 +978,23 @@ const switchStatement = $.def(() =>
       _s,
     ]),
     _s,
-    $.opt($.seq(["default", _s, ":", _s, $.or([block, caseClause])])),
+    $opt($seq(["default", _s, ":", _s, $or([block, caseClause])])),
     _s,
     "}",
   ])
 );
 
-const assign = $.def(() => $.seq(["=", $.not(">"), _s, anyExpression]));
-export const variableStatement = $.def(() =>
-  $.seq([
+const assign = $def(() => $seq(["=", $not(">"), _s, anyExpression]));
+export const variableStatement = $def(() =>
+  $seq([
     // single
-    $.r`(var|const|let) `,
+    $r`(var|const|let) `,
     // x, y=1,
-    $["*"]([
+    $repeat_seq([
       destructive,
       _s,
-      $.skip_opt(_typeAnnotation),
-      $.opt($.seq([_s, assign])),
+      $skip_opt(_typeAnnotation),
+      $opt($seq([_s, assign])),
       _s,
       ",",
       _s,
@@ -1021,42 +1002,42 @@ export const variableStatement = $.def(() =>
     _s,
     destructive,
     _s,
-    $.skip_opt(_typeAnnotation),
-    $.opt($.seq([_s, assign])),
+    $skip_opt(_typeAnnotation),
+    $opt($seq([_s, assign])),
   ])
 );
 
-const declareVariableStatement = $.def(() =>
-  $.seq([$.skip($.seq(["declare", __, variableStatement]))])
+const declareVariableStatement = $def(() =>
+  $seq([$skip($seq(["declare", __, variableStatement]))])
 );
 
-const typeStatement = $.def(() =>
-  $.seq([
-    $.skip(
-      $.seq([
-        $.opt($.seq(["export "])),
+const typeStatement = $def(() =>
+  $seq([
+    $skip(
+      $seq([
+        $opt($seq(["export "])),
         "type",
         __,
         identifier,
         _,
         "=",
-        $.not(">"),
+        $not(">"),
         _,
         typeExpression,
       ])
     ),
   ])
 );
-const interfaceStatement = $.def(() =>
-  $.seq([
+const interfaceStatement = $def(() =>
+  $seq([
     // skip all
-    $.skip(
-      $.seq([
-        $.opt($.seq(["export "])),
+    $skip(
+      $seq([
+        $opt($seq(["export "])),
         "interface",
         __,
         identifier,
-        $.opt($.seq([__, "extends", __, typeExpression])),
+        $opt($seq([__, "extends", __, typeExpression])),
         _,
         typeObjectLiteral,
       ])
@@ -1064,23 +1045,23 @@ const interfaceStatement = $.def(() =>
   ])
 );
 
-export const forStatement = $.def(() =>
-  $.seq([
+export const forStatement = $def(() =>
+  $seq([
     "for",
     _s,
     "(",
     _s,
     // start
-    $.or([variableStatement, anyExpression, _]),
+    $or([variableStatement, anyExpression, _]),
     _s,
     ";",
     // condition
     _s,
-    $.opt(anyExpression),
+    $opt(anyExpression),
     _s,
     ";",
     // step end
-    $.opt(anyExpression),
+    $opt(anyExpression),
     ")",
     _s,
     blockOrStatement,
@@ -1088,17 +1069,17 @@ export const forStatement = $.def(() =>
 );
 
 // include for in / for of
-const forItemStatement = $.def(() =>
-  $.seq([
+const forItemStatement = $def(() =>
+  $seq([
     "for",
     _s,
     "(",
     _s,
-    $.r`(var|const|let) `,
+    $r`(var|const|let) `,
     _s,
     destructive,
     __,
-    $.r`(of|in)`,
+    $r`(of|in)`,
     __,
     anyExpression,
     _s,
@@ -1108,15 +1089,15 @@ const forItemStatement = $.def(() =>
   ])
 );
 
-export const whileStatement = $.def(() =>
-  $.seq(["while", _s, "(", _s, anyExpression, _s, ")", _s, blockOrStatement])
+export const whileStatement = $def(() =>
+  $seq(["while", _s, "(", _s, anyExpression, _s, ")", _s, blockOrStatement])
 );
 
-const doWhileStatement = $.def(() =>
-  $.or([
-    $.seq([
+const doWhileStatement = $def(() =>
+  $or([
+    $seq([
       "do",
-      $.or([$.seq([_s, block]), $.seq([__, anyStatement])]),
+      $or([$seq([_s, block]), $seq([__, anyStatement])]),
       _,
       "while",
       _s,
@@ -1130,22 +1111,22 @@ const doWhileStatement = $.def(() =>
 );
 
 // try{}finally{};
-const _finally = $.def(() => $.seq(["finally", _s, block]));
-const tryCatchStatement = $.def(() =>
-  $.or([
-    $.seq([
+const _finally = $def(() => $seq(["finally", _s, block]));
+const tryCatchStatement = $def(() =>
+  $or([
+    $seq([
       // try
       "try",
       _s,
       block,
       _s,
-      $.or([
-        $.seq([
+      $or([
+        $seq([
           "catch",
-          $.opt($.seq([_s, "(", _s, anyExpression, _s, ")"])),
+          $opt($seq([_s, "(", _s, anyExpression, _s, ")"])),
           _s,
           block,
-          $.opt($.seq([_s, _finally])),
+          $opt($seq([_s, _finally])),
         ]),
         _finally,
       ]),
@@ -1153,15 +1134,15 @@ const tryCatchStatement = $.def(() =>
   ])
 );
 
-const expressionStatement = $.def(() =>
-  // $.seq([anyExpression)
-  $.seq([anyExpression, $["*"]([",", _s, anyExpression])])
+const expressionStatement = $def(() =>
+  // $seq([anyExpression)
+  $seq([anyExpression, $repeat_seq([",", _s, anyExpression])])
 );
 
-const semicolonlessStatement = $.def(() =>
-  $.or([
+const semicolonlessStatement = $def(() =>
+  $or([
     // export function/class
-    $.seq(["export ", $.or([functionExpression, classExpression])]),
+    $seq(["export ", $or([functionExpression, classExpression])]),
 
     classExpression,
     functionExpression,
@@ -1177,8 +1158,8 @@ const semicolonlessStatement = $.def(() =>
   ])
 );
 
-const anyStatement = $.def(() =>
-  $.or([
+const anyStatement = $def(() =>
+  $or([
     // "debbuger"
     debuggerStatement,
     // break ...
@@ -1221,40 +1202,56 @@ const anyStatement = $.def(() =>
   ])
 );
 
-const line = $.def(() =>
-  $.or([
-    $.seq([
+const line = $def(() =>
+  $or([
+    $seq([
       // class{}(;\n)
       semicolonlessStatement,
-      $.or([$.skip($.tok("\n")), $.tok(";"), $.skip(_)]),
+      $or([$skip($token("\n")), $token(";"), $skip(_)]),
     ]),
-    // $.seq([$.opt(anyStatement), _, $.r`[;\\n]+`, _]),
-    $.seq([
+    // $seq([$opt(anyStatement), _, $r`[;\\n]+`, _]),
+    $seq([
       // enter or semicolon end statements
-      $.opt(anyStatement),
-      $.r`[ ]*`,
-      // $.r`[\\n;]`,
-      $.or([$.skip($.tok("\n")), $.tok(";")]),
+      $opt(anyStatement),
+      $r`[ ]*`,
+      // $r`[\\n;]`,
+      $or([$skip($token("\n")), $token(";")]),
       _s,
     ]),
   ])
 );
 
-const caseClause = $.seq([
-  $["*"]([$.not("case "), line]),
-  $.opt($.seq([$.not("case "), anyStatement])),
-  $.skip_opt(";"),
+const caseClause = $seq([
+  $repeat_seq([$not("case "), line]),
+  $opt($seq([$not("case "), anyStatement])),
+  $skip_opt(";"),
 ]);
 
-const lines = $.seq([$["*"]([line]), $.opt(anyStatement), $.skip_opt(";")]);
+const lines = $seq([$repeat_seq([line]), $opt(anyStatement), $skip_opt(";")]);
 
-export const block = $.def(() => $.seq(["{", _s, lines, _s, "}"]));
+export const block = $def(() => $seq(["{", _s, lines, _s, "}"]));
 
-export const program = $.def(() => $.seq([_s, lines, _s, $.eof()]));
+export const program = $def(() => $seq([_s, lines, _s, $eof()]));
 
 import { test, run, is } from "@mizchi/test";
 // import { expectError, expectSame } from "./_testHelpers";
 import { preprocessLight } from "./preprocess";
+import {
+  $def,
+  $eof,
+  $not,
+  $opt,
+  $or,
+  $r,
+  $regex,
+  $repeat,
+  $repeat_seq,
+  $repeat_seq1,
+  $seq,
+  $skip,
+  $skip_opt,
+  $token,
+} from "@mizchi/pargen/src/builder";
 // import { reportError } from "../../pargen/src/error_reporter";
 
 const isMain = require.main === module;
@@ -1792,7 +1789,7 @@ if (process.env.NODE_ENV === "test") {
     expectError(parse, ["throw"]);
   });
   test("block", () => {
-    const parse = compile($.seq([block, $.eof()]));
+    const parse = compile($seq([block, $eof()]));
     expectSame(parse, [`{return 1;}`, `{debugger;return;}`, "{}"]);
   });
   test("for", () => {
@@ -1821,13 +1818,13 @@ if (process.env.NODE_ENV === "test") {
     expectError(parse, ["for(const i of t)"]);
   });
   test("while", () => {
-    const parse = compile($.seq([whileStatement, $.eof()]));
+    const parse = compile($seq([whileStatement, $eof()]));
     expectSame(parse, ["while(1)1", "while(1){break;}"]);
     expectError(parse, ["while(1)"]);
   });
 
   test("if", () => {
-    const parse = compile($.seq([ifStatement, $.eof()]));
+    const parse = compile($seq([ifStatement, $eof()]));
     expectSame(parse, [
       "if(1)1",
       `if(1){return 1;}`,
@@ -1840,7 +1837,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("switch", () => {
-    const parse = compile($.seq([switchStatement, $.eof()]));
+    const parse = compile($seq([switchStatement, $eof()]));
     expectSame(parse, [
       `switch(x){}`,
       `switch(true){default:1}`,

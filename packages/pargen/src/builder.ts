@@ -205,7 +205,7 @@ export function $regex(expr: string, reshape?: Reshape<any, any>): Regex {
 }
 
 // regex sharthand
-export function r(strings: TemplateStringsArray, name?: string): Regex {
+export function $r(strings: TemplateStringsArray, name?: string): Regex {
   return $regex(strings.join(""));
 }
 
@@ -262,13 +262,7 @@ export function $repeat_seq(
 export function $opt<T extends Rule>(input: InputNodeExpr): T {
   return { ...toNode(input), optional: true } as T;
 }
-// export function $skip<T extends Rule>(input: InputNodeExpr): T {
-//   return { ...toNode(input), skip: true } as T;
-// };
-// skip_opt<T extends Rule>(input: InputNodeExpr): T {
-//   return { ...toNode(input), skip: true, optional: true } as T;
-// },
-// ["+"](input: InputNodeExpr[]) {
-//   return repeat(seq(input), [1]);
-// },
+export function $repeat_seq1(input: InputNodeExpr[]) {
+  return $repeat($seq(input), [1]);
+}
 // };
