@@ -1,4 +1,58 @@
 import {
+  K_ABSTRACT,
+  K_AS,
+  K_ASYNC,
+  K_AWAIT,
+  K_BLACE_CLOSE,
+  K_BLACE_OPEN,
+  K_BREAK,
+  K_CASE,
+  K_CATCH,
+  K_CLASS,
+  K_CONST,
+  K_CONSTRUCTOR,
+  K_DEBUGGER,
+  K_DECLARE,
+  K_DEFAULT,
+  K_DELETE,
+  K_DO,
+  K_ELSE,
+  K_EXPORT,
+  K_EXTENDS,
+  K_FALSE,
+  K_FINALLY,
+  K_FOR,
+  K_FROM,
+  K_FUNCTION,
+  K_GET,
+  K_IF,
+  K_IMPLEMENTS,
+  K_IMPORT,
+  K_INTERFACE,
+  K_LET,
+  K_NEW,
+  K_NULL,
+  K_PAREN_CLOSE,
+  K_PAREN_OPEN,
+  K_PRIVATE,
+  K_PROTECTED,
+  K_PUBLIC,
+  K_QUESTION,
+  K_READONLY,
+  K_RETURN,
+  K_SET,
+  K_STATIC,
+  K_SWITCH,
+  K_THIS,
+  K_THROW,
+  K_TRUE,
+  K_TRY,
+  K_TYPE,
+  K_TYPEOF,
+  K_VAR,
+  K_VOID,
+  K_WHILE,
+  K_YIELD,
   OPERATORS,
   RESERVED_WORDS,
   REST_SPREAD,
@@ -15,25 +69,19 @@ const __ = $regex(__w);
 
 const reserved = RESERVED_WORDS.join("|");
 export const identifier = $def(() =>
-  $seq([
-    // TODO: doc
-    // $not($or([...RESERVED_WORDS])),
-    // $r`([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
-    $regex(`(?!(${reserved})$)([a-zA-Z_$][a-zA-Z_$0-9]*)`),
-  ])
+  $seq([$regex(`(?!(${reserved})$)([a-zA-Z_$][a-zA-Z_$\\d]*)`)])
 );
 
-const ThisKeyword = $token("this");
-const ImportKeyword = $token("import");
+const ThisKeyword = $token(K_THIS);
+const ImportKeyword = $token(K_IMPORT);
 
-// const BINARY_OPS = "(" + OPERATORS.join("|") + ")";
+// const BINARY_OPS = K_PAREN_OPEN + OPERATORS.join("|") + K_PAREN_CLOSE;
 
-/* TypeExpression */
 const typeDeclareParameter = $def(() =>
   $seq([
     typeExpression,
     // extends T
-    $opt($seq([_, "extends ", typeExpression])),
+    $opt($seq([_, K_EXTENDS, __, typeExpression])),
     _,
     $opt($seq(["=", $not(">"), _, typeExpression])),
   ])
@@ -64,17 +112,23 @@ const typeParameters = $def(() =>
 );
 
 const typeParen = $def(() =>
-  $seq(["(", _, typeExpression, _, ")", _, $opt(typeParameters)])
+  $seq([
+    K_PAREN_OPEN,
+    _,
+    typeExpression,
+    _,
+    K_PAREN_CLOSE,
+    _,
+    $opt(typeParameters),
+  ])
 );
 
 const typeIdentifier = $def(() =>
   $seq([
-    $not("readonly "),
+    $not($seq([K_READONLY, __])),
     $or([
       // "readonly",
-      "void",
-      "any",
-      "unknown",
+      K_VOID,
       $seq([identifier, _, $opt(typeParameters)]),
     ]),
   ])
@@ -102,7 +156,7 @@ const _typeNameableItem = $def(() =>
     $seq([
       // start: number,
       identifier,
-      $opt($seq([_, "?"])),
+      $opt($seq([_, K_QUESTION])),
       _,
       ":",
       _,
@@ -148,7 +202,7 @@ const typeFunctionArgs = $def(() =>
       // args
       identifier,
       _,
-      $opt("?"),
+      $opt(K_QUESTION),
       ":",
       _,
       typeExpression,
@@ -159,7 +213,16 @@ const typeFunctionArgs = $def(() =>
     $or([
       // last
       $seq([REST_SPREAD, _, identifier, _, ":", _, typeExpression]),
-      $seq([identifier, _, $opt("?"), ":", _, typeExpression, _, $opt(",")]),
+      $seq([
+        identifier,
+        _,
+        $opt(K_QUESTION),
+        ":",
+        _,
+        typeExpression,
+        _,
+        $opt(","),
+      ]),
       _,
     ]),
   ])
@@ -169,28 +232,28 @@ const typeObjectItem = $def(() =>
   $or([
     $seq([
       // async foo<T>(arg: any): void;
-      $opt("async "),
+      $opt($seq([K_ASYNC, __])),
       identifier,
       _,
       $opt(typeDeclareParameters),
       _,
-      "(",
+      K_PAREN_OPEN,
       _,
       typeFunctionArgs,
       _,
-      ")",
+      K_PAREN_CLOSE,
       _,
-      $opt("?"),
+      $opt(K_QUESTION),
       ":",
       _,
       typeExpression,
     ]),
     // member
     $seq([
-      $opt($seq(["readonly ", _s])),
+      $opt($seq([K_READONLY, __, _s])),
       identifier,
       _,
-      $opt("?"),
+      $opt(K_QUESTION),
       ":",
       // ":",
       _,
@@ -202,7 +265,7 @@ const typeObjectItem = $def(() =>
 const typeObjectLiteral = $def(() =>
   $seq([
     // object
-    "{",
+    K_BLACE_OPEN,
     _,
     $repeat_seq([typeObjectItem, _, $or([",", ";"]), _]),
     $opt(typeObjectItem),
@@ -210,7 +273,7 @@ const typeObjectLiteral = $def(() =>
     // $r`(,|;)?`,
     $or([",", ";", _]),
     _,
-    "}",
+    K_BLACE_CLOSE,
   ])
 );
 
@@ -232,11 +295,11 @@ const typeFunctionExpression = $def(() =>
     // function
     $opt(typeDeclareParameters),
     _,
-    "(",
+    K_PAREN_OPEN,
     _,
     typeFunctionArgs,
     _,
-    ")",
+    K_PAREN_CLOSE,
     _,
     "=>",
     _,
@@ -306,7 +369,7 @@ const destructiveObjectItem = $def(() =>
 
 const destructiveObjectPattern = $def(() =>
   $seq([
-    "{",
+    K_BLACE_OPEN,
     _s,
     $repeat_seq([destructiveObjectItem, _, ",", _]),
     $or([
@@ -316,7 +379,7 @@ const destructiveObjectPattern = $def(() =>
       _s,
     ]),
     _s,
-    "}",
+    K_BLACE_CLOSE,
   ])
 );
 
@@ -325,15 +388,6 @@ const destructive = $def(() =>
     $or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
     // { a = 1 } = {}
     $opt($seq([_s, assign])),
-  ])
-);
-
-const destructiveNoAssign = $def(() =>
-  $or([
-    // {} | [] | a
-    destructiveObjectPattern,
-    destructiveArrayPattern,
-    identifier,
   ])
 );
 
@@ -346,9 +400,16 @@ const functionArgWithAssign = $def(() =>
       identifier,
     ]),
     $skip_opt(
-      $seq([_, $skip_opt("?"), $skip_opt("?"), ":", _, typeExpression])
+      $seq([
+        _,
+        $skip_opt(K_QUESTION),
+        $skip_opt(K_QUESTION),
+        ":",
+        _,
+        typeExpression,
+      ])
     ),
-    $opt($seq([_, $skip_opt("?"), "=", $not(">"), _, anyExpression])),
+    $opt($seq([_, $skip_opt(K_QUESTION), "=", $not(">"), _, anyExpression])),
   ])
 );
 // const lefthand = $def(() => destructivePattern);
@@ -418,7 +479,14 @@ export const templateLiteral = $def(() =>
   $seq([
     "`",
     // aaa${}
-    $repeat_seq([$regex(nonBacktickChars), "${", _, anyExpression, _, "}"]),
+    $repeat_seq([
+      $regex(nonBacktickChars),
+      "${",
+      _,
+      anyExpression,
+      _,
+      K_BLACE_CLOSE,
+    ]),
     $regex(nonBacktickChars),
     "`",
   ])
@@ -441,8 +509,8 @@ export const numberLiteral = $def(() =>
   ])
 );
 
-export const booleanLiteral = $def(() => $r`(true|false)`);
-export const nullLiteral = $def(() => `null`);
+export const booleanLiteral = $def(() => $or([K_TRUE, K_FALSE]));
+export const nullLiteral = $def(() => K_NULL);
 
 const restSpread = $def(() => $seq([REST_SPREAD, _, anyExpression]));
 
@@ -466,9 +534,18 @@ const objectItem = $def(() =>
   $or([
     $seq([
       // function
-      $r`((async|get|set) )?`,
+      $opt($seq([$or([K_ASYNC, K_GET, K_SET]), __])),
       $or([stringLiteral, $seq(["[", _s, anyExpression, _s, "]"]), identifier]),
-      $seq([_s, "(", _s, functionArguments, _s, ")", _s, block]),
+      $seq([
+        _s,
+        K_PAREN_OPEN,
+        _s,
+        functionArguments,
+        _s,
+        K_PAREN_CLOSE,
+        _s,
+        block,
+      ]),
     ]),
     $seq([
       // value
@@ -493,14 +570,14 @@ const objectItem = $def(() =>
 // ref by key
 const objectLiteral = $def(() =>
   $seq([
-    "{",
+    K_BLACE_OPEN,
     _s,
     $repeat($seq([objectItem, _s, ",", _s])),
     _s,
     // $opt($or([restSpread, objectItem])),
     $or([$opt<any>(restSpread), objectItem, _s]),
     _s,
-    "}",
+    K_BLACE_CLOSE,
   ])
 );
 
@@ -518,26 +595,30 @@ const anyLiteral = $def(() =>
 );
 
 /* Class */
-const accessModifier = $r`(private|public|protected) `;
-const staticModifier = $token(`static `);
-const readonlyModifier = $token(`readonly `);
+const accessModifier = $regex(`(${K_PRIVATE}|${K_PUBLIC}|${K_PROTECTED}) `);
+// const accessModifier = $or([K_PRIVATE,K_PUBLIC,K_PROTECTED]);
 
-const asyncModifier = $token("async ");
-const getOrSetModifier = $r`(get|set) `;
+// const staticModifier = $token(`static `);
+// const readonlyModifier = $token(`readonly `);
+const staticModifier = $seq([K_STATIC, __]);
+const asyncModifier = $seq([K_ASYNC, __]);
+const getOrSetModifier = $seq([$or([K_GET, K_SET]), __]);
 
 const classConstructorArg = $def(() =>
   $seq([
     $or([
       // private
-      $seq([$or(["private", "public", "protected"]), __, identifier]),
+      $seq([$or([K_PRIVATE, K_PUBLIC, K_PROTECTED]), __, identifier]),
       // normal initializer
       $seq([
         $or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
       ]),
     ]),
     $seq([
-      $skip_opt($seq([_, $opt("?"), $opt("?"), ":", _, typeExpression])),
-      $opt($seq([_, $skip_opt("?"), "=", $not(">"), _, anyExpression])),
+      $skip_opt(
+        $seq([_, $opt(K_QUESTION), $opt(K_QUESTION), ":", _, typeExpression])
+      ),
+      $opt($seq([_, $skip_opt(K_QUESTION), "=", $not(">"), _, anyExpression])),
     ]),
   ])
 );
@@ -545,19 +626,19 @@ const classConstructor = $def(() =>
   $seq(
     [
       $skip_opt(accessModifier),
-      $token("constructor"),
+      $token(K_CONSTRUCTOR),
       _s,
-      "(",
+      K_PAREN_OPEN,
       ["args", $repeat($seq([_s, classConstructorArg, _s, $skip(","), _s]))],
       ["last", $opt($seq([_s, classConstructorArg, _s, $skip_opt(",")]))],
       _s,
-      ")",
+      K_PAREN_CLOSE,
       _s,
-      "{",
+      K_BLACE_OPEN,
       _s,
       ["body", lines],
       _s,
-      "}",
+      K_BLACE_CLOSE,
     ],
     (input: { args: string[]; last: string; body: string }) => {
       // const inits: string[] = [];
@@ -568,10 +649,10 @@ const classConstructor = $def(() =>
           arg.match(/(private |public |protected )?([^=,]+)(=.+)?$/msu)! ?? [];
         args.push(`${ident}${assign ?? ""}`);
         if (initOnBody) {
-          bodyIntro += `this.${ident}=${ident};`;
+          bodyIntro += `${K_THIS}.${ident}=${ident};`;
         }
       }
-      return `constructor(${args.join(",")}){${bodyIntro}${input.body}}`;
+      return `${K_CONSTRUCTOR}(${args.join(",")}){${bodyIntro}${input.body}}`;
     }
   )
 );
@@ -583,7 +664,7 @@ const classField = $def(() =>
     $seq([
       $skip_opt(accessModifier),
       $opt(staticModifier),
-      $opt(asyncModifier),
+      $opt($seq([K_ASYNC, __])),
       $opt(getOrSetModifier),
       $opt("*"),
       $opt("#"),
@@ -594,11 +675,11 @@ const classField = $def(() =>
       // class member
       $seq([
         // foo(): void {}
-        "(",
+        K_PAREN_OPEN,
         _s,
         functionArguments,
         _s,
-        ")",
+        K_PAREN_CLOSE,
         $skip_opt($seq([_, _typeAnnotation])),
         _s,
         block,
@@ -610,7 +691,7 @@ const classField = $def(() =>
       $skip_opt(accessModifier),
       // static
       $opt(staticModifier),
-      $skip_opt($seq(["readonly", __])),
+      $skip_opt($seq([K_READONLY, __])),
       $opt($seq([_s, "#"])),
       identifier,
       // :xxx
@@ -624,37 +705,37 @@ const classField = $def(() =>
 
 export const classExpression = $def(() =>
   $seq([
-    $skip_opt("abstract "),
-    "class",
+    $skip_opt<any>($seq([K_ABSTRACT, __])),
+    K_CLASS,
     $opt($seq([__, identifier])),
     // <T>
     $skip_opt(typeDeclareParameters),
-    $opt($seq([__, "extends", __, anyExpression])),
-    $skip_opt($seq([__, "implements", __, typeExpression])),
+    $opt($seq([__, K_EXTENDS, __, anyExpression])),
+    $skip_opt($seq([__, K_IMPLEMENTS, __, typeExpression])),
     _s,
-    "{",
+    K_BLACE_OPEN,
     _s,
     $repeat_seq([_s, classField, _s]),
     _s,
     // TODO: class field
-    "}",
+    K_BLACE_CLOSE,
   ])
 );
 
 export const functionExpression = $def(() =>
   $seq([
     $opt(asyncModifier),
-    "function",
+    K_FUNCTION,
     $opt($seq([_s, "*"])),
     $opt($seq([__, identifier])),
     _s,
     $skip_opt(typeDeclareParameters),
     _s,
-    "(",
+    K_PAREN_OPEN,
     _s,
     functionArguments,
     _s,
-    ")",
+    K_PAREN_CLOSE,
     _s,
     $skip_opt(_typeAnnotation),
     _s,
@@ -671,11 +752,11 @@ const arrowFunctionExpression = $def(() =>
     _s,
     $or([
       $seq([
-        "(",
+        K_PAREN_OPEN,
         _s,
         functionArguments,
         _s,
-        ")",
+        K_PAREN_CLOSE,
         $skip_opt($seq([_, _typeAnnotation])),
       ]),
       identifier,
@@ -690,15 +771,16 @@ const arrowFunctionExpression = $def(() =>
 
 const newExpression = $def(() =>
   $seq([
-    "new ",
+    K_NEW,
+    __,
     memberable,
     _s,
-    $opt($seq(["(", _s, functionArguments, _s, ")"])),
+    $opt($seq([K_PAREN_OPEN, _s, functionArguments, _s, K_PAREN_CLOSE])),
   ])
 );
 
 const paren = $def(() =>
-  $seq(["\\(", _s, anyExpression, _s, "\\)", $not("=>")])
+  $seq([K_PAREN_OPEN, _s, anyExpression, _s, K_PAREN_CLOSE, $not("=>")])
 );
 const primary = $or([
   paren,
@@ -719,20 +801,20 @@ const __call = $def(() =>
       "?.",
       $skip_opt($seq([_, typeParameters])),
       _s,
-      "(",
+      K_PAREN_OPEN,
       _s,
       callArguments,
       _s,
-      ")",
+      K_PAREN_CLOSE,
     ]),
     $seq([
       $skip_opt($seq([_, typeParameters])),
       _,
-      "(",
+      K_PAREN_OPEN,
       _,
       callArguments,
       _,
-      ")",
+      K_PAREN_CLOSE,
     ]),
   ])
 );
@@ -774,7 +856,13 @@ const unary = $def(() =>
   $or([
     // with unary prefix
     $seq([
-      $or(["++", "--", "void ", "typeof ", "delete ", "await ", "~", "!"]),
+      $or([
+        "++",
+        "--",
+        $seq([$or([K_VOID, K_AWAIT, K_TYPEOF, K_DELETE]), __]),
+        "~",
+        "!",
+      ]),
       unary,
     ]),
     $seq([$or([accessible, paren]), templateLiteral]),
@@ -812,27 +900,37 @@ const asExpression = $def(() =>
   $seq([
     // foo as Type
     binaryExpression,
-    $skip_opt<any>($seq([__, "as", __, typeExpression])),
+    $skip_opt<any>($seq([__, K_AS, __, typeExpression])),
   ])
 );
 
 // a ? b: c
 const ternaryExpression = $def(() =>
-  $seq([asExpression, _s, "\\?", _s, anyExpression, _s, ":", _s, anyExpression])
+  $seq([
+    asExpression,
+    _s,
+    K_QUESTION,
+    _s,
+    anyExpression,
+    _s,
+    ":",
+    _s,
+    anyExpression,
+  ])
 );
 
 export const anyExpression = $def(() => $or([ternaryExpression, asExpression]));
 
 const _typeAnnotation = $seq([":", _, typeExpression]);
 // const emptyStatement = $def(() => $seq([$r`(\\s)*`]));
-const breakStatement = $def(() => "break");
-const debuggerStatement = $def(() => "debugger");
+const breakStatement = $def(() => K_BREAK);
+const debuggerStatement = $def(() => K_DEBUGGER);
 
 const returnStatement = $def(() =>
-  $seq([$r`(return|yield)`, $opt($seq([__, anyExpression]))])
+  $seq([$or([K_RETURN, K_YIELD]), $opt($seq([__, anyExpression]))])
 );
 
-const throwStatement = $def(() => $seq(["throw", __, anyExpression]));
+const throwStatement = $def(() => $seq([K_THROW, __, anyExpression]));
 
 const blockOrStatement = $def(() => $or([block, anyStatement]));
 
@@ -847,28 +945,28 @@ const _importRightSide = $def(() =>
     $or([
       // default only
       identifier,
-      $seq(["*", __, "as", __, identifier]),
+      $seq(["*", __, K_AS, __, identifier]),
       // TODO: * as b
       $seq([
-        "{",
+        K_BLACE_OPEN,
         _s,
         $repeat_seq([
           identifier,
-          $opt($seq([__, "as", __, identifier])),
+          $opt($seq([__, K_AS, __, identifier])),
           _s,
           ",",
           _s,
         ]),
         // last item
         $opt(
-          $seq([identifier, $opt($seq([__, "as", __, identifier, _s, $r`,?`]))])
+          $seq([identifier, $opt($seq([__, K_AS, __, identifier, _s, $r`,?`]))])
         ),
         _s,
-        "}",
+        K_BLACE_CLOSE,
       ]),
     ]),
     __,
-    "from",
+    K_FROM,
     __,
     stringLiteral,
   ])
@@ -877,28 +975,28 @@ const _importRightSide = $def(() =>
 const importStatement = $def(() =>
   $or([
     // import 'specifier';
-    $seq(["import", __, stringLiteral]),
+    $seq([K_IMPORT, __, stringLiteral]),
     // import type
-    $seq([$skip($seq(["import", __, "type", __, _importRightSide]))]),
+    $seq([$skip($seq([K_IMPORT, __, K_TYPE, __, _importRightSide]))]),
     // import pattern
-    $seq(["import", __, _importRightSide]),
+    $seq([K_IMPORT, __, _importRightSide]),
   ])
 );
 
-const defaultOrIdentifer = $or(["default", identifier]);
+const defaultOrIdentifer = $or([K_DEFAULT, identifier]);
 
 const exportStatement = $def(() =>
   $or([
     // TODO: skip: export type|interface
     // export clause
     $seq([
-      "export",
+      K_EXPORT,
       _s,
-      "{",
+      K_BLACE_OPEN,
       _s,
       $repeat_seq([
         defaultOrIdentifer,
-        $opt($seq([__, "as", __, defaultOrIdentifer])),
+        $opt($seq([__, K_AS, __, defaultOrIdentifer])),
         _s,
         ",",
         _s,
@@ -907,17 +1005,18 @@ const exportStatement = $def(() =>
       $opt(
         $seq([
           defaultOrIdentifer,
-          $opt($seq([__, "as", __, defaultOrIdentifer])),
+          $opt($seq([__, K_AS, __, defaultOrIdentifer])),
           $opt(","),
         ])
       ),
       _s,
-      "}",
-      $opt($seq([_s, "from ", stringLiteral])),
+      K_BLACE_CLOSE,
+      $opt($seq([_s, K_FROM, __, stringLiteral])),
     ]),
     // export named expression
     $seq([
-      "export ",
+      K_EXPORT,
+      __,
       $or([variableStatement, functionExpression, classExpression]),
     ]),
   ])
@@ -927,19 +1026,19 @@ const ifStatement = $def(() =>
   // $or([
   $seq([
     // if
-    "if",
+    K_IF,
     _s,
-    "(",
+    K_PAREN_OPEN,
     _s,
     anyExpression,
     _s,
-    ")",
+    K_PAREN_CLOSE,
     _s,
     blockOrStatement,
     _s,
     $opt(
       $seq([
-        "else",
+        K_ELSE,
         $or([
           // xx
           $seq([_s, block]),
@@ -952,18 +1051,18 @@ const ifStatement = $def(() =>
 
 const switchStatement = $def(() =>
   $seq([
-    "switch",
+    K_SWITCH,
     _s,
-    "(",
+    K_PAREN_OPEN,
     _s,
     anyExpression,
     _s,
-    ")",
+    K_PAREN_CLOSE,
     _s,
-    "{",
+    K_BLACE_OPEN,
     _s,
     $repeat_seq([
-      $repeat_seq1(["case ", anyExpression, _s, ":", _s]),
+      $repeat_seq1([K_CASE, __, anyExpression, _s, ":", _s]),
       $opt(
         $or([
           $seq([
@@ -978,9 +1077,9 @@ const switchStatement = $def(() =>
       _s,
     ]),
     _s,
-    $opt($seq(["default", _s, ":", _s, $or([block, caseClause])])),
+    $opt($seq([K_DEFAULT, _s, ":", _s, $or([block, caseClause])])),
     _s,
-    "}",
+    K_BLACE_CLOSE,
   ])
 );
 
@@ -988,7 +1087,7 @@ const assign = $def(() => $seq(["=", $not(">"), _s, anyExpression]));
 export const variableStatement = $def(() =>
   $seq([
     // single
-    $r`(var|const|let) `,
+    $seq([declareType, __]),
     // x, y=1,
     $repeat_seq([
       destructive,
@@ -1008,15 +1107,15 @@ export const variableStatement = $def(() =>
 );
 
 const declareVariableStatement = $def(() =>
-  $seq([$skip($seq(["declare", __, variableStatement]))])
+  $seq([$skip($seq([K_DECLARE, __, variableStatement]))])
 );
 
 const typeStatement = $def(() =>
   $seq([
     $skip(
       $seq([
-        $opt($seq(["export "])),
-        "type",
+        $opt($seq([K_EXPORT, __])),
+        K_TYPE,
         __,
         identifier,
         _,
@@ -1028,16 +1127,17 @@ const typeStatement = $def(() =>
     ),
   ])
 );
+
 const interfaceStatement = $def(() =>
   $seq([
     // skip all
     $skip(
       $seq([
-        $opt($seq(["export "])),
-        "interface",
+        $opt($seq([K_EXPORT, __])),
+        K_INTERFACE,
         __,
         identifier,
-        $opt($seq([__, "extends", __, typeExpression])),
+        $opt($seq([__, K_EXTENDS, __, typeExpression])),
         _,
         typeObjectLiteral,
       ])
@@ -1047,9 +1147,9 @@ const interfaceStatement = $def(() =>
 
 export const forStatement = $def(() =>
   $seq([
-    "for",
+    K_FOR,
     _s,
-    "(",
+    K_PAREN_OPEN,
     _s,
     // start
     $or([variableStatement, anyExpression, _]),
@@ -1062,20 +1162,23 @@ export const forStatement = $def(() =>
     ";",
     // step end
     $opt(anyExpression),
-    ")",
+    K_PAREN_CLOSE,
     _s,
     blockOrStatement,
   ])
 );
 
 // include for in / for of
+
+const declareType = $or([K_VAR, K_CONST, K_LET]);
+
 const forItemStatement = $def(() =>
   $seq([
-    "for",
+    K_FOR,
     _s,
-    "(",
+    K_PAREN_OPEN,
     _s,
-    $r`(var|const|let) `,
+    $seq([$or([K_VAR, K_LET, K_CONST]), __]),
     _s,
     destructive,
     __,
@@ -1083,47 +1186,57 @@ const forItemStatement = $def(() =>
     __,
     anyExpression,
     _s,
-    ")",
+    K_PAREN_CLOSE,
     _s,
     blockOrStatement,
   ])
 );
 
 export const whileStatement = $def(() =>
-  $seq(["while", _s, "(", _s, anyExpression, _s, ")", _s, blockOrStatement])
+  $seq([
+    K_WHILE,
+    _s,
+    K_PAREN_OPEN,
+    _s,
+    anyExpression,
+    _s,
+    K_PAREN_CLOSE,
+    _s,
+    blockOrStatement,
+  ])
 );
 
 const doWhileStatement = $def(() =>
   $or([
     $seq([
-      "do",
+      K_DO,
       $or([$seq([_s, block]), $seq([__, anyStatement])]),
       _,
-      "while",
+      K_WHILE,
       _s,
-      "(",
+      K_PAREN_OPEN,
       _s,
       anyExpression,
       _s,
-      ")",
+      K_PAREN_CLOSE,
     ]),
   ])
 );
 
 // try{}finally{};
-const _finally = $def(() => $seq(["finally", _s, block]));
+const _finally = $def(() => $seq([K_FINALLY, _s, block]));
 const tryCatchStatement = $def(() =>
   $or([
     $seq([
       // try
-      "try",
+      K_TRY,
       _s,
       block,
       _s,
       $or([
         $seq([
-          "catch",
-          $opt($seq([_s, "(", _s, anyExpression, _s, ")"])),
+          K_CATCH,
+          $opt($seq([_s, K_PAREN_OPEN, _s, anyExpression, _s, K_PAREN_CLOSE])),
           _s,
           block,
           $opt($seq([_s, _finally])),
@@ -1142,7 +1255,7 @@ const expressionStatement = $def(() =>
 const semicolonlessStatement = $def(() =>
   $or([
     // export function/class
-    $seq(["export ", $or([functionExpression, classExpression])]),
+    $seq([K_EXPORT, __, $or([functionExpression, classExpression])]),
 
     classExpression,
     functionExpression,
@@ -1222,14 +1335,16 @@ const line = $def(() =>
 );
 
 const caseClause = $seq([
-  $repeat_seq([$not("case "), line]),
-  $opt($seq([$not("case "), anyStatement])),
+  $repeat_seq([$not(K_CASE + " "), line]),
+  $opt($seq([$not(K_CASE + " "), anyStatement])),
   $skip_opt(";"),
 ]);
 
 const lines = $seq([$repeat_seq([line]), $opt(anyStatement), $skip_opt(";")]);
 
-export const block = $def(() => $seq(["{", _s, lines, _s, "}"]));
+export const block = $def(() =>
+  $seq([K_BLACE_OPEN, _s, lines, _s, K_BLACE_CLOSE])
+);
 
 export const program = $def(() => $seq([_s, lines, _s, $eof()]));
 
