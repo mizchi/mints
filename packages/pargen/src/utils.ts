@@ -60,11 +60,10 @@ const findPatternAt = (
   const sliced = input.slice(pos);
   const match = sliced.match(regex);
   if (match && match[0].length > 0) {
-    const regexSummary =
-      regex.toString().length > 10
-        ? regex.toString().slice(0, 10) + "..."
-        : regex;
-
+    // const regexSummary =
+    //   regex.toString().length > 10
+    //     ? regex.toString().slice(0, 10) + "..."
+    //     : regex;
     // console.log(`[eat:reg${regexSummary}]`, `"${match[0]}"`);
   }
   return match?.[0] ?? null;

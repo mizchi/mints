@@ -1,5 +1,21 @@
 import { is, run, test } from "@mizchi/test";
-import { createBuilder, createRef } from "./builder";
+import {
+  $close,
+  $def,
+  $eof,
+  $not,
+  $opt,
+  $or,
+  $param,
+  $ref,
+  $regex,
+  $repeat,
+  $repeat_seq,
+  $seq,
+  $skip,
+  $skip_opt,
+  createRef,
+} from "./builder";
 import { compileFragment } from "./compiler";
 import {
   CacheMap,
@@ -157,10 +173,10 @@ export const printPerfResult = () => {
 
 export function createContext(partialOpts: Partial<Compiler> = {}) {
   const compiler = createCompiler(partialOpts);
-  const builder = createBuilder(compiler);
+  // const builder = createBuilder(compiler);
   const compile: RootCompiler = (...args) => {
     // close on first compile
-    builder.close();
+    $close(compiler);
     const rootParser = compiler.compile(...args);
     const newParser: RootParser = (input: string) => {
       const out = rootParser(input, 0);
@@ -180,7 +196,6 @@ export function createContext(partialOpts: Partial<Compiler> = {}) {
     return newParser;
   };
   return {
-    builder,
     compile,
     compiler,
   };
@@ -188,44 +203,43 @@ export function createContext(partialOpts: Partial<Compiler> = {}) {
 
 if (process.env.NODE_ENV === "test" && require.main === module) {
   test("whitespace", () => {
-    const { compile, builder: $ } = createContext();
-    is(compile($.r`\\s`)(" "), { result: " " });
-    is(compile($.r`\\s+`)("  "), { result: "  " });
-    // is(compile($.r`(\\s+)?`)(" ").result, " ");
-    // is(compile($.r`(\\s+)?`)(" \n ").result, " \n ");
-    // is(compile($.r`(\\s+)?`)(" \t ").result, " \t ");
+    const { compile } = createContext();
+    is(compile($regex(`\\s`))(" "), { result: " " });
+    is(compile($regex("\\s+"))("  "), { result: "  " });
   });
 
   test("token", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.seq(["a"]));
+    const { compile } = createContext();
+    const parser = compile($seq(["a"]));
     is(parser("a"), { result: "a" });
   });
 
   test("regex sharthand", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.r`\\w`, { end: true });
+    const { compile } = createContext();
+    const parser = compile($regex(`\\w`), { end: true });
     is(parser("a"), { result: "a" });
   });
 
   test("token2", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.r`\\s*a`);
+    const { compile } = createContext();
+    const parser = compile($regex(`\\s*a`));
     is(parser("a"), { result: "a" });
     is(parser(" a"), { result: " a" });
     is(parser("  y"), { error: true });
   });
 
   test("nested-token", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.seq(["a", $.seq(["b", "c"])]));
+    const { compile } = createContext();
+    const parser = compile($seq(["a", $seq(["b", "c"])]));
     is(parser("abc"), { result: "abc" });
     is(parser("adb").error, true);
   });
 
   test("not", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.seq([$.not("a"), $.r`\\w`, $.not("b"), $.r`\\w`]));
+    const { compile } = createContext();
+    const parser = compile(
+      $seq([$not("a"), $regex(`\\w`), $not("b"), $regex("\\w")])
+    );
     is(parser("ba"), { result: "ba" });
     is(parser("ab").error, true);
     is(parser("aa").error, true);
@@ -233,8 +247,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq-shorthand", () => {
-    const { compile, builder: $ } = createContext();
-    const seq = $.seq([
+    const { compile } = createContext();
+    const seq = $seq([
       ["a", "x"],
       ["b", "y"],
     ]);
@@ -247,9 +261,9 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq", () => {
-    const { compile, builder: $ } = createContext();
+    const { compile } = createContext();
 
-    const seq = $.seq([$.param("a", "x"), $.param("b", "y")]);
+    const seq = $seq([$param("a", "x"), $param("b", "y")]);
     const parser = compile(seq);
     is(parser("xy"), {
       error: false,
@@ -294,15 +308,15 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq:skip", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.seq(["a", $.skip($.r`\\s*`), "b"]));
+    const { compile } = createContext();
+    const parser = compile($seq(["a", $skip($regex("\\s+")), "b"]));
     is(parser("a   b"), { result: "ab" });
   });
 
   test("seq:skip_opt", () => {
-    const { compile, builder: $ } = createContext({ composeTokens: false });
+    const { compile } = createContext({ composeTokens: false });
     const parser = compile(
-      $.seq(["a", $.skip_opt($.seq([":", "@"])), "=", "b"])
+      $seq(["a", $skip_opt($seq([":", "@"])), "=", "b"])
       // { end: true }
     );
     is(parser("a=b"), { result: "a=b" });
@@ -310,26 +324,26 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq:eof", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.seq(["a", $.eof()]));
+    const { compile } = createContext();
+    const parser = compile($seq(["a", $eof()]));
     // console.log("parse", parser("a"));
     is(parser("a"), { result: "a" });
     is(parser("a ").error, true);
 
-    const parser2 = compile($.seq([$.eof()]));
+    const parser2 = compile($seq([$eof()]));
     is(parser2(""), { result: "" });
   });
 
   test("seq:eof-eof", () => {
-    const { compile, builder: $ } = createContext({
+    const { compile } = createContext({
       composeTokens: false,
     });
     const parser = compile(
-      $.repeat(
-        $.seq([
+      $repeat(
+        $seq([
           // a
           "a",
-          $.or([$.r`[\\n]`, $.eof()]),
+          $or([$regex("\\n"), $eof()]),
         ])
       )
     );
@@ -337,8 +351,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq-with-param", () => {
-    const { compile, builder: $ } = createContext();
-    const seq = $.seq([$.param("a", "a")]);
+    const { compile } = createContext();
+    const seq = $seq([$param("a", "a")]);
     const parser = compile(seq);
     is(parser("a"), { result: { a: "a" }, len: 1, pos: 0 });
     is(parser("ab"), {
@@ -359,10 +373,10 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("reuse symbol", () => {
-    const { compile, builder: $ } = createContext({});
-    const _ = $.def(() => $.r`\\s`);
+    const { compile } = createContext({});
+    const _ = $def(() => $regex("\\s"));
 
-    const seq = $.seq(["a", _, "b", _, "c"]);
+    const seq = $seq(["a", _, "b", _, "c"]);
     const parser = compile(seq);
     is(parser("a b c"), {
       result: "a b c",
@@ -372,9 +386,9 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("repeat", () => {
-    const { compile, builder: $ } = createContext();
-    const seq = $.repeat(
-      $.seq([
+    const { compile } = createContext();
+    const seq = $repeat(
+      $seq([
         ["a", "x"],
         ["b", "y"],
       ])
@@ -416,17 +430,15 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("repeat:str", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.repeat_seq(["a", "b", $.eof()]));
+    const { compile } = createContext();
+    const parser = compile($repeat_seq(["a", "b", $eof()]));
     is(parser("ab"), {
       error: false,
       result: ["ab"],
       pos: 0,
       len: 2,
     });
-    const parser2 = compile(
-      $.seq([$.repeat($.seq(["a", "b", $.eof()])), $.r`\\s*`])
-    );
+    const parser2 = compile($seq([$repeat($seq(["a", "b", $eof()])), $eof()]));
     is(parser2("ab"), {
       error: false,
       result: "ab",
@@ -436,8 +448,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("repeat:minmax", () => {
-    const { compile, builder: $ } = createContext();
-    const rep = $.repeat($.seq(["xy"]), [1, 2]);
+    const { compile } = createContext();
+    const rep = $repeat($seq(["xy"]), [1, 2]);
     const parser = compile(rep);
     // 1
     is(parser("xy"), {
@@ -460,8 +472,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("repeat:direct-repeat", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.repeat($.seq(["ab"]), [1, 2]));
+    const { compile } = createContext();
+    const parser = compile($repeat($seq(["ab"]), [1, 2]));
     is(parser("ab"), {
       result: ["ab"],
       pos: 0,
@@ -475,8 +487,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq:multiline", () => {
-    const { compile, builder: $ } = createContext();
-    const seq = $.seq([$.r`aaa\\sbbb`]);
+    const { compile } = createContext();
+    const seq = $seq([$regex("aaa\\nbbb")]);
     const parser = compile(seq);
     is(parser(`aaa\nbbb`), {
       result: "aaa\nbbb",
@@ -486,8 +498,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq:opt", () => {
-    const { compile, builder: $ } = createContext();
-    const seq = $.seq(["a", $.opt("b"), "c"]);
+    const { compile } = createContext();
+    const seq = $seq(["a", $opt("b"), "c"]);
     const parser = compile(seq);
     is(parser(`abc`), {
       result: "abc",
@@ -502,9 +514,9 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("repeat", () => {
-    const { compile, builder: $ } = createContext();
-    const seq = $.repeat(
-      $.seq([
+    const { compile } = createContext();
+    const seq = $repeat(
+      $seq([
         ["a", "x"],
         ["b", "y"],
       ])
@@ -532,19 +544,19 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("repeat:with-padding", () => {
-    const { compile, builder: $ } = createContext();
-    const seq = $.seq([
-      $.r`_+`,
-      $.param(
+    const { compile } = createContext();
+    const seq = $seq([
+      $regex("__"),
+      $param(
         "xylist",
-        $.repeat(
-          $.seq([
+        $repeat(
+          $seq([
             ["a", "x"],
             ["b", "y"],
           ])
         )
       ),
-      $.r`_+`,
+      $regex("_+"),
     ]);
     const parser = compile(seq);
 
@@ -561,8 +573,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("or", () => {
-    const { compile, builder: $ } = createContext();
-    const seq = $.or(["x", "y"]);
+    const { compile } = createContext();
+    const seq = $or(["x", "y"]);
     const parser = compile(seq);
     is(parser("x"), {
       result: "x",
@@ -595,8 +607,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("or:with-cache", () => {
-    const { compile, builder: $ } = createContext();
-    const seq = $.or([$.seq(["x", "y", "z"]), $.seq(["x", "y", "a"])]);
+    const { compile } = createContext();
+    const seq = $or([$seq(["x", "y", "z"]), $seq(["x", "y", "a"])]);
     const parser = compile(seq);
     is(parser("xya"), {
       result: "xya",
@@ -608,42 +620,42 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       error: true,
       pos: 0,
       errorType: ErrorType.Or_UnmatchAll,
-      errors: [
-        {
-          error: true,
-          errorType: ErrorType.Seq_Stop,
-          pos: 0,
-          childError: {
-            error: true,
-            pos: 0,
-            errorType: ErrorType.Token_Unmatch,
-            // detail: "xyz",
-          },
-        },
-        {
-          error: true,
-          errorType: ErrorType.Seq_Stop,
-          pos: 0,
-          childError: {
-            error: true,
-            pos: 0,
-            errorType: ErrorType.Token_Unmatch,
-            // detail: "xya",
-          },
-        },
-      ],
+      // errors: [
+      //   {
+      //     error: true,
+      //     errorType: ErrorType.Seq_Stop,
+      //     pos: 0,
+      //     childError: {
+      //       error: true,
+      //       pos: 0,
+      //       errorType: ErrorType.Token_Unmatch,
+      //       // detail: "xyz",
+      //     },
+      //   },
+      //   {
+      //     error: true,
+      //     errorType: ErrorType.Seq_Stop,
+      //     pos: 0,
+      //     childError: {
+      //       error: true,
+      //       pos: 0,
+      //       errorType: ErrorType.Token_Unmatch,
+      //       // detail: "xya",
+      //     },
+      //   },
+      // ],
     });
   });
 
   test("reuse recursive with suffix", () => {
     // const Paren = 1000;
-    const { compile, builder: $ } = createContext({});
-    const paren = $.def(() =>
-      $.seq([
+    const { compile } = createContext({});
+    const paren = $def(() =>
+      $seq([
         "\\(",
-        $.or([
+        $or([
           // nested: ((1))
-          $.ref(paren),
+          $ref(paren),
           // (1),
           "1",
         ]),
@@ -672,27 +684,27 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("skip in or", () => {
-    const { compile, builder: $ } = createContext();
+    const { compile } = createContext();
     // read next >
-    const parser = compile($.or([$.seq(["a", $.skip("b"), "c"]), "xxx"]));
+    const parser = compile($or([$seq(["a", $skip("b"), "c"]), "xxx"]));
     is(parser("abc"), { result: "ac" });
   });
   test("skip in repeat", () => {
-    const { compile, builder: $ } = createContext();
+    const { compile } = createContext();
     const parser = compile(
-      $.seq([$.repeat($.or([$.seq(["a", $.skip("b"), "c"]), "xxx"]))])
+      $seq([$repeat($or([$seq(["a", $skip("b"), "c"]), "xxx"]))])
     );
     is(parser("abcabcxxx"), { result: "acacxxx" });
   });
 
   test("seq-string with reshape", () => {
-    const { compile, builder: $ } = createContext();
+    const { compile } = createContext();
     const parser = compile(
-      $.seq([
+      $seq([
         // a
         "a",
-        $.seq(["bb"], () => "_"),
-        $.skip("c"),
+        $seq(["bb"], () => "_"),
+        $skip("c"),
         "d",
       ]),
       { end: true }
@@ -702,31 +714,31 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq:skip-nested", () => {
-    const { compile, builder: $ } = createContext();
+    const { compile } = createContext();
     const parser = compile(
-      $.seq([
+      $seq([
         //xx
         "a",
-        $.seq([$.skip("b"), "c"]),
+        $seq([$skip("b"), "c"]),
       ])
     );
     is(parser("abc"), { result: "ac" });
   });
   test("seq:skip-nested2", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.or([$.seq([$.skip("b")])]));
+    const { compile } = createContext();
+    const parser = compile($or([$seq([$skip("b")])]));
     is(parser("b"), { result: "" });
   });
   test("seq:skip-nested3-optional", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.or([$.seq([$.skip_opt("b")])]));
+    const { compile } = createContext();
+    const parser = compile($or([$seq([$skip_opt("b")])]));
     is(parser("b"), { result: "" });
     is(parser(""), { result: "" });
   });
 
   test("skip with repeat", () => {
-    const { compile, builder: $ } = createContext();
-    const parser = compile($.seq([$.repeat_seq(["a", $.skip("b")])]));
+    const { compile } = createContext();
+    const parser = compile($seq([$repeat_seq(["a", $skip("b")])]));
     is(parser("ababab"), { result: "aaa" });
   });
 
