@@ -22,17 +22,27 @@ export enum NodeKind {
   NOT,
 }
 
-export enum ErrorType {
-  Not_IncorrectMatch = 400,
-  Pair_Unmatch,
-  Eof_Unmatch,
-  Token_Unmatch,
-  Regex_Unmatch,
-  Seq_Stop,
-  Or_UnmatchAll,
-  Repeat_RangeError,
-  Atom_ParseError,
-}
+// export enum ErrorType {
+//   Not_IncorrectMatch = 400,
+//   Pair_Unmatch,
+//   Eof_Unmatch,
+//   Token_Unmatch,
+//   Regex_Unmatch,
+//   Seq_Stop,
+//   Or_UnmatchAll,
+//   Repeat_RangeError,
+//   Atom_ParseError,
+// }
+
+export const ERROR_Not_IncorrectMatch = 400;
+export const ERROR_Pair_Unmatch = 401;
+export const ERROR_Eof_Unmatch = 402;
+export const ERROR_Token_Unmatch = 403;
+export const ERROR_Regex_Unmatch = 404;
+export const ERROR_Seq_Stop = 405;
+export const ERROR_Or_UnmatchAll = 406;
+export const ERROR_Repeat_RangeError = 407;
+export const ERROR_Atom_ParseError = 408;
 
 export const defaultReshape: Reshape<any, any> = <T>(i: T): T => i;
 
@@ -285,38 +295,38 @@ export type ParseSuccess = {
 };
 
 type RepeatRangeError = {
-  errorType: ErrorType.Repeat_RangeError;
+  errorType: typeof ERROR_Repeat_RangeError;
 };
 
 type NotIncorrectMatch = {
-  errorType: ErrorType.Not_IncorrectMatch;
+  errorType: typeof ERROR_Not_IncorrectMatch;
 };
 
 type EofUnmatch = {
-  errorType: ErrorType.Eof_Unmatch;
+  errorType: typeof ERROR_Eof_Unmatch;
 };
 
 type TokenUnmatch = {
-  errorType: ErrorType.Token_Unmatch;
+  errorType: typeof ERROR_Token_Unmatch;
 };
 
 type RegexUnmatch = {
-  errorType: ErrorType.Regex_Unmatch;
+  errorType: typeof ERROR_Regex_Unmatch;
 };
 
 type SeqStop = {
-  errorType: ErrorType.Seq_Stop;
+  errorType: typeof ERROR_Seq_Stop;
   index: number;
   childError: ParseError;
 };
 
 type UnmatchAll = {
-  errorType: ErrorType.Or_UnmatchAll;
+  errorType: typeof ERROR_Or_UnmatchAll;
   errors: Array<ParseError>;
 };
 
 type AtomError = {
-  errorType: ErrorType.Atom_ParseError;
+  errorType: typeof ERROR_Atom_ParseError;
   childError: ParseError;
 };
 

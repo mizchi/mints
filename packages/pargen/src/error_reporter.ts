@@ -1,4 +1,11 @@
-import { DefinitionMap, ErrorType, NodeKind, ParseError } from "./types";
+import {
+  DefinitionMap,
+  ERROR_Or_UnmatchAll,
+  ERROR_Seq_Stop,
+  ERROR_Token_Unmatch,
+  NodeKind,
+  ParseError,
+} from "./types";
 
 export function reportError(
   input: string,
@@ -14,7 +21,7 @@ export function reportError(
   const linePrefix = `L${errorLineNumber}: `;
   const errorNextLine = input.slice(err.pos).split(/[\n;]/)[0];
 
-  const errorSummary = `ParseError: ${ErrorType[err.errorType]}[${
+  const errorSummary = `ParseError: ${err.errorType}[${
     NodeKind[err.rule.kind]
   }] defId:${err.rootId} => nodeId:${err.rule.id}`;
   const outputLine = `${linePrefix}${errorLine}${errorNextLine}`;
@@ -38,18 +45,18 @@ function findDeepestError(
   currentError: ParseError
 ): ParseError {
   if (error.pos === currentError.pos) {
-    if (error.errorType === ErrorType.Token_Unmatch) {
+    if (error.errorType === ERROR_Token_Unmatch) {
       currentError = error;
     }
   } else {
     currentError = error.pos > currentError.pos ? error : currentError;
   }
 
-  if (error.errorType === ErrorType.Seq_Stop) {
+  if (error.errorType === ERROR_Seq_Stop) {
     currentError = findDeepestError(error.childError, currentError);
   }
 
-  if (error.errorType === ErrorType.Or_UnmatchAll) {
+  if (error.errorType === ERROR_Or_UnmatchAll) {
     for (const e of error.errors) {
       currentError = findDeepestError(e, currentError);
     }

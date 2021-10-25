@@ -20,7 +20,9 @@ import { compileFragment } from "./compiler";
 import {
   CacheMap,
   Compiler,
-  ErrorType,
+  ERROR_Or_UnmatchAll,
+  ERROR_Seq_Stop,
+  ERROR_Token_Unmatch,
   NodeKind,
   PackratCache,
   ParseResult,
@@ -279,7 +281,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
     is(parser("xz"), {
       error: true,
-      errorType: ErrorType.Seq_Stop,
+      errorType: ERROR_Seq_Stop,
       pos: 1,
       errorChild: {},
       // detail: {
@@ -293,7 +295,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
     is(parser(" xy"), {
       error: true,
-      errorType: ErrorType.Seq_Stop,
+      errorType: ERROR_Seq_Stop,
       pos: 0,
       errorChild: {},
       // detail: {
@@ -362,12 +364,12 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
     is(parser("x"), {
       error: true,
-      errorType: ErrorType.Seq_Stop,
+      errorType: ERROR_Seq_Stop,
       pos: 0,
       childError: {
         pos: 0,
         error: true,
-        errorType: ErrorType.Token_Unmatch,
+        errorType: ERROR_Token_Unmatch,
       },
     });
   });
@@ -586,19 +588,19 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
     is(parser("z"), {
       error: true,
-      errorType: ErrorType.Or_UnmatchAll,
+      errorType: ERROR_Or_UnmatchAll,
       pos: 0,
       errors: [
         {
           error: true,
           pos: 0,
-          errorType: ErrorType.Token_Unmatch,
+          errorType: ERROR_Token_Unmatch,
           // detail: "x",
         },
         {
           error: true,
           pos: 0,
-          errorType: ErrorType.Token_Unmatch,
+          errorType: ERROR_Token_Unmatch,
           // detail: "y",
         },
       ],
@@ -619,7 +621,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("xyb"), {
       error: true,
       pos: 0,
-      errorType: ErrorType.Or_UnmatchAll,
+      errorType: ERROR_Or_UnmatchAll,
       // errors: [
       //   {
       //     error: true,

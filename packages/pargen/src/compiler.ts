@@ -1,7 +1,13 @@
 import {
   Compiler,
   defaultReshape,
-  ErrorType,
+  ERROR_Eof_Unmatch,
+  ERROR_Not_IncorrectMatch,
+  ERROR_Or_UnmatchAll,
+  ERROR_Regex_Unmatch,
+  ERROR_Repeat_RangeError,
+  ERROR_Seq_Stop,
+  ERROR_Token_Unmatch,
   InternalParser,
   NodeKind,
   ParseError,
@@ -108,7 +114,7 @@ function compileFragmentInternal(
           return createParseSuccess(result, pos, 0, undefined, hasReshaper);
         }
         return createParseError(rule, pos, rootId, {
-          errorType: ErrorType.Not_IncorrectMatch,
+          errorType: ERROR_Not_IncorrectMatch,
         });
       };
     }
@@ -131,7 +137,7 @@ function compileFragmentInternal(
           return createParseSuccess("", pos, 0, undefined, hasReshaper);
         }
         return createParseError(rule, pos, rootId, {
-          errorType: ErrorType.Eof_Unmatch,
+          errorType: ERROR_Eof_Unmatch,
         });
       };
     }
@@ -146,7 +152,7 @@ function compileFragmentInternal(
             return createParseSuccess(null, pos, 0, undefined, hasReshaper);
           } else {
             return createParseError(rule, pos, rootId, {
-              errorType: ErrorType.Regex_Unmatch,
+              errorType: ERROR_Regex_Unmatch,
               expr: expr,
             });
           }
@@ -170,7 +176,7 @@ function compileFragmentInternal(
             return createParseSuccess(null, pos, 0, undefined, hasReshaper);
           } else {
             return createParseError(rule, pos, rootId, {
-              errorType: ErrorType.Token_Unmatch,
+              errorType: ERROR_Token_Unmatch,
             });
           }
         }
@@ -205,7 +211,7 @@ function compileFragmentInternal(
           return reshape(parsed) as ParseResult;
         }
         return createParseError(rule, pos, rootId, {
-          errorType: ErrorType.Or_UnmatchAll,
+          errorType: ERROR_Or_UnmatchAll,
           errors,
         });
       };
@@ -236,7 +242,7 @@ function compileFragmentInternal(
           (repeat.max && xs.length > repeat.max)
         ) {
           return createParseError(rule, pos, rootId, {
-            errorType: ErrorType.Repeat_RangeError,
+            errorType: ERROR_Repeat_RangeError,
           });
         }
         return createParseSuccess(
@@ -264,7 +270,7 @@ function compileFragmentInternal(
             if (parseResult.error) {
               if (parser.node.optional) continue;
               return createParseError(rule, cursor, rootId, {
-                errorType: ErrorType.Seq_Stop,
+                errorType: ERROR_Seq_Stop,
                 childError: parseResult,
                 index: parsers.indexOf(parser),
               });
@@ -292,7 +298,7 @@ function compileFragmentInternal(
             if (parseResult.error) {
               if (parser.node.optional) continue;
               return createParseError(rule, cursor, rootId, {
-                errorType: ErrorType.Seq_Stop,
+                errorType: ERROR_Seq_Stop,
                 childError: parseResult,
                 index: parsers.indexOf(parser),
               });

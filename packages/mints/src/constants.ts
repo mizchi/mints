@@ -2,11 +2,6 @@
 export const _ = "([\\s\\n]+)?";
 export const __ = `[\\s\\n]+`;
 
-// "(?!.*@N).*?"
-export const PAIRED_CHARS = ["(", ")", "{", "}", "[", "]", "<", ">"] as const;
-export const REST_SPREAD = "...";
-export const SPACE_REQUIRED_OPERATORS = ["instanceof", "in"];
-
 export const K_QUESTION = "?";
 export const K_BANG = "!";
 export const K_CASE = "case";
@@ -61,11 +56,17 @@ export const K_SET = "set";
 export const K_SWITCH = "switch";
 export const K_INSTANCEOF = "instanceof";
 export const K_CATCH = "catch";
+export const K_IN = "in";
 
 export const K_PAREN_OPEN = "(";
 export const K_PAREN_CLOSE = ")";
 export const K_BLACE_OPEN = "{";
 export const K_BLACE_CLOSE = "}";
+
+// "(?!.*@N).*?"
+// export const PAIRED_CHARS = ["(", ")", "{", "}", "[", "]", "<", ">"] as const;
+export const REST_SPREAD = "...";
+export const SPACE_REQUIRED_OPERATORS = [K_INSTANCEOF, K_IN];
 
 export const OPERATORS = [
   // relation
@@ -134,8 +135,8 @@ const KEYWORDS = [
   K_IF,
   K_THROW,
   K_DELETE,
-  "in",
-  "try",
+  K_IN,
+  K_TRY,
   // Future reserved words
   K_CLASS,
   "enum",
