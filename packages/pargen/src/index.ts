@@ -79,40 +79,6 @@ export function createContext(partial: Partial<Compiler> = {}) {
     ...partial,
   };
 
-  const partialCompiler: RootCompiler = (node, rootOpts) => {
-    const end = rootOpts?.end ?? false;
-    const _resolved = isNumber(node) ? createRef(node) : node;
-    const resolved = end
-      ? ({
-          id: 0, // shoud be zero
-          kind: SEQ,
-          primitive: true,
-          children: [
-            _resolved,
-            {
-              id: 1,
-              kind: EOF,
-              primitive: true,
-            },
-          ],
-        } as Seq)
-      : _resolved;
-    const parseFragment = compileFragment(resolved, compiler, resolved.id);
-    const parser: RootParser = (input: string) => {
-      const cache = createPackratCache();
-      return parseFragment(
-        {
-          root: resolved.id,
-          raw: input,
-          // chars: Array.from(input),
-          cache,
-        },
-        0
-      );
-    };
-    return parser;
-  };
-
   const rootCompiler: RootCompiler = (node, rootOpts) => {
     $close(compiler);
     const end = rootOpts?.end ?? false;
