@@ -70,7 +70,7 @@ export type SerializedEof = [kind: typeof EOF, ...body: SerializedRuleBody];
 
 export type Not = RuleBase & {
   kind: typeof NOT;
-  child: Rule;
+  patterns: Rule[];
 };
 
 export type SerializedNot = [

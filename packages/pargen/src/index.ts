@@ -37,7 +37,7 @@ export { reportError } from "./error_reporter";
 
 export function createContext(partial: Partial<Compiler> = {}) {
   const compiler: Compiler = {
-    useHeadTables: false,
+    // useHeadTables: false,
     parsers: new Map(),
     definitions: new Map(),
     ...partial,
@@ -212,7 +212,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   test("not", () => {
     const { compile } = createContext();
     const parser = compile(
-      $seq([$not("a"), $regex(`\\w`), $not("b"), $regex("\\w")])
+      $seq([$not(["a"]), $regex(`\\w`), $not(["b"]), $regex("\\w")])
     );
     is(parser("ba"), { result: "ba" });
     is(parser("ab").error, true);

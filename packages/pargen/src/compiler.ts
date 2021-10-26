@@ -64,6 +64,7 @@ export const createParseSuccess = (
       return [...acc, [nextStart, nextEnd]];
     }, [] as (Range | string)[]);
   }
+  // if (c
   // console.log("createSuccess:raw", ranges, "=>", newRanges);
 
   return {
@@ -111,17 +112,36 @@ function compileFragmentInternal(
   compiler: Compiler,
   rootId: number
 ): InternalParser {
+  // if (rule.id === 688) {
+  //   console.log("target is", rule);
+  // }
+
+  // if (rootId === 53) {
+  //   setTimeout(() => {
+  //     console.log("root", compiler.definitions.get(rootId));
+  //   }, 0);
+  // }
+
   switch (rule.kind) {
     case NOT: {
-      const childParser = compileFragment(rule.child, compiler, rootId);
+      const childParsers = rule.patterns.map((pat) =>
+        compileFragment(pat, compiler, rootId)
+      );
+
+      // const childParser = compileFragment(rule.child, compiler, rootId);
       return (ctx, pos) => {
-        const result = childParser(ctx, pos);
-        if (result.error === true) {
-          return createParseSuccess(result, pos, 0, undefined, rule.reshape);
+        for (const childParser of childParsers) {
+          const result = childParser(ctx, pos);
+          if (result.error === true) {
+            // early stop
+            return createParseSuccess(result, pos, 0, undefined, rule.reshape);
+          }
         }
         return createParseError(rule, pos, rootId, {
           errorType: ERROR_Not_IncorrectMatch,
         });
+
+        // return 1 as any;
       };
     }
     case REF: {
@@ -214,7 +234,7 @@ function compileFragmentInternal(
       return (ctx, pos) => {
         const headErrors = [];
         // if heads is 0, return success
-        if (compiler.useHeadTables && compiledHeads.length > 0) {
+        if (false && compiledHeads.length > 0) {
           let isHeadSuccess = false;
           for (const head of compiledHeads) {
             const parsed = head.parse(ctx, pos);

@@ -83,6 +83,9 @@ import { compile } from "./ctx";
 const _ = $regex(_w);
 const _s = $skip($regex(_w));
 const __ = $regex(__w);
+// const _ = $def(() => $regex(_w));
+// const _s = $def(() => $skip($regex(_w)));
+// const __ = $def(() => $regex(__w));
 
 const reserved = RESERVED_WORDS.join("|");
 export const identifier = $def(() =>
@@ -100,7 +103,7 @@ const typeDeclareParameter = $def(() =>
     // extends T
     $opt($seq([_, K_EXTENDS, __, typeExpression])),
     _,
-    $opt($seq(["=", $not(">"), _, typeExpression])),
+    $opt($seq(["=", $not([">"]), _, typeExpression])),
   ])
 );
 
@@ -142,7 +145,7 @@ const typeParen = $def(() =>
 
 const typeIdentifier = $def(() =>
   $seq([
-    $not($seq([K_READONLY, __])),
+    $not([$seq([K_READONLY, __])]),
     $or([
       // "readonly",
       K_VOID,
@@ -426,7 +429,7 @@ const functionArgWithAssign = $def(() =>
         typeExpression,
       ])
     ),
-    $opt($seq([_, $skip_opt(K_QUESTION), "=", $not(">"), _, anyExpression])),
+    $opt($seq([_, $skip_opt(K_QUESTION), "=", $not([">"]), _, anyExpression])),
   ])
 );
 // const lefthand = $def(() => destructivePattern);
@@ -635,7 +638,9 @@ const classConstructorArg = $def(() =>
       $skip_opt(
         $seq([_, $opt(K_QUESTION), $opt(K_QUESTION), ":", _, typeExpression])
       ),
-      $opt($seq([_, $skip_opt(K_QUESTION), "=", $not(">"), _, anyExpression])),
+      $opt(
+        $seq([_, $skip_opt(K_QUESTION), "=", $not([">"]), _, anyExpression])
+      ),
     ]),
   ])
 );
@@ -714,7 +719,7 @@ const classField = $def(() =>
       // :xxx
       $skip_opt($seq([_s, _typeAnnotation])),
       _s,
-      $opt($seq(["=", $not(">"), _s, anyExpression])),
+      $opt($seq(["=", $not([">"]), _s, anyExpression])),
       ";",
     ]),
   ])
@@ -797,7 +802,7 @@ const newExpression = $def(() =>
 );
 
 const paren = $def(() =>
-  $seq([K_PAREN_OPEN, _s, anyExpression, _s, K_PAREN_CLOSE, $not("=>")])
+  $seq([K_PAREN_OPEN, _s, anyExpression, _s, K_PAREN_CLOSE, $not(["=>"])])
 );
 const primary = $or([
   paren,
@@ -1100,7 +1105,7 @@ const switchStatement = $def(() =>
   ])
 );
 
-const assign = $def(() => $seq(["=", $not(">"), _s, anyExpression]));
+const assign = $def(() => $seq(["=", $not([">"]), _s, anyExpression]));
 export const variableStatement = $def(() =>
   $seq([
     // single
@@ -1137,7 +1142,7 @@ const typeStatement = $def(() =>
         identifier,
         _,
         "=",
-        $not(">"),
+        $not([">"]),
         _,
         typeExpression,
       ])
@@ -1270,21 +1275,80 @@ const expressionStatement = $def(() =>
 );
 
 const semicolonlessStatement = $def(() =>
-  $or([
-    // export function/class
-    $seq([K_EXPORT, __, $or([functionExpression, classExpression])]),
+  $seq([
+    $or([
+      // export function/class
+      $seq([K_EXPORT, __, $or([functionExpression, classExpression])]),
 
-    classExpression,
-    functionExpression,
-    tryCatchStatement,
-    ifStatement,
-    whileStatement,
-    switchStatement,
-    doWhileStatement,
-    interfaceStatement,
-    forStatement,
-    forItemStatement,
-    blockStatement,
+      classExpression,
+      functionExpression,
+      tryCatchStatement,
+      ifStatement,
+      whileStatement,
+      switchStatement,
+      doWhileStatement,
+      interfaceStatement,
+      forStatement,
+      forItemStatement,
+      blockStatement,
+    ]),
+    // _s,
+    // $skip_opt(";"),
+  ])
+);
+
+const semicolonRequiredStatement = $def(() =>
+  $seq([
+    // $not(semicolonlessStatement),
+    // $not(classExpression),
+    // $not(functionExpression),
+    // $not(tryCatchStatement),
+    // $not(ifStatement),
+    // $not(),
+
+    $or([
+      // "debbuger"
+      debuggerStatement,
+      // break ...
+      breakStatement,
+      // return ...
+      returnStatement,
+      // throw ...
+      throwStatement,
+      // try
+      tryCatchStatement,
+      // declare ...
+      declareVariableStatement,
+      // const ...
+      variableStatement,
+      // type ...
+      typeStatement,
+      // interface ...
+      interfaceStatement,
+      // if ...
+      ifStatement,
+      // import ...
+      importStatement,
+      // export ...
+      exportStatement,
+      // for ...
+      forItemStatement,
+      forStatement,
+      // do ...
+      doWhileStatement,
+      // while ...
+      whileStatement,
+      // switch ...
+      switchStatement,
+      // foo: ...
+      labeledStatement,
+      // { ...
+      blockStatement,
+      // other expression
+      expressionStatement,
+    ]),
+    // _s,
+    // $skip_opt(";"),
   ])
 );
 
@@ -1352,8 +1416,8 @@ const line = $def(() =>
 );
 
 const caseClause = $seq([
-  $repeat_seq([$not(K_CASE + " "), line]),
-  $opt($seq([$not(K_CASE + " "), anyStatement])),
+  $repeat_seq([$not([K_CASE + " "]), line]),
+  $opt($seq([$not([K_CASE + " "]), anyStatement])),
   $skip_opt(";"),
 ]);
 
@@ -1368,7 +1432,7 @@ export const program = $def(() => $seq([_s, lines, _s, $eof()]));
 import { test, run, is } from "@mizchi/test";
 // import { expectError, expectSame } from "./_testHelpers";
 import { preprocessLight } from "./preprocess";
-import { reportError } from "../types/pargen/src";
+// import { reportError } from "../types/pargen/src";
 // import { reportError } from "../../pargen/src/error_reporter";
 
 const isMain = require.main === module;
@@ -1644,9 +1708,9 @@ if (process.env.NODE_ENV === "test") {
       "class{readonly x = 1;}",
 
       "class{x=1;}",
-      "class{x=1;#y=2;}",
-      // `class{readonly x: number = 1;}`,
-      // "class{static readonly x = 1;}",
+      // "class{x=1;#y=2;}",
+      `class{readonly x: number = 1;}`,
+      "class{static readonly x = 1;}",
       "class{constructor(){}}",
       "class{constructor(){this.val = 1;}}",
       "class{foo(){}}",
@@ -1800,6 +1864,64 @@ if (process.env.NODE_ENV === "test") {
     is(parse("1 + 1 as number"), { result: "1+1" });
     is(parse("(a) as number"), { result: "(a)" });
     is(parse("(a as number)"), { result: "(a)" });
+  });
+
+  test("typeExpression_test", () => {
+    const parse = compile(typeExpression, { end: true });
+    expectSame(
+      parse,
+      [
+        "{ a: number; }",
+        "{ a: number, }",
+        "{ a: number, b: number }",
+        "{ a: number, b?: number }",
+        "{ a?: number }",
+        "{ a: number, b: { x: 1; } }",
+        "{ a: number; }['a']",
+        "{ a: () => void; }",
+        "{ f(): void; }",
+        "{ async f(): void; }",
+        "{ f(arg: any): void; }",
+        "{ f(arg: any,): void; }",
+        "{ f(a1: any, a2: any): void; }",
+        "{ f(a1: any, a2: any, ...args: any): void; }",
+        "{ f(...args: any): void; }",
+        "{ f(...args: any): void; b: 1; }",
+        "{ readonly b: number; }",
+        `{
+          readonly b: number,
+          a: number
+        }`,
+        // `{ readonly b, number, a: number }`,
+        "[] & {}",
+        "[number]",
+        "[number,number]",
+        "[number, ...args: any]",
+        "[a:number]",
+        "[y:number,...args: any]",
+        "() => void",
+        "<T>() => void",
+        "<T = U>() => void",
+        "<T extends X>() => void",
+        "<T extends X = any>() => void",
+        "(a: number) => void",
+        "(a?: number) => void",
+        "(a: A) => void",
+        "(a: A, b: B) => void",
+        "(...args: any[]) => void",
+        "(...args: any[]) => A | B",
+        "((...args: any[]) => A | B) | () => void",
+        "infer U",
+        "{ readonly x: number; }",
+      ],
+      { stripTypes: false, format: false }
+    );
+    // is(
+    //   parse(`{
+
+    // }`),
+    //   { result: "{\n }" }
+    // );
   });
 
   test("typeExpression", () => {

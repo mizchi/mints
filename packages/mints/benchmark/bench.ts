@@ -61,7 +61,15 @@ export function main() {
   const compilers = [compileTsc, compileMints];
 
   // const targets = [code1, code2, code3];
-  const targets = [code0, code1, code2, code3, code4, code5];
+  const targets = [
+    // x
+    // code0,
+    // code1,
+    // code2,
+    code3,
+    // code4,
+    // code5,
+  ];
 
   for (const code of targets) {
     for (const compiler of compilers) {
@@ -78,8 +86,8 @@ export function main() {
         // console.log("----");
         // console.log(prettier.format(out, { parser: "typescript" }));
       }
-      if (compiler === compileMints) {
-        // printPerfResult();
+      if (process.env.NODE_ENV === "perf" && compiler === compileMints) {
+        printPerfResult();
       }
     }
   }

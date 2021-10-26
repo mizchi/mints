@@ -141,12 +141,12 @@ export function $seq(
   } as Seq;
 }
 
-export function $not(child: InputNodeExpr, reshape?: Reshape): Not {
-  const childNode = toNode(child);
+export function $not(children: InputNodeExpr[], reshape?: Reshape): Not {
+  const childNodes = children.map(toNode);
   return {
     ...nodeBaseDefault,
     kind: NOT,
-    child: childNode,
+    patterns: childNodes,
     reshape,
     id: genId(),
   } as Not;
