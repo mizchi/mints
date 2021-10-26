@@ -152,28 +152,34 @@ export function $not(child: InputNodeExpr, reshape?: Reshape): Not {
   } as Not;
 }
 
+function findFirstNonOptionalRule(seq: Seq): Rule | undefined {
+  if (seq.kind === SEQ) {
+    for (const child of seq.children) {
+      if (child.optional) continue;
+      if (child.kind === SEQ) {
+        return findFirstNonOptionalRule(child);
+      } else {
+        return child;
+      }
+    }
+  }
+  return undefined;
+}
 function buildHeadTable(rule: Rule): Rule[] {
-  // const heads = [];
-  // for (const pat of rules) {
   switch (rule.kind) {
     case ATOM:
     case REGEX:
     case NOT:
     case REF:
     case EOF:
-    case TOKEN: {
+    case TOKEN:
       return [rule];
-    }
     case REPEAT: {
       return buildHeadTable(rule.pattern);
     }
-
     case SEQ: {
-      let head: Rule = rule.children[0];
-      while (head.kind === SEQ) {
-        head = head.children[0];
-      }
-      return buildHeadTable(head);
+      const head = findFirstNonOptionalRule(rule);
+      return head ? buildHeadTable(head) : [];
     }
     case OR: {
       return rule.patterns.map((pat) => buildHeadTable(pat)).flat();

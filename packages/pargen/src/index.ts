@@ -128,6 +128,43 @@ export function createContext(partial: Partial<Compiler> = {}) {
   };
 }
 
+// impl
+function createPackratCache(): PackratCache {
+  const cache: CacheMap = {};
+  const keygen = (id: number, pos: number): `${number}@${string}` =>
+    `${pos}@${id}`;
+  function add(id: number, pos: number, result: ParseResult) {
+    // @ts-ignore
+    cache[keygen(id, pos)] = result;
+  }
+  function get(id: number, pos: number): ParseResult | void {
+    const key = keygen(id, pos);
+    return cache[key];
+  }
+  const getOrCreate = (
+    id: number | string,
+    pos: number,
+    creator: () => ParseResult
+  ): ParseResult => {
+    return measurePerf("c-" + id, () => {
+      const cached = get(id as number, pos);
+      if (cached) {
+        cacheHitCount++;
+        return cached;
+      }
+      cacheMissCount++;
+      const result = creator();
+      add(id as number, pos, result);
+      return result;
+    });
+  };
+  return {
+    add,
+    get,
+    getOrCreate,
+  };
+}
+
 const perfTimes = new Map<string, { sum: number; count: number }>();
 let cacheHitCount = 0;
 let cacheMissCount = 0;

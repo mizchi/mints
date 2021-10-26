@@ -214,24 +214,26 @@ function compileFragmentInternal(
       return (ctx, pos) => {
         const headErrors = [];
         // if heads is 0, return success
-        if (compiledHeads.length > 0) {
-          // let isHeadSuccess = false;
-          // for (const head of compiledHeads) {
-          //   const parsed = head.parse(ctx, pos);
-          //   if (parsed.error) {
-          //     // TODO: Cache
-          //     headErrors.push(parsed);
-          //   } else {
-          //     isHeadSuccess = true;
-          //   }
-          // }
-          // if (!isHeadSuccess) {
-          //   console.log("fail to parse head", headErrors);
-          //   return createParseError(rule, pos, rootId, {
-          //     errorType: ERROR_Or_UnmatchAll,
-          //     errors: headErrors,
-          //   });
-          // }
+        if (compiler.useHeadTables && compiledHeads.length > 0) {
+          let isHeadSuccess = false;
+          for (const head of compiledHeads) {
+            const parsed = head.parse(ctx, pos);
+            if (parsed.error) {
+              // TODO: Cache
+              headErrors.push(parsed);
+            } else {
+              isHeadSuccess = true;
+            }
+          }
+          if (!isHeadSuccess) {
+            if (rootId === 15) {
+              console.log("fail to parse head", headErrors);
+            }
+            return createParseError(rule, pos, rootId, {
+              errorType: ERROR_Or_UnmatchAll,
+              errors: headErrors,
+            });
+          }
         }
 
         const errors: ParseError[] = [];
