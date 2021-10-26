@@ -1368,6 +1368,7 @@ export const program = $def(() => $seq([_s, lines, _s, $eof()]));
 import { test, run, is } from "@mizchi/test";
 // import { expectError, expectSame } from "./_testHelpers";
 import { preprocessLight } from "./preprocess";
+import { reportError } from "../types/pargen/src";
 // import { reportError } from "../../pargen/src/error_reporter";
 
 const isMain = require.main === module;
@@ -1398,7 +1399,8 @@ if (process.env.NODE_ENV === "test") {
       const input = preprocessLight(raw);
       const result = parse(input);
       if (result.error) {
-        result.reportErrorDetail();
+        // reportError(input, result.error);
+        // result.reportErrorDetail();
         throw new Error("Unexpected Result: " + input.replace(/\n/g, "\\n"));
       } else {
         const resultf = format

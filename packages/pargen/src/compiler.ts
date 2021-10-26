@@ -197,6 +197,14 @@ function compileFragmentInternal(
       };
     }
     case OR: {
+      // const heads = rule.heads;
+      const compiledHeads = rule.heads.map((p) => {
+        return {
+          parse: compileFragment(p, compiler, rootId),
+          node: p,
+        };
+      });
+
       const compiledPatterns = rule.patterns.map((p) => {
         return {
           parse: compileFragment(p, compiler, rootId),
@@ -204,6 +212,28 @@ function compileFragmentInternal(
         };
       });
       return (ctx, pos) => {
+        const headErrors = [];
+        // if heads is 0, return success
+        if (compiledHeads.length > 0) {
+          // let isHeadSuccess = false;
+          // for (const head of compiledHeads) {
+          //   const parsed = head.parse(ctx, pos);
+          //   if (parsed.error) {
+          //     // TODO: Cache
+          //     headErrors.push(parsed);
+          //   } else {
+          //     isHeadSuccess = true;
+          //   }
+          // }
+          // if (!isHeadSuccess) {
+          //   console.log("fail to parse head", headErrors);
+          //   return createParseError(rule, pos, rootId, {
+          //     errorType: ERROR_Or_UnmatchAll,
+          //     errors: headErrors,
+          //   });
+          // }
+        }
+
         const errors: ParseError[] = [];
         for (const next of compiledPatterns) {
           const parsed = next.parse(ctx, pos);

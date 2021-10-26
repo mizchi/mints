@@ -152,6 +152,35 @@ export function $not(child: InputNodeExpr, reshape?: Reshape): Not {
   } as Not;
 }
 
+function buildHeadTable(rule: Rule): Rule[] {
+  // const heads = [];
+  // for (const pat of rules) {
+  switch (rule.kind) {
+    case ATOM:
+    case REGEX:
+    case NOT:
+    case REF:
+    case EOF:
+    case TOKEN: {
+      return [rule];
+    }
+    case REPEAT: {
+      return buildHeadTable(rule.pattern);
+    }
+
+    case SEQ: {
+      let head: Rule = rule.children[0];
+      while (head.kind === SEQ) {
+        head = head.children[0];
+      }
+      return buildHeadTable(head);
+    }
+    case OR: {
+      return rule.patterns.map((pat) => buildHeadTable(pat)).flat();
+    }
+  }
+}
+
 export function $or(
   patterns: Array<InputNodeExpr>,
   reshape?: Reshape
@@ -159,10 +188,15 @@ export function $or(
   if (patterns.length === 1) {
     return toNode(patterns[0]);
   }
+
+  const builtPatterns = patterns.map(toNode) as Array<Seq | Token | Ref>;
+  const heads = builtPatterns.map(buildHeadTable).flat();
+
   return {
     ...nodeBaseDefault,
     kind: OR,
-    patterns: patterns.map(toNode) as Array<Seq | Token | Ref>,
+    heads,
+    patterns: builtPatterns,
     reshape,
     id: genId(),
   } as Or;

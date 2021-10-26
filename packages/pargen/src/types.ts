@@ -118,6 +118,7 @@ export type SerializedRepeat = [
 
 export type Or = RuleBase & {
   kind: typeof OR;
+  heads: Rule[];
   patterns: Array<Seq | Token | Ref | Regex>;
 };
 
