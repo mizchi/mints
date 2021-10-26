@@ -31,6 +31,7 @@ import {
   SEQ,
   Seq,
 } from "./types";
+import { buildRangesToString, isNumber } from "./utils";
 
 export { reportError } from "./error_reporter";
 
@@ -39,7 +40,6 @@ function createPackratCache(): PackratCache {
   const cache: CacheMap = {};
   const keygen = (id: number, pos: number): `${number}@${string}` =>
     `${pos}@${id}`;
-
   function add(id: number, pos: number, result: ParseResult) {
     // @ts-ignore
     cache[keygen(id, pos)] = result;
@@ -48,7 +48,6 @@ function createPackratCache(): PackratCache {
     const key = keygen(id, pos);
     return cache[key];
   }
-
   const getOrCreate = (
     id: number | string,
     pos: number,
@@ -66,40 +65,46 @@ function createPackratCache(): PackratCache {
       return result;
     });
   };
-
   return {
-    export(): CacheMap {
-      return cache;
-    },
     add,
     get,
     getOrCreate,
   };
 }
 
-const isNumber = (x: any): x is number => typeof x === "number";
-
-export function createCompiler(partial: Partial<Compiler>): Compiler {
+export function createContext(partial: Partial<Compiler> = {}) {
   const compiler: Compiler = {
-    composeTokens: true,
     parsers: new Map(),
     definitions: new Map(),
     ...partial,
-    compile: null as any,
   };
 
-  // internal
-  const compile: RootCompiler = (node) => {
-    const resolved = isNumber(node) ? createRef(node) : node;
-    const parse = compileFragment(resolved, compiler, resolved.id);
-
+  const partialCompiler: RootCompiler = (node, rootOpts) => {
+    const end = rootOpts?.end ?? false;
+    const _resolved = isNumber(node) ? createRef(node) : node;
+    const resolved = end
+      ? ({
+          id: 0, // shoud be zero
+          kind: SEQ,
+          primitive: true,
+          children: [
+            _resolved,
+            {
+              id: 1,
+              kind: EOF,
+              primitive: true,
+            },
+          ],
+        } as Seq)
+      : _resolved;
+    const parseFragment = compileFragment(resolved, compiler, resolved.id);
     const parser: RootParser = (input: string) => {
       const cache = createPackratCache();
-      return parse(
+      return parseFragment(
         {
           root: resolved.id,
           raw: input,
-          chars: Array.from(input),
+          // chars: Array.from(input),
           cache,
         },
         0
@@ -109,15 +114,16 @@ export function createCompiler(partial: Partial<Compiler>): Compiler {
   };
 
   const rootCompiler: RootCompiler = (node, rootOpts) => {
+    $close(compiler);
     const end = rootOpts?.end ?? false;
-    const resolved = isNumber(node) ? createRef(node) : node;
-    const out = end
+    const _resolved = isNumber(node) ? createRef(node) : node;
+    const resolved = end
       ? ({
           id: 0, // shoud be zero
           kind: SEQ,
           primitive: true,
           children: [
-            resolved,
+            _resolved,
             {
               id: 1,
               kind: EOF,
@@ -125,11 +131,35 @@ export function createCompiler(partial: Partial<Compiler>): Compiler {
             },
           ],
         } as Seq)
-      : resolved;
-    return compile(out);
+      : _resolved;
+    const parseFromRoot = compileFragment(resolved, compiler, resolved.id);
+
+    const rootParser: RootParser = (input: string) => {
+      const cache = createPackratCache();
+      const rootResult = parseFromRoot(
+        {
+          root: resolved.id,
+          raw: input,
+          // chars: Array.from(input),
+          cache,
+        },
+        0
+      );
+      if (!rootResult.error && rootResult.result === "") {
+        const text = buildRangesToString(input, rootResult.ranges);
+        return {
+          ...rootResult,
+          result: text,
+        };
+      }
+      return rootResult;
+    };
+    return rootParser;
   };
-  compiler.compile = rootCompiler;
-  return compiler;
+  return {
+    compile: rootCompiler,
+    compiler,
+  };
 }
 
 const perfTimes = new Map<string, { sum: number; count: number }>();
@@ -177,36 +207,6 @@ export const printPerfResult = () => {
     }
   }
 };
-
-export function createContext(partialOpts: Partial<Compiler> = {}) {
-  const compiler = createCompiler(partialOpts);
-  // const builder = createBuilder(compiler);
-  const compile: RootCompiler = (...args) => {
-    // close on first compile
-    $close(compiler);
-    const rootParser = compiler.compile(...args);
-    const newParser: RootParser = (input: string) => {
-      const out = rootParser(input, 0);
-      if (!out.error && out.result === "") {
-        const text = out.ranges
-          .map((range) => {
-            return typeof range === "string" ? range : input.slice(...range);
-          })
-          .join("");
-        return {
-          ...out,
-          result: text,
-        };
-      }
-      return out;
-    };
-    return newParser;
-  };
-  return {
-    compile,
-    compiler,
-  };
-}
 
 if (process.env.NODE_ENV === "test" && require.main === module) {
   test("whitespace", () => {
@@ -321,7 +321,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq:skip_opt", () => {
-    const { compile } = createContext({ composeTokens: false });
+    const { compile } = createContext({});
     const parser = compile(
       $seq(["a", $skip_opt($seq([":", "@"])), "=", "b"])
       // { end: true }
@@ -342,9 +342,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq:eof-eof", () => {
-    const { compile } = createContext({
-      composeTokens: false,
-    });
+    const { compile } = createContext({});
     const parser = compile(
       $repeat(
         $seq([

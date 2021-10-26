@@ -253,13 +253,7 @@ export type Builder = {
 export type DefinitionMap = Map<number, Rule>;
 
 export type Compiler = {
-  composeTokens: boolean;
   parsers: ParserMap;
-  definitions: DefinitionMap;
-  compile: RootCompiler;
-};
-
-export type DevCompiler = Compiler & {
   definitions: DefinitionMap;
 };
 
@@ -268,7 +262,6 @@ export type ParserMap = Map<number, InternalParser>;
 // export type DefsMap = Record<number, InternalParser>;
 
 export type PackratCache = {
-  export(): CacheMap;
   add(id: number | string, pos: number, result: any): void;
   get(id: number | string, pos: number): ParseResult | void;
   getOrCreate(
@@ -284,7 +277,7 @@ export type CacheMap = { [key: `${number}@${string}`]: ParseSuccess };
 export type ParseContext = {
   root: number | string;
   raw: string;
-  chars: string[];
+  // chars: string[];
   cache: PackratCache;
 };
 

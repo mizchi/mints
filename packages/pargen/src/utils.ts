@@ -2,6 +2,9 @@ export type TokenMap<T extends string> = Record<T, Array<number>>;
 
 type StringMatcher = (input: string, pos: number) => string | null;
 
+export const isNumber = (x: any): x is number => typeof x === "number";
+export const isString = (x: any): x is number => typeof x === "string";
+
 export function buildRangesToString(
   input: string,
   ranges: Array<[number, number] | string>

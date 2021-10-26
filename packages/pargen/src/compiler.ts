@@ -22,6 +22,7 @@ import {
   REGEX,
   REPEAT,
   Repeat,
+  Reshape,
   Rule,
   SEQ,
   Seq,
@@ -38,7 +39,8 @@ export const createParseSuccess = (
   pos: number,
   len: number,
   ranges: (Range | string)[] = [[pos, pos + len]],
-  hasReshaper: boolean = false
+  reshape?: Reshape
+  // hasReshaper: boolean = false
 ) => {
   let newRanges: (Range | string)[] = [];
   // console.log("createSuccess:raw", ranges);
@@ -68,11 +70,11 @@ export const createParseSuccess = (
 
   return {
     error: false,
-    result,
+    result: reshape ? reshape(result) : result,
     len,
     pos,
     ranges: newRanges,
-    reshaped: hasReshaper,
+    reshaped: !!reshape,
   } as ParseSuccess;
 };
 
@@ -111,15 +113,15 @@ function compileFragmentInternal(
   compiler: Compiler,
   rootId: number
 ): InternalParser {
-  const reshape = rule.reshape ?? defaultReshape;
-  const hasReshaper = !!rule.reshape;
+  // const reshape = rule.reshape ?? defaultReshape;
+  // const hasReshaper = !!rule.reshape;
   switch (rule.kind) {
     case NOT: {
       const childParser = compileFragment(rule.child, compiler, rootId);
       return (ctx, pos) => {
         const result = childParser(ctx, pos);
         if (result.error === true) {
-          return createParseSuccess(result, pos, 0, undefined, hasReshaper);
+          return createParseSuccess(result, pos, 0, undefined, rule.reshape);
         }
         return createParseError(rule, pos, rootId, {
           errorType: ERROR_Not_IncorrectMatch,
@@ -140,9 +142,9 @@ function compileFragmentInternal(
 
     case EOF: {
       return (ctx, pos) => {
-        const ended = ctx.chars.length === pos;
+        const ended = Array.from(ctx.raw).length === pos;
         if (ended) {
-          return createParseSuccess("", pos, 0, undefined, hasReshaper);
+          return createParseSuccess("", pos, 0, undefined, rule.reshape);
         }
         return createParseError(rule, pos, rootId, {
           errorType: ERROR_Eof_Unmatch,
@@ -157,7 +159,7 @@ function compileFragmentInternal(
         const matched: string | null = matcher(ctx.raw, pos);
         if (matched == null) {
           if (rule.optional) {
-            return createParseSuccess(null, pos, 0, undefined, hasReshaper);
+            return createParseSuccess(null, pos, 0, undefined, rule.reshape);
           } else {
             return createParseError(rule, pos, rootId, {
               errorType: ERROR_Regex_Unmatch,
@@ -166,9 +168,11 @@ function compileFragmentInternal(
           }
         }
         return createParseSuccess(
-          reshape(matched),
+          matched,
           pos,
-          Array.from(matched).length
+          Array.from(matched).length,
+          undefined,
+          rule.reshape
         );
       };
     }
@@ -181,7 +185,7 @@ function compileFragmentInternal(
         const matched: string | null = matcher(ctx.raw, pos);
         if (matched == null) {
           if (rule.optional) {
-            return createParseSuccess(null, pos, 0, undefined, hasReshaper);
+            return createParseSuccess(null, pos, 0, undefined, rule.reshape);
           } else {
             return createParseError(rule, pos, rootId, {
               errorType: ERROR_Token_Unmatch,
@@ -189,11 +193,11 @@ function compileFragmentInternal(
           }
         }
         return createParseSuccess(
-          reshape(matched),
+          matched,
           pos,
           Array.from(matched).length,
           undefined,
-          hasReshaper
+          rule.reshape
         );
       };
     }
@@ -211,12 +215,12 @@ function compileFragmentInternal(
           // console.log("parsed:or", parsed);
           if (parsed.error === true) {
             if (rule.optional) {
-              return createParseSuccess(null, pos, 0, undefined, hasReshaper);
+              return createParseSuccess(null, pos, 0, undefined, rule.reshape);
             }
             errors.push(parsed);
             continue;
           }
-          return reshape(parsed) as ParseResult;
+          return parsed as ParseResult;
         }
         return createParseError(rule, pos, rootId, {
           errorType: ERROR_Or_UnmatchAll,
@@ -231,12 +235,12 @@ function compileFragmentInternal(
         const xs: string[] = [];
         let ranges: (Range | string)[] = [];
         let cursor = pos;
-        while (cursor < ctx.chars.length) {
+        while (cursor < Array.from(ctx.raw).length) {
           const parseResult = parser(ctx, cursor);
           if (parseResult.error === true) break;
           // stop infinite loop
           if (parseResult.len === 0) {
-            throw new Error(`Zero Repeat`);
+            throw new Error(`ZeroRepeat`);
           }
           xs.push(parseResult.result);
           ranges.push(...parseResult.ranges);
@@ -254,19 +258,21 @@ function compileFragmentInternal(
           });
         }
         return createParseSuccess(
-          xs.map(reshape as any),
+          rule.reshape ? xs.map(rule.reshape as any) : xs,
           pos,
           cursor - pos,
-          ranges,
-          hasReshaper
+          ranges
+          // rule.reshape
         );
       };
     }
     case SEQ: {
       let isObjectMode = false;
-      const parsers = (rule as Seq).children.map((c) => {
+      // let hasSkip = false;
+      const parsers = rule.children.map((c) => {
         const parse = compileFragment(c, compiler, rootId);
         if (c.key) isObjectMode = true;
+        // if (c.skip) hasSkip = true;
         return { parse, node: c };
       });
       return (ctx, pos) => {
@@ -290,13 +296,13 @@ function compileFragmentInternal(
             // step cursor
             cursor += parseResult.len;
           }
-          const reshaped = reshape(result);
+          // const reshaped = reshape(result);
           return createParseSuccess(
-            reshaped,
+            result,
             pos,
             cursor - pos,
             undefined,
-            hasReshaper
+            rule.reshape
           );
         } else {
           // string mode
@@ -324,11 +330,11 @@ function compileFragmentInternal(
           }
           const text = buildRangesToString(ctx.raw, ranges);
           return createParseSuccess(
-            reshape(text),
+            text,
             pos,
             cursor - pos,
             ranges,
-            hasReshaper
+            rule.reshape
           );
         }
       };

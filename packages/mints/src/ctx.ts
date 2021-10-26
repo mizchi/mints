@@ -8,9 +8,7 @@ import { reportError } from "../../pargen/src/error_reporter";
 import { createContext } from "../../pargen/src/index";
 import { preprocessLight } from "./preprocess";
 
-const { compiler, compile } = createContext({
-  composeTokens: true,
-});
+const { compiler, compile } = createContext({});
 
 // export const close = compiler.compile
 
