@@ -1292,8 +1292,7 @@ const semicolonlessStatement = $def(() =>
       forItemStatement,
       blockStatement,
     ]),
-    // _s,
-    // $skip_opt(";"),
+    $seq([_s, $opt(";")]),
   ])
 );
 
