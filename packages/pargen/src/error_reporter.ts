@@ -1,5 +1,5 @@
 import {
-  DefinitionMap,
+  Compiler,
   ERROR_Or_UnmatchAll,
   ERROR_Seq_Stop,
   ERROR_Token_Unmatch,
@@ -8,8 +8,8 @@ import {
 
 export function reportError(
   input: string,
-  error_: ParseError,
-  defs: DefinitionMap
+  compiler: Compiler,
+  error_: ParseError
 ) {
   const err = findDeepestError(error_, error_);
   const sliced = input.slice(0, err.pos);
@@ -19,21 +19,12 @@ export function reportError(
   const errorLineNumber = lines.length;
   const linePrefix = `L${errorLineNumber}: `;
   const errorNextLine = input.slice(err.pos).split(/[\n;]/)[0];
-
-  const errorSummary = `ParseError: ${err.errorType}[${err.rule.kind}] defId:${err.rootId} => nodeId:${err.rule.id}`;
+  // const errorSummary = `ParseError: ${err.errorType}[${err.rule.kind}] defId:${err.rootId} => nodeId:${err.rule.id}`;
+  const errorSummary = `ParseError: ${err.errorType} defId:${err.rootId}`;
   const outputLine = `${linePrefix}${errorLine}${errorNextLine}`;
   const errorCursor =
     " ".repeat(linePrefix.length) + " ".repeat(err.pos - errorLineStart) + "^";
   console.log(`${errorSummary}}\n${outputLine}\n${errorCursor}`);
-  // Error detail
-  // console.log(
-  //   "error.id",
-  //   deepestError.id,
-  //   deepestError.rootId,
-  //   defs.get(deepestError.rootId),
-  //   Math.max(...defs.keys()),
-  //   deepestError
-  // );
 }
 
 // TODO: Move to pargen code

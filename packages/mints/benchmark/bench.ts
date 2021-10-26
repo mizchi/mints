@@ -51,7 +51,7 @@ function compileTsc(input: string) {
 function compileMints(input: string) {
   const out = transform(input);
   if (out.error) {
-    out.reportErrorDetail();
+    // out.reportErrorDetail();
     throw out;
   }
   return out.result as string;

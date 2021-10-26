@@ -1,7 +1,6 @@
 import {
   ATOM,
   Compiler,
-  defaultReshape,
   EOF,
   ERROR_Eof_Unmatch,
   ERROR_Not_IncorrectMatch,
@@ -25,7 +24,6 @@ import {
   Reshape,
   Rule,
   SEQ,
-  Seq,
   TOKEN,
 } from "./types";
 import {
@@ -87,7 +85,7 @@ export function createParseError<ErrorData extends ParseErrorData>(
   return {
     error: true,
     rootId,
-    rule,
+    // rule,
     pos,
     ...errorData,
   };
@@ -113,8 +111,6 @@ function compileFragmentInternal(
   compiler: Compiler,
   rootId: number
 ): InternalParser {
-  // const reshape = rule.reshape ?? defaultReshape;
-  // const hasReshaper = !!rule.reshape;
   switch (rule.kind) {
     case NOT: {
       const childParser = compileFragment(rule.child, compiler, rootId);
@@ -179,7 +175,6 @@ function compileFragmentInternal(
 
     case TOKEN: {
       let expr = rule.expr;
-      // const matcher = createMatcher(expr);
       const matcher = createStringMatcher(expr);
       return (ctx, pos) => {
         const matched: string | null = matcher(ctx.raw, pos);
@@ -319,9 +314,7 @@ function compileFragmentInternal(
             }
             if (!parser.node.skip) {
               if (parseResult.reshaped) {
-                // if result is reshaped, return raw to handle, not range
                 ranges.push(parseResult.result);
-                // console.log("pushed", ranges);
               } else {
                 ranges.push(...parseResult.ranges);
               }

@@ -20,32 +20,6 @@ export const EOF = 9;
 export const PAIR = 10;
 export const NOT = 11;
 
-// export enum NodeKind {
-//   SEQ = 1,
-//   ATOM,
-//   REPEAT,
-//   TOKEN,
-//   REGEX,
-//   STRING,
-//   OR,
-//   REF,
-//   EOF,
-//   PAIR,
-//   NOT,
-// }
-
-// export enum ErrorType {
-//   Not_IncorrectMatch = 400,
-//   Pair_Unmatch,
-//   Eof_Unmatch,
-//   Token_Unmatch,
-//   Regex_Unmatch,
-//   Seq_Stop,
-//   Or_UnmatchAll,
-//   Repeat_RangeError,
-//   Atom_ParseError,
-// }
-
 export const ERROR_Not_IncorrectMatch = 400;
 export const ERROR_Pair_Unmatch = 401;
 export const ERROR_Eof_Unmatch = 402;
@@ -202,54 +176,6 @@ export type RootParser = (input: string, pos?: number) => ParseResult;
 
 export type InputNodeExpr = Rule | string | number;
 
-export type Builder = {
-  close(): void;
-  // def(refId: ID | symbol, node: InputNodeExpr, reshape?: Reshape): ID;
-  def(node: () => InputNodeExpr, reshape?: Reshape): number;
-  ref(refId: number, reshape?: Reshape): Ref;
-
-  regex(expr: string, reshape?: Reshape): Regex;
-  // regex tagged template
-  r(strings: TemplateStringsArray, name?: string): Regex;
-
-  tok(expr: string, reshape?: Reshape): Token;
-  repeat(
-    pattern: InputNodeExpr,
-    minmax?: [min: number | void, max?: number | void],
-    reshape?: Reshape
-  ): Repeat;
-  repeat_seq(
-    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
-    minmax?: [min: number | void, max?: number | void],
-    reshape?: Reshape
-  ): Repeat;
-  or: (
-    patterns: Array<Seq | Token | Ref | Or | Eof | string | number | Regex>,
-    reshape?: Reshape
-  ) => Rule;
-  seq(
-    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
-    reshape?: Reshape
-  ): Seq;
-  // pair(pair: { open: string; close: string }, reshape?: Reshape): Rule;
-  not(child: InputNodeExpr, reshape?: Reshape): Not;
-  atom(fn: InternalParser): Atom;
-  opt<T extends Rule = any>(node: InputNodeExpr): T;
-  skip_opt<T extends Rule>(node: InputNodeExpr): T;
-  param<T extends Rule>(key: string, node: InputNodeExpr, reshape?: Reshape): T;
-  skip<T extends Rule>(node: T | string): T;
-  eof(): Eof;
-  ["!"]: (child: InputNodeExpr) => Not;
-  ["*"](
-    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>
-  ): Repeat;
-  ["+"](
-    children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>
-  ): Repeat;
-};
-
-// compiler internal
-
 export type DefinitionMap = Map<number, Rule>;
 
 export type Compiler = {
@@ -257,10 +183,7 @@ export type Compiler = {
   definitions: DefinitionMap;
 };
 
-// export type DefsMap = Record<number, InternalParser>;
 export type ParserMap = Map<number, InternalParser>;
-// export type DefsMap = Record<number, InternalParser>;
-
 export type PackratCache = {
   add(id: number | string, pos: number, result: any): void;
   get(id: number | string, pos: number): ParseResult | void;
@@ -349,13 +272,6 @@ export type ParseErrorBase = {
   error: true;
   rootId: number;
   pos: number;
-  rule: Rule;
 };
 
 export type ParseError = ParseErrorData & ParseErrorBase;
-// export type ErrorCreator = <T extends ParseErrorData>(
-//   rootId: number,
-//   pos: number,
-//   rule: Rule,
-//   data: T
-// ) => ParseError;
