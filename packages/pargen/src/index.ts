@@ -730,8 +730,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
         ">",
       ])
     );
-    is(parser("<div>x</div>"), { result: { v: "x" } });
-    is(parser("<a>x</a>"), { result: { v: "x" } });
+    is(parser("<div>x</div>"), { result: { v: "x", key: "div" } });
+    is(parser("<a>x</a>"), { result: { v: "x", key: "a" } });
   });
 
   test("paired close nested", () => {
