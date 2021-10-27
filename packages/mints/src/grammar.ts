@@ -330,7 +330,7 @@ const typeFunctionExpression = $def(() =>
 
 const typeUnaryExpression = $def(() =>
   $seq([
-    $opt($seq([$r`(keyof|typeof|infer)`, __])),
+    $opt($seq([$or(["keyof", K_TYPEOF, "infer"]), __])),
     $or([typeFunctionExpression, typeParen, typeReference, typeLiteral]),
     // generics parameter
   ])
@@ -384,8 +384,8 @@ const destructiveObjectItem = $def(() =>
     $seq([
       // a : b
       identifier,
-      _,
-      $opt($seq([":", _, destructive])),
+      _s,
+      $opt($seq([":", _s, destructive])),
       // a: b = 1,
       $opt($seq([_s, assign])),
     ]),
@@ -489,7 +489,7 @@ const callArguments = $def(() =>
 
 /* Expression */
 
-export const stringLiteral = $def(() =>
+const stringLiteral = $def(() =>
   $or([
     // double quote
     $r`("[^"\\n]*")`,
@@ -500,7 +500,7 @@ export const stringLiteral = $def(() =>
 
 const nonBacktickChars = "[^`]*";
 
-export const templateLiteral = $def(() =>
+const templateLiteral = $def(() =>
   $seq([
     "`",
     // aaa${}
@@ -521,7 +521,7 @@ const regexpLiteral = $def(() => $seq([$r`\\/[^\\/]+\\/([igmsuy]*)?`]));
 
 // TODO: 111_000
 // TODO: 0b1011
-export const numberLiteral = $def(() =>
+const numberLiteral = $def(() =>
   $or([
     // 16
     $r`(0(x|X)[0-9a-fA-F]+)`,
@@ -534,12 +534,12 @@ export const numberLiteral = $def(() =>
   ])
 );
 
-export const booleanLiteral = $def(() => $or([K_TRUE, K_FALSE]));
-export const nullLiteral = $def(() => K_NULL);
+const booleanLiteral = $def(() => $or([K_TRUE, K_FALSE]));
+const nullLiteral = $def(() => K_NULL);
 
 const restSpread = $def(() => $seq([REST_SPREAD, _, anyExpression]));
 
-export const arrayLiteral = $def(() =>
+const arrayLiteral = $def(() =>
   $or([
     $seq([
       "[",
@@ -730,7 +730,7 @@ const classField = $def(() =>
   ])
 );
 
-export const classExpression = $def(() =>
+const classExpression = $def(() =>
   $seq([
     $skip_opt<any>($seq([K_ABSTRACT, __])),
     K_CLASS,
@@ -749,7 +749,7 @@ export const classExpression = $def(() =>
   ])
 );
 
-export const functionExpression = $def(() =>
+const functionExpression = $def(() =>
   $seq([
     $opt(asyncModifier),
     K_FUNCTION,
@@ -775,7 +775,7 @@ const arrowFunctionExpression = $def(() =>
     $opt(asyncModifier),
     $skip_opt(typeDeclareParameters),
     _s,
-    $r`(\\*)?`,
+    $opt("*"),
     _s,
     $or([
       $seq([
@@ -791,7 +791,6 @@ const arrowFunctionExpression = $def(() =>
     _s,
     "=>",
     _s,
-    // $r`[ \\s\\n]*`,
     $or([block, anyStatement]),
   ])
 );
@@ -1114,7 +1113,7 @@ const switchStatement = $def(() =>
 );
 
 const assign = $def(() => $seq(["=", $not([">"]), _s, anyExpression]));
-export const variableStatement = $def(() =>
+const variableStatement = $def(() =>
   $seq([
     // single
     $seq([declareType, __]),
@@ -1175,7 +1174,7 @@ const interfaceStatement = $def(() =>
   ])
 );
 
-export const forStatement = $def(() =>
+const forStatement = $def(() =>
   $seq([
     K_FOR,
     _s,
@@ -1212,7 +1211,7 @@ const forItemStatement = $def(() =>
     _s,
     destructive,
     __,
-    $r`(of|in)`,
+    $or(["of", "in"]),
     __,
     anyExpression,
     _s,
@@ -1222,7 +1221,7 @@ const forItemStatement = $def(() =>
   ])
 );
 
-export const whileStatement = $def(() =>
+const whileStatement = $def(() =>
   $seq([
     K_WHILE,
     _s,
@@ -1390,17 +1389,19 @@ const line = $def(() =>
   ])
 );
 
-const caseClause = $seq([
-  $repeat_seq([$not([K_CASE + " "]), line]),
-  $opt($seq([$not([K_CASE + " "]), anyStatement])),
-  $skip_opt(";"),
-]);
-
-const lines = $seq([$repeat_seq([line]), $opt(anyStatement), $skip_opt(";")]);
-
-export const block = $def(() =>
-  $seq([K_BLACE_OPEN, _s, lines, _s, K_BLACE_CLOSE])
+const caseClause = $def(() =>
+  $seq([
+    $repeat_seq([$not([K_CASE + " "]), line]),
+    $opt($seq([$not([K_CASE + " "]), anyStatement])),
+    $skip_opt(";"),
+  ])
 );
+
+const lines = $def(() =>
+  $seq([$repeat_seq([line]), $opt(anyStatement), $skip_opt(";")])
+);
+
+const block = $def(() => $seq([K_BLACE_OPEN, _s, lines, _s, K_BLACE_CLOSE]));
 
 export const program = $def(() => $seq([_s, lines, _s, $eof()]));
 
