@@ -82,13 +82,11 @@ import {
 } from "./constants";
 
 import { compile } from "./ctx";
+import { config } from "./ctx";
 
 const _ = $regex(_w);
 const _s = $skip($regex(_w));
 const __ = $regex(__w);
-// const _ = $def(() => $regex(_w));
-// const _s = $def(() => $skip($regex(_w)));
-// const __ = $def(() => $regex(__w));
 
 const reserved = RESERVED_WORDS.join("|");
 export const identifier = $def(() =>
@@ -440,9 +438,6 @@ const functionArgWithAssign = $def(() =>
     $opt($seq([_, $skip_opt(K_QUESTION), "=", $not([">"]), _, anyExpression])),
   ])
 );
-// const lefthand = $def(() => destructivePattern);
-
-// const x = $opt(destructivePattern);
 
 const functionArguments = $def(() =>
   $or([
@@ -811,18 +806,22 @@ const newExpression = $def(() =>
 const paren = $def(() =>
   $seq([K_PAREN_OPEN, _s, anyExpression, _s, K_PAREN_CLOSE, $not(["=>"])])
 );
-const primary = $or([
-  paren,
-  newExpression,
-  objectLiteral,
-  stringLiteral,
-  regexpLiteral,
-  templateLiteral,
-  identifier,
-  // should be after identifier
-  ThisKeyword,
-  ImportKeyword,
-]);
+
+const primary = $def(() =>
+  $or([
+    jsxExpression,
+    paren,
+    newExpression,
+    objectLiteral,
+    stringLiteral,
+    regexpLiteral,
+    templateLiteral,
+    identifier,
+    // should be after identifier
+    ThisKeyword,
+    ImportKeyword,
+  ])
+);
 
 const __call = $def(() =>
   $or([
@@ -1343,10 +1342,6 @@ const enumStatement = $def(() =>
           nextValue = baseValue;
           baseValue++;
         }
-        // const assign = item.assign || baseValue++;
-        // console.log("input!", input);
-        // const val = baseValue++;
-
         const nextValueKey =
           typeof nextValue === "number" ? `"${nextValue}"` : nextValue;
         out += `${item.ident}:${nextValue},${nextValueKey}:"${item.ident}",`;
@@ -1356,26 +1351,24 @@ const enumStatement = $def(() =>
   )
 );
 
-const JSX_CREATOR = "React.createElement";
-const JSX_FRAGMENT = "React.Fragment";
-
 const jsxElement = $seq(
-  ["{", _s, ["expr", anyExpression], _s, "}"],
-  (input) => {
-    return input.expr;
-  }
+  ["{", _s, ["o", anyExpression], _s, "}"],
+  (input) => input.o
 );
 
 const jsxText = $seq([_s, $regex("[^<>{]+"), _s], (input) => {
-  return `"${input.replace(/[\s\n]+/gmu, " ")}"`;
+  return `"${input.replace(/[\s\n]+/gmu, " ").replace(/[\n ]*$/, "")}"`;
 });
 
-const jsxAttributes = $repeat_seq([
-  __,
-  ["name", identifier],
-  $skip_opt("="),
-  ["value", $or([stringLiteral, jsxElement])],
-]);
+const jsxAttributes = $repeat(
+  // $or([
+  $seq([
+    __,
+    ["name", identifier],
+    ["value", $seq([$skip_opt("="), $or([stringLiteral, jsxElement])])],
+  ])
+  // ])
+);
 
 const buildJsxCode = (
   ident: string,
@@ -1400,9 +1393,9 @@ const buildJsxCode = (
   const isDomPrimitive = /[a-z-]+/.test(ident);
   let element = isDomPrimitive ? `"${ident}"` : ident;
   if (ident === "") {
-    element = JSX_FRAGMENT;
+    element = config.jsxFragment;
   }
-  return `${JSX_CREATOR}(${element}${data}${childrenCode})`;
+  return `${config.jsx}(${element}${data}${childrenCode})`;
 };
 
 const jsxExpression = $def(() =>
@@ -1454,7 +1447,6 @@ const jsxExpression = $def(() =>
 );
 
 const expressionStatement = $def(() =>
-  // $seq([anyExpression)
   $seq([anyExpression, $repeat_seq([",", _s, anyExpression])])
 );
 
@@ -2181,9 +2173,6 @@ if (process.env.NODE_ENV === "test") {
       `switch(x){case 1:1;case 2:2}`,
       `switch(x){case 1:1;case 2:{}}`,
       `switch(x){case 1: case 2:{}}`,
-
-      // `switch(x){case 1: case 2: {}}`,
-      // `switch(x){case 1:case 2:return}`,
       `switch(x){case 1:{}case 2:{}}`,
       `switch(x){case 1:{}default:{}}`,
     ]);
@@ -2525,6 +2514,11 @@ if (process.env.NODE_ENV === "test") {
       error: false,
       result: `React.createElement("div",{},"aaa")`,
     });
+    is(parse(`<a href="/">aaa</a>`), {
+      error: false,
+      result: `React.createElement("a",{href:"/",},"aaa")`,
+    });
+
     is(parse("<div>aaa\n   bbb</div>"), {
       error: false,
       result: `React.createElement("div",{},"aaa bbb")`,
@@ -2533,17 +2527,42 @@ if (process.env.NODE_ENV === "test") {
       error: false,
       result: `React.createElement("div",{},1)`,
     });
-    is(parse("<div>a{1}b<hr /></div>"), {
+    is(parse("<div>a{1}b<hr/></div>"), {
       error: false,
       result: `React.createElement("div",{},"a",1,"b",React.createElement("hr",{}))`,
     });
+
     is(parse("<></>"), {
       error: false,
       result: `React.createElement(React.Fragment,{})`,
     });
-    is(parse("<></>"), {
+    is(
+      parse(`<div>
+  <a href="/">
+    xxx
+  </a>
+</div>`),
+      {
+        error: false,
+        result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
+      }
+    );
+
+    is(
+      parse(`<div>
+  <a href="/">
+    xxx
+  </a>
+</div>`),
+      {
+        error: false,
+        result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
+      }
+    );
+
+    is(parse("<div><></></div>", { jsx: "h", jsxFragment: "Fragment" }), {
       error: false,
-      result: `React.createElement(React.Fragment,{})`,
+      result: `h("div",{},h(Fragment,{}))`,
     });
   });
 

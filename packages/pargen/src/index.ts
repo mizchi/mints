@@ -39,6 +39,7 @@ export { reportError } from "./error_reporter";
 
 export function createContext(partial: Partial<Compiler> = {}) {
   const compiler: Compiler = {
+    data: {},
     // useHeadTables: false,
     parsers: new Map(),
     definitions: new Map(),

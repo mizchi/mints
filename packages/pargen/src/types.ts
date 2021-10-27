@@ -205,6 +205,7 @@ export type DefinitionMap = Map<number, Rule>;
 export type Compiler = {
   parsers: ParserMap;
   definitions: DefinitionMap;
+  data: any;
 };
 
 export type ParserMap = Map<number, InternalParser>;
