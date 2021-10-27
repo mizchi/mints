@@ -1356,6 +1356,19 @@ const enumStatement = $def(() =>
 
 const JSX_CREATOR = "React.createElement";
 
+const jsxAttributes = $repeat_seq([
+  ["name", identifier],
+  $skip_opt("="),
+  [
+    "value",
+    $or([
+      stringLiteral,
+      $seq(["{", _s, ["out", anyExpression], _s, "}"], (input) => input.out),
+    ]),
+  ],
+  __,
+]);
+
 const jsxExpression = $def(() =>
   $or([
     // self closing
@@ -1365,27 +1378,46 @@ const jsxExpression = $def(() =>
         ["ident", $or([accessible])],
         $skip_opt(typeDeclareParameters),
         __,
-        [
-          "attributes",
-          $repeat_seq([
-            ["name", identifier],
-            $skip_opt("="),
-            [
-              "value",
-              $or([
-                // ="xxx"
-                stringLiteral,
-                // ={ident}
-                $seq(
-                  ["{", _s, ["out", anyExpression], _s, "}"],
-                  (input) => input.out
-                ),
-              ]),
-            ],
-            __,
-          ]),
-        ],
+        ["attributes", jsxAttributes],
+        _s,
         "/>",
+      ],
+      (input: {
+        ident: string;
+        attributes: Array<{ name: string; value: string }>;
+      }) => {
+        // TODO: Detect dom name
+        const isDomPrimitive = /[a-z-]+/.test(input.ident);
+        let data = "";
+        if (input.attributes?.length > 0) {
+          data = ",{";
+          for (const attr of input.attributes) {
+            data += `${attr.name}:${attr.value},`;
+          }
+          data += "}";
+        }
+        const element = isDomPrimitive ? `"${input.ident}"` : input.ident;
+        return `${JSX_CREATOR}(${element}${data})`;
+      }
+    ),
+
+    // paired tag
+    $seq(
+      [
+        "<",
+        ["ident", $or([accessible])],
+        $skip_opt(typeDeclareParameters),
+        __,
+        ["attributes", jsxAttributes],
+        _s,
+        ">",
+        _s,
+        // TODO: JSX string
+        $repeat_seq([_s, jsxExpression, _s]),
+        _s,
+        "</",
+        ["close", $or([accessible])],
+        ">",
       ],
       (input: {
         ident: string;
@@ -2467,9 +2499,9 @@ if (process.env.NODE_ENV === "test") {
       error: false,
       result: `React.createElement("div",{x:1,})`,
     });
-    is(parse(`<div x={foo} />`), {
+    is(parse(`<div x={foo+1} />`), {
       error: false,
-      result: `React.createElement("div",{x:foo,})`,
+      result: `React.createElement("div",{x:foo+1,})`,
     });
   });
 

@@ -6,6 +6,8 @@ import {
   $not,
   $opt,
   $or,
+  $pairClose,
+  $pairOpen,
   $param,
   $ref,
   $regex,
@@ -70,6 +72,7 @@ export function createContext(partial: Partial<Compiler> = {}) {
         {
           root: resolved.id,
           raw: input,
+          openStack: [],
           // chars: Array.from(input),
           cache,
         },
@@ -712,6 +715,49 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const { compile } = createContext();
     const parser = compile($seq([$repeat_seq(["a", $skip("b")])]));
     is(parser("ababab"), { result: "aaa" });
+  });
+
+  test("paired close", () => {
+    const { compile } = createContext();
+    const parser = compile(
+      $seq([
+        "<",
+        ["key", $pairOpen($regex("[a-z]+"))],
+        ">",
+        ["v", "x"],
+        "</",
+        $pairClose($regex("[a-z]+")),
+        ">",
+      ])
+    );
+    is(parser("<div>x</div>"), { result: { v: "x" } });
+    is(parser("<a>x</a>"), { result: { v: "x" } });
+  });
+
+  test("paired close nested", () => {
+    const { compile } = createContext();
+    const tag = $def(() =>
+      $seq([
+        "<",
+        $pairOpen($regex("[a-z]+")),
+        ">",
+        $repeat($or([tag, $regex("[a-z]+")])),
+        "</",
+        $pairClose($regex("[a-z]+")),
+        ">",
+      ])
+    );
+    const parser = compile(tag, { end: true });
+    is(parser("<div></div>"), { result: "<div></div>" });
+    is(parser("<div><a></a></div>"), { result: "<div><a></a></div>" });
+    is(parser("<div><a></a><b></b>xxx</div>"), {
+      result: "<div><a></a><b></b>xxx</div>",
+    });
+    is(parser("<div><a></b></div>"), {
+      error: true,
+    });
+
+    // is(parser("<a>x</a>"), { result: { v: "x" } });
   });
 
   run({ stopOnFail: true, stub: true });

@@ -5,6 +5,7 @@ import {
   ERROR_Eof_Unmatch,
   ERROR_Not_IncorrectMatch,
   ERROR_Or_UnmatchAll,
+  ERROR_Pair_Unmatch,
   ERROR_Regex_Unmatch,
   ERROR_Repeat_RangeError,
   ERROR_Seq_Stop,
@@ -12,6 +13,8 @@ import {
   InternalParser,
   NOT,
   OR,
+  PAIR_CLOSE,
+  PAIR_OPEN,
   ParseError,
   ParseErrorData,
   ParseResult,
@@ -100,9 +103,16 @@ export function compileFragment(
   const internalParser = compileFragmentInternal(rule, compiler, rootId);
   // generic cache
   const parser: InternalParser = (ctx, pos) => {
-    return ctx.cache.getOrCreate(rule.id, pos, () => {
+    const beforeStack = ctx.openStack.slice();
+    const ret = ctx.cache.getOrCreate(rule.id, pos, () => {
       return internalParser(ctx, pos);
     });
+
+    // restore stack on parse error
+    if (ret.error) {
+      ctx.openStack = beforeStack;
+    }
+    return ret;
   };
   return parser;
 }
@@ -269,6 +279,9 @@ function compileFragmentInternal(
           }
           return parsed as ParseResult;
         }
+
+        // restore stack at fail
+        // ctx.openStack = beforeOpenStack;
         return createParseError(rule, pos, rootId, {
           errorType: ERROR_Or_UnmatchAll,
           errors,
@@ -384,8 +397,39 @@ function compileFragmentInternal(
         }
       };
     }
+    case PAIR_OPEN: {
+      const parser = compileFragment(rule.pattern, compiler, rootId);
+      return (ctx, pos) => {
+        const parsed = parser(ctx, pos);
+        // push stack
+        if (!parsed.error) {
+          ctx.openStack.push(parsed.result as string);
+        }
+        return parsed;
+      };
+    }
+    case PAIR_CLOSE: {
+      const parser = compileFragment(rule.pattern, compiler, rootId);
+      return (ctx, pos) => {
+        const parsed = parser(ctx, pos);
+        // push stack
+        if (!parsed.error) {
+          const lastItem = ctx.openStack.slice(-1)[0];
+          if (lastItem === parsed.result) {
+            ctx.openStack.pop();
+            return parsed;
+          } else {
+            return createParseError(rule, pos, rootId, {
+              errorType: ERROR_Pair_Unmatch,
+            });
+          }
+        }
+        return parsed;
+      };
+    }
+
     default: {
-      console.error(rule, rule === Object);
+      // console.error(rule, rule === Object);
       throw new Error();
     }
   }

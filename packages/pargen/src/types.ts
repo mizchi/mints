@@ -17,8 +17,10 @@ export const STRING = 6;
 export const OR = 7;
 export const REF = 8;
 export const EOF = 9;
-export const PAIR = 10;
+// export const PAIR = 10;
 export const NOT = 11;
+export const PAIR_OPEN = 12;
+export const PAIR_CLOSE = 13;
 
 export const ERROR_Not_IncorrectMatch = 400;
 export const ERROR_Pair_Unmatch = 401;
@@ -150,6 +152,16 @@ export type SerializedRegex = [
   ...body: SerializedRuleBody
 ];
 
+export type PairOpen = RuleBase & {
+  kind: typeof PAIR_OPEN;
+  pattern: Rule;
+};
+
+export type PairClose = RuleBase & {
+  kind: typeof PAIR_CLOSE;
+  pattern: Rule;
+};
+
 export type SerializedRule =
   | SerializedSeq
   | SerializedToken
@@ -161,7 +173,18 @@ export type SerializedRule =
   | SerializedAtom
   | SerializedRegex;
 
-export type Rule = Seq | Token | Or | Repeat | Ref | Eof | Not | Atom | Regex;
+export type Rule =
+  | Seq
+  | Token
+  | Or
+  | Repeat
+  | Ref
+  | Eof
+  | Not
+  | Atom
+  | Regex
+  | PairOpen
+  | PairClose;
 
 // ==== public interface
 
@@ -202,6 +225,7 @@ export type ParseContext = {
   root: number | string;
   raw: string;
   // chars: string[];
+  openStack: Array<string>;
   cache: PackratCache;
 };
 
@@ -259,6 +283,10 @@ type AtomError = {
   childError: ParseError;
 };
 
+type PairUnmatchError = {
+  errorType: typeof ERROR_Pair_Unmatch;
+};
+
 export type ParseErrorData =
   | RepeatRangeError
   | NotIncorrectMatch
@@ -267,6 +295,7 @@ export type ParseErrorData =
   | RegexUnmatch
   | SeqStop
   | AtomError
+  | PairUnmatchError
   | UnmatchAll;
 
 export type ParseErrorBase = {

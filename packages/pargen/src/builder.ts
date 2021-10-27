@@ -24,6 +24,10 @@ import {
   REGEX,
   ATOM,
   EOF,
+  PairOpen,
+  PAIR_OPEN,
+  PairClose,
+  PAIR_CLOSE,
 } from "./types";
 
 let cnt = 2;
@@ -167,6 +171,11 @@ function findFirstNonOptionalRule(seq: Seq): Rule | undefined {
 }
 function buildHeadTable(rule: Rule): Rule[] {
   switch (rule.kind) {
+    case PAIR_CLOSE:
+      throw new Error();
+    case PAIR_OPEN: {
+      return [rule.pattern];
+    }
     case ATOM:
     case REGEX:
     case NOT:
@@ -246,6 +255,26 @@ export function $regex(expr: string, reshape?: Reshape<any, any>): Regex {
     expr,
     reshape,
   });
+}
+
+// pairOpen
+export function $pairOpen(rule: InputNodeExpr): PairOpen {
+  return {
+    ...nodeBaseDefault,
+    id: genId(),
+    kind: PAIR_OPEN,
+    pattern: toNode(rule),
+  };
+}
+
+// pairClose
+export function $pairClose(rule: InputNodeExpr): PairClose {
+  return {
+    ...nodeBaseDefault,
+    id: genId(),
+    kind: PAIR_CLOSE,
+    pattern: toNode(rule),
+  };
 }
 
 // regex sharthand
