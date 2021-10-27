@@ -1377,6 +1377,34 @@ const jsxAttributes = $repeat_seq([
   ["value", $or([stringLiteral, jsxElement])],
 ]);
 
+const buildJsxCode = (
+  ident: string,
+  attributes: Array<{ name: string; value: string }>,
+  children: Array<string> = []
+) => {
+  // TODO: Detect dom name
+  let data = ",{}";
+  if (attributes.length > 0) {
+    data = ",{";
+    for (const attr of attributes) {
+      data += `${attr.name}:${attr.value},`;
+    }
+    data += "}";
+  }
+  let childrenCode = "";
+  if (children.length > 0) {
+    for (const child of children) {
+      childrenCode += `,${child}`;
+    }
+  }
+  const isDomPrimitive = /[a-z-]+/.test(ident);
+  let element = isDomPrimitive ? `"${ident}"` : ident;
+  if (ident === "") {
+    element = JSX_FRAGMENT;
+  }
+  return `${JSX_CREATOR}(${element}${data}${childrenCode})`;
+};
+
 const jsxExpression = $def(() =>
   $or([
     // paired tag
@@ -1401,27 +1429,7 @@ const jsxExpression = $def(() =>
         attributes: Array<{ name: string; value: string }>;
         children: Array<string>;
       }) => {
-        // TODO: Detect dom name
-        let data = ",null";
-        if (input.attributes.length > 0) {
-          data = ",{";
-          for (const attr of input.attributes) {
-            data += `${attr.name}:${attr.value},`;
-          }
-          data += "}";
-        }
-        let children = "";
-        if (input.children.length > 0) {
-          for (const child of input.children) {
-            children += `,${child}`;
-          }
-        }
-        const isDomPrimitive = /[a-z-]+/.test(input.ident);
-        let element = isDomPrimitive ? `"${input.ident}"` : input.ident;
-        if (input.ident === "") {
-          element = JSX_FRAGMENT;
-        }
-        return `${JSX_CREATOR}(${element}${data}${children})`;
+        return buildJsxCode(input.ident, input.attributes, input.children);
       }
     ),
 
@@ -1439,18 +1447,7 @@ const jsxExpression = $def(() =>
         ident: string;
         attributes: Array<{ name: string; value: string }>;
       }) => {
-        // TODO: Detect dom name
-        const isDomPrimitive = /[a-z-]+/.test(input.ident);
-        let data = "";
-        if (input.attributes?.length > 0) {
-          data = ",{";
-          for (const attr of input.attributes) {
-            data += `${attr.name}:${attr.value},`;
-          }
-          data += "}";
-        }
-        const element = isDomPrimitive ? `"${input.ident}"` : input.ident;
-        return `${JSX_CREATOR}(${element}${data})`;
+        return buildJsxCode(input.ident, input.attributes);
       }
     ),
   ])
@@ -2505,7 +2502,7 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(jsxExpression, { end: true });
     is(parse("<div />"), {
       error: false,
-      result: `React.createElement("div")`,
+      result: `React.createElement("div",{})`,
     });
     is(parse(`<div x="a" y="b" />`), {
       error: false,
@@ -2522,31 +2519,31 @@ if (process.env.NODE_ENV === "test") {
     // paired
     is(parse("<div><hr /><hr /></div>"), {
       error: false,
-      result: `React.createElement("div",null,React.createElement("hr"),React.createElement("hr"))`,
+      result: `React.createElement("div",{},React.createElement("hr",{}),React.createElement("hr",{}))`,
     });
     is(parse("<div>aaa</div>"), {
       error: false,
-      result: `React.createElement("div",null,"aaa")`,
+      result: `React.createElement("div",{},"aaa")`,
     });
     is(parse("<div>aaa\n   bbb</div>"), {
       error: false,
-      result: `React.createElement("div",null,"aaa bbb")`,
+      result: `React.createElement("div",{},"aaa bbb")`,
     });
     is(parse("<div>{1}</div>"), {
       error: false,
-      result: `React.createElement("div",null,1)`,
+      result: `React.createElement("div",{},1)`,
     });
     is(parse("<div>a{1}b<hr /></div>"), {
       error: false,
-      result: `React.createElement("div",null,"a",1,"b",React.createElement("hr"))`,
+      result: `React.createElement("div",{},"a",1,"b",React.createElement("hr",{}))`,
     });
     is(parse("<></>"), {
       error: false,
-      result: `React.createElement(React.Fragment,null)`,
+      result: `React.createElement(React.Fragment,{})`,
     });
     is(parse("<></>"), {
       error: false,
-      result: `React.createElement(React.Fragment,null)`,
+      result: `React.createElement(React.Fragment,{})`,
     });
   });
 
