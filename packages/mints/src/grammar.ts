@@ -812,13 +812,13 @@ const paren = $def(() =>
 const primary = $or([
   paren,
   newExpression,
-  ThisKeyword,
   objectLiteral,
   stringLiteral,
   regexpLiteral,
   templateLiteral,
   identifier,
-  // should be last
+  // should be after identifier
+  ThisKeyword,
   ImportKeyword,
 ]);
 
@@ -1354,6 +1354,60 @@ const enumStatement = $def(() =>
   )
 );
 
+const JSX_CREATOR = "React.createElement";
+
+const jsxExpression = $def(() =>
+  $or([
+    // self closing
+    $seq(
+      [
+        "<",
+        ["ident", $or([accessible])],
+        $skip_opt(typeDeclareParameters),
+        __,
+        [
+          "attributes",
+          $repeat_seq([
+            ["name", identifier],
+            $skip_opt("="),
+            [
+              "value",
+              $or([
+                // ="xxx"
+                stringLiteral,
+                // ={ident}
+                $seq(
+                  ["{", _s, ["out", anyExpression], _s, "}"],
+                  (input) => input.out
+                ),
+              ]),
+            ],
+            __,
+          ]),
+        ],
+        "/>",
+      ],
+      (input: {
+        ident: string;
+        attributes: Array<{ name: string; value: string }>;
+      }) => {
+        // TODO: Detect dom name
+        const isDomPrimitive = /[a-z-]+/.test(input.ident);
+        let data = "";
+        if (input.attributes?.length > 0) {
+          data = ",{";
+          for (const attr of input.attributes) {
+            data += `${attr.name}:${attr.value},`;
+          }
+          data += "}";
+        }
+        const element = isDomPrimitive ? `"${input.ident}"` : input.ident;
+        return `${JSX_CREATOR}(${element}${data})`;
+      }
+    ),
+  ])
+);
+
 const expressionStatement = $def(() =>
   // $seq([anyExpression)
   $seq([anyExpression, $repeat_seq([",", _s, anyExpression])])
@@ -1366,6 +1420,7 @@ const semicolonlessStatement = $def(() =>
       $seq([K_EXPORT, __, $or([functionExpression, classExpression])]),
 
       classExpression,
+      enumStatement,
       functionExpression,
       exportStatement,
       tryCatchStatement,
@@ -1427,6 +1482,8 @@ const anyStatement = $def(() =>
     interfaceStatement,
     // if ...
     ifStatement,
+    // enum
+    enumStatement,
     // import ...
     importStatement,
     // export ...
@@ -2152,6 +2209,7 @@ if (process.env.NODE_ENV === "test") {
       "a=1",
       "impor",
       "importS",
+      "thisX",
     ]);
     expectSame(parse, ["1", "func()"]);
   });
@@ -2306,6 +2364,10 @@ if (process.env.NODE_ENV === "test") {
   case 2:
 }`,
     ]);
+    is(parse(`enum X { a = "foo", b = "bar" }`), {
+      result: `const X={a:"foo","foo":"a",b:"bar","bar":"b",};`,
+    });
+
     expectError(parse, [`class{f(a={a = 1}){}}`]);
   });
 
@@ -2388,6 +2450,26 @@ if (process.env.NODE_ENV === "test") {
     is(parse(`enum X { a = "foo", b = "bar" }`), {
       error: false,
       result: `const X={a:"foo","foo":"a",b:"bar","bar":"b",};`,
+    });
+  });
+
+  test("transform: jsx", () => {
+    const parse = compile(jsxExpression, { end: true });
+    is(parse("<div />"), {
+      error: false,
+      result: `React.createElement("div")`,
+    });
+    is(parse(`<div x="a" y="b" />`), {
+      error: false,
+      result: `React.createElement("div",{x:"a",y:"b",})`,
+    });
+    is(parse(`<div x={1} />`), {
+      error: false,
+      result: `React.createElement("div",{x:1,})`,
+    });
+    is(parse(`<div x={foo} />`), {
+      error: false,
+      result: `React.createElement("div",{x:foo,})`,
     });
   });
 
