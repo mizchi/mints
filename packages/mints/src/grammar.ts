@@ -34,6 +34,7 @@ import {
   K_DELETE,
   K_DO,
   K_ELSE,
+  K_ENUM,
   K_EXPORT,
   K_EXTENDS,
   K_FALSE,
@@ -1276,6 +1277,83 @@ const tryCatchStatement = $def(() =>
   ])
 );
 
+const enumAssign = $def(() =>
+  $seq([_s, $skip("="), _s, $or([numberLiteral, stringLiteral])])
+);
+
+const enumStatement = $def(() =>
+  $seq(
+    [
+      K_ENUM,
+      __,
+      ["enumName", identifier],
+      _,
+      K_BLACE_OPEN,
+      _,
+      // first define enum base
+      [
+        "items",
+        $repeat_seq([
+          //
+          ["ident", identifier],
+          ["assign", $opt(enumAssign)],
+          _s,
+          $skip(","),
+          _s,
+        ]),
+      ],
+      [
+        "last",
+        $opt(
+          $seq([
+            ["ident", identifier],
+            ["assign", $opt(enumAssign)],
+            _s,
+            $skip_opt(","),
+          ])
+        ),
+      ],
+      _,
+      K_BLACE_CLOSE,
+    ],
+    (input: {
+      enumName: string;
+      items: Array<{ ident: string; assign?: string }>;
+      last?: { ident: string; assign?: string };
+    }) => {
+      let baseValue = 0;
+      let out = `const ${input.enumName}={`;
+      for (const item of [
+        ...input.items,
+        ...(input.last ? [input.last] : []),
+      ]) {
+        let nextValue: string | number;
+        if (item.assign) {
+          const num = Number(item.assign);
+          if (isNaN(num)) {
+            nextValue = item.assign as string;
+          } else {
+            // reset base value
+            nextValue = num;
+            baseValue = num + 1;
+          }
+        } else {
+          nextValue = baseValue;
+          baseValue++;
+        }
+        // const assign = item.assign || baseValue++;
+        // console.log("input!", input);
+        // const val = baseValue++;
+
+        const nextValueKey =
+          typeof nextValue === "number" ? `"${nextValue}"` : nextValue;
+        out += `${item.ident}:${nextValue},${nextValueKey}:"${item.ident}",`;
+      }
+      return out + "};";
+    }
+  )
+);
+
 const expressionStatement = $def(() =>
   // $seq([anyExpression)
   $seq([anyExpression, $repeat_seq([",", _s, anyExpression])])
@@ -2269,6 +2347,47 @@ if (process.env.NODE_ENV === "test") {
     });
     is(parse("class{ constructor(private x:number,y:number) {} }"), {
       result: "class{constructor(x,y){this.x=x;}}",
+    });
+  });
+
+  test("transform: enum", () => {
+    const parse = compile(enumStatement, { end: true });
+    is(parse("enum X {}"), {
+      error: false,
+      result: "const X={};",
+    });
+    is(parse("enum X { a }"), {
+      error: false,
+      result: `const X={a:0,"0":"a",};`,
+    });
+    is(parse("enum X { a,b }"), {
+      error: false,
+      result: `const X={a:0,"0":"a",b:1,"1":"b",};`,
+    });
+    is(parse("enum X { a,b, }"), {
+      error: false,
+      result: `const X={a:0,"0":"a",b:1,"1":"b",};`,
+    });
+
+    is(parse("enum X { a = 42, }"), {
+      error: false,
+      result: `const X={a:42,"42":"a",};`,
+    });
+    is(parse("enum X { a = 42, b }"), {
+      error: false,
+      result: `const X={a:42,"42":"a",b:43,"43":"b",};`,
+    });
+    is(parse("enum X { a, b = 42 }"), {
+      error: false,
+      result: `const X={a:0,"0":"a",b:42,"42":"b",};`,
+    });
+    is(parse(`enum X { a = "foo" }`), {
+      error: false,
+      result: `const X={a:"foo","foo":"a",};`,
+    });
+    is(parse(`enum X { a = "foo", b = "bar" }`), {
+      error: false,
+      result: `const X={a:"foo","foo":"a",b:"bar","bar":"b",};`,
     });
   });
 

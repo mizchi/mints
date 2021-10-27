@@ -57,6 +57,7 @@ export const K_SWITCH = "switch";
 export const K_INSTANCEOF = "instanceof";
 export const K_CATCH = "catch";
 export const K_IN = "in";
+export const K_ENUM = "enum";
 
 export const K_PAREN_OPEN = "(";
 export const K_PAREN_CLOSE = ")";
@@ -139,7 +140,7 @@ const KEYWORDS = [
   K_TRY,
   // Future reserved words
   K_CLASS,
-  "enum",
+  K_ENUM,
   K_EXTENDS,
   "super",
   K_CONST,

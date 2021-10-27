@@ -283,7 +283,7 @@ export function $skip_opt<T extends Rule>(input: InputNodeExpr): T {
 }
 
 export function $repeat_seq(
-  input: InputNodeExpr[],
+  input: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
   minmax?: [number, number],
   reshape?: Reshape
 ): Repeat {
