@@ -336,10 +336,15 @@ const typeUnaryExpression = $def(() =>
   ])
 );
 
+// const typeSep = ;
 const typeBinaryExpression = $def(() =>
   $seq([
-    $opt($seq([$or(["|", "&"]), _s])),
-    $repeat_seq([typeUnaryExpression, _, $or(["|", "&"]), _]),
+    $opt($or(["|", "&"])),
+    // _,
+    $repeat_seq([
+      typeUnaryExpression,
+      $or([$seq([_, "|", _]), $seq([_, "&", _]), $seq([_, "is", __])]),
+    ]),
     typeUnaryExpression,
   ])
 );
@@ -1298,54 +1303,13 @@ const semicolonlessStatement = $def(() =>
 
 const semicolonRequiredStatement = $def(() =>
   $seq([
-    // $not(semicolonlessStatement),
-    // $not(classExpression),
-    // $not(functionExpression),
-    // $not(tryCatchStatement),
-    // $not(ifStatement),
-    // $not(),
-
-    $or([
-      // "debbuger"
-      debuggerStatement,
-      // break ...
-      breakStatement,
-      // return ...
-      returnStatement,
-      // throw ...
-      throwStatement,
-      // try
-      tryCatchStatement,
-      // declare ...
-      declareVariableStatement,
-      // const ...
-      variableStatement,
-      // type ...
-      typeStatement,
-      // interface ...
-      interfaceStatement,
-      // if ...
-      ifStatement,
-      // import ...
-      importStatement,
-      // export ...
-      exportStatement,
-      // for ...
-      forItemStatement,
-      forStatement,
-      // do ...
-      doWhileStatement,
-      // while ...
-      whileStatement,
-      // switch ...
-      switchStatement,
-      // foo: ...
-      labeledStatement,
-      // { ...
-      blockStatement,
-      // other expression
-      expressionStatement,
+    $not([
+      $regex(
+        `(${K_CLASS}|${K_EXPORT}|${K_IF}|${K_WHILE}|${K_DO}|${K_SWITCH}|${K_FOR}|${K_INTERFACE}|${K_TRY})[ {\\(]`
+      ),
     ]),
+    anyStatement,
+
     // _s,
     // $skip_opt(";"),
   ])
@@ -1865,64 +1829,6 @@ if (process.env.NODE_ENV === "test") {
     is(parse("(a as number)"), { result: "(a)" });
   });
 
-  test("typeExpression_test", () => {
-    const parse = compile(typeExpression, { end: true });
-    expectSame(
-      parse,
-      [
-        "{ a: number; }",
-        "{ a: number, }",
-        "{ a: number, b: number }",
-        "{ a: number, b?: number }",
-        "{ a?: number }",
-        "{ a: number, b: { x: 1; } }",
-        "{ a: number; }['a']",
-        "{ a: () => void; }",
-        "{ f(): void; }",
-        "{ async f(): void; }",
-        "{ f(arg: any): void; }",
-        "{ f(arg: any,): void; }",
-        "{ f(a1: any, a2: any): void; }",
-        "{ f(a1: any, a2: any, ...args: any): void; }",
-        "{ f(...args: any): void; }",
-        "{ f(...args: any): void; b: 1; }",
-        "{ readonly b: number; }",
-        `{
-          readonly b: number,
-          a: number
-        }`,
-        // `{ readonly b, number, a: number }`,
-        "[] & {}",
-        "[number]",
-        "[number,number]",
-        "[number, ...args: any]",
-        "[a:number]",
-        "[y:number,...args: any]",
-        "() => void",
-        "<T>() => void",
-        "<T = U>() => void",
-        "<T extends X>() => void",
-        "<T extends X = any>() => void",
-        "(a: number) => void",
-        "(a?: number) => void",
-        "(a: A) => void",
-        "(a: A, b: B) => void",
-        "(...args: any[]) => void",
-        "(...args: any[]) => A | B",
-        "((...args: any[]) => A | B) | () => void",
-        "infer U",
-        "{ readonly x: number; }",
-      ],
-      { stripTypes: false, format: false }
-    );
-    // is(
-    //   parse(`{
-
-    // }`),
-    //   { result: "{\n }" }
-    // );
-  });
-
   test("typeExpression", () => {
     const parse = compile(typeExpression, { end: true });
     expectSame(
@@ -1950,6 +1856,8 @@ if (process.env.NODE_ENV === "test") {
         "T['K']['X'].val",
         "string",
         "|a",
+        "|a|a",
+        "x is number",
         "a | b",
         "a | b | c",
         "a & b",
