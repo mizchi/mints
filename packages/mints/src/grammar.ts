@@ -1357,23 +1357,7 @@ const enumStatement = $def(() =>
 );
 
 const JSX_CREATOR = "React.createElement";
-
-const jsxAttributes = $repeat_seq([
-  ["name", identifier],
-  $skip_opt("="),
-  [
-    "value",
-    $or([
-      stringLiteral,
-      $seq(["{", _s, ["out", anyExpression], _s, "}"], (input) => input.out),
-    ]),
-  ],
-  __,
-]);
-
-const jsxText = $seq([_s, $regex("[^<>{]+"), _s], (input) => {
-  return `"${input.replace(/[\s\n]+/gmu, " ")}"`;
-});
+const JSX_FRAGMENT = "React.Fragment";
 
 const jsxElement = $seq(
   ["{", _s, ["expr", anyExpression], _s, "}"],
@@ -1382,7 +1366,16 @@ const jsxElement = $seq(
   }
 );
 
-const JSX_FRAGMENT = "React.Fragment";
+const jsxText = $seq([_s, $regex("[^<>{]+"), _s], (input) => {
+  return `"${input.replace(/[\s\n]+/gmu, " ")}"`;
+});
+
+const jsxAttributes = $repeat_seq([
+  __,
+  ["name", identifier],
+  $skip_opt("="),
+  ["value", $or([stringLiteral, jsxElement])],
+]);
 
 const jsxExpression = $def(() =>
   $or([
@@ -1392,7 +1385,6 @@ const jsxExpression = $def(() =>
         "<",
         ["ident", $pairOpen($or([accessible, ""]))],
         $skip_opt(typeDeclareParameters),
-        // $__,
         ["attributes", jsxAttributes],
         _s,
         ">",
@@ -1439,7 +1431,6 @@ const jsxExpression = $def(() =>
         "<",
         ["ident", $or([accessible])],
         $skip_opt(typeDeclareParameters),
-        __,
         ["attributes", jsxAttributes],
         _s,
         "/>",
