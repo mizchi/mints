@@ -971,10 +971,11 @@ const _importRightSide = $def(() =>
   $seq([
     $or([
       // default only
-      identifier,
-      $seq(["*", __, K_AS, __, identifier]),
+      $seq([__, identifier, __]),
+      $seq([_s, "*", _s, K_AS, __, identifier, __]),
       // TODO: * as b
       $seq([
+        _s,
         K_BLACE_OPEN,
         _s,
         $repeat_seq([
@@ -990,11 +991,13 @@ const _importRightSide = $def(() =>
         ),
         _s,
         K_BLACE_CLOSE,
+        _s,
       ]),
     ]),
-    __,
+    _s,
+    // __,
     K_FROM,
-    __,
+    _s,
     stringLiteral,
   ])
 );
@@ -1002,11 +1005,11 @@ const _importRightSide = $def(() =>
 const importStatement = $def(() =>
   $or([
     // import 'specifier';
-    $seq([K_IMPORT, __, stringLiteral]),
+    $seq([K_IMPORT, _s, stringLiteral]),
     // import type
-    $seq([$skip($seq([K_IMPORT, __, K_TYPE, __, _importRightSide]))]),
+    $seq([$skip($seq([K_IMPORT, __, K_TYPE, _importRightSide]))]),
     // import pattern
-    $seq([K_IMPORT, __, _importRightSide]),
+    $seq([K_IMPORT, _importRightSide]),
   ])
 );
 
@@ -1287,6 +1290,7 @@ const semicolonlessStatement = $def(() =>
 
       classExpression,
       functionExpression,
+      exportStatement,
       tryCatchStatement,
       ifStatement,
       whileStatement,
@@ -1308,18 +1312,19 @@ const semicolonRequiredStatement = $def(() =>
         `(${K_CLASS}|${K_EXPORT}|${K_IF}|${K_WHILE}|${K_DO}|${K_SWITCH}|${K_FOR}|${K_INTERFACE}|${K_TRY})[ {\\(]`
       ),
     ]),
-    $or([
-      debuggerStatement,
-      breakStatement,
-      returnStatement,
-      declareVariableStatement,
-      variableStatement,
-      typeStatement,
-      importStatement,
-      exportStatement,
-      labeledStatement,
-      expressionStatement,
-    ]),
+    anyStatement,
+    // $or([
+    //   debuggerStatement,
+    //   breakStatement,
+    //   returnStatement,
+    //   declareVariableStatement,
+    //   variableStatement,
+    //   typeStatement,
+    //   importStatement,
+    //   exportStatement,
+    //   labeledStatement,
+    //   expressionStatement,
+    // ]),
   ])
 );
 
@@ -1374,9 +1379,8 @@ const line = $def(() =>
       semicolonlessStatement,
       $or([$skip($token("\n")), $skip($token(";")), $skip(_s)]),
     ]),
-    // $seq([$opt(anyStatement), _, $r`[;\\n]+`, _]),
     $seq([
-      // enter or semicolon end statements
+      // $opt(anyStatement),
       $opt(semicolonRequiredStatement),
       $r`[ ]*`,
       // $r`[\\n;]`,
@@ -1401,10 +1405,7 @@ export const block = $def(() =>
 export const program = $def(() => $seq([_s, lines, _s, $eof()]));
 
 import { test, run, is } from "@mizchi/test";
-// import { expectError, expectSame } from "./_testHelpers";
 import { preprocessLight } from "./preprocess";
-// import { reportError } from "../types/pargen/src";
-// import { reportError } from "../../pargen/src/error_reporter";
 
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
@@ -2028,9 +2029,12 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(importStatement, { end: true });
     expectSame(parse, [
       "import 'foo'",
+      "import'foo'",
       "import * as b from 'xx'",
+      "import*as b from'xx'",
       "import a from 'b'",
       'import {} from "b"',
+      'import{}from"b"',
       'import {a} from "x"',
       'import {a, b} from "x"',
       'import {a as b} from "x"',
@@ -2038,8 +2042,8 @@ if (process.env.NODE_ENV === "test") {
     ]);
     // drop import type
     is(parse("import type a from 'xxx'"), { result: "" });
-    is(parse("import type * as b from 'xxx'"), { result: "" });
-    is(parse("import type {a as b} from 'xxx'"), { result: "" });
+    is(parse("import type *as b from 'xxx'"), { result: "" });
+    is(parse("import type{a as b} from 'xxx'"), { result: "" });
   });
   test("exportStatement", () => {
     const parse = compile(exportStatement, { end: true });
@@ -2078,7 +2082,7 @@ if (process.env.NODE_ENV === "test") {
     expectSame(parse, ["debugger", "{ a=1; }", "foo: {}", "foo: 1"]);
   });
 
-  test("program:with as", () => {
+  test("program:with type", () => {
     const parse = compile(program);
     is(parse("1 as number;"), {
       result: "1;",
@@ -2095,6 +2099,7 @@ if (process.env.NODE_ENV === "test") {
       ";;;",
       "",
       "import a from 'b';",
+      "import{} from 'b';",
       // "export {};",
     ]);
     is(parse("declare const x: number;"), { result: ";" });
@@ -2144,7 +2149,7 @@ if (process.env.NODE_ENV === "test") {
       `if(1){} else {}\n\na`,
       `if(1){} else {}\na;`,
       `type X = { xxx: number }`,
-      // `type X = { xxx?: number }`,
+      `type X = { xxx?: number }`,
 
       "f(() => 1);",
       "f(1, () => {});",
