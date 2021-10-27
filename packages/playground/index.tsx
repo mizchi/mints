@@ -1,42 +1,42 @@
 /* @jsx h */
 import { h, render } from "preact";
-import { useState, useEffect } from "preact/hooks";
+import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 import { wrap } from "comlink";
 import type { Api } from "./worker";
 // @ts-ignore
 import Worker from "./worker?worker";
 const api = wrap<Api>(new Worker());
 
-const initialCode = `
+const initialCode = `/* @jsx h */
 import { h, render } from "https://cdn.skypack.dev/preact";
 
-let a: number, b: number[], c: Array<string>;
-const x: number = 1;
+// support enum
+enum Keys {
+  A = 1,
+  B
+}
 
-// function
+// support jsx
+function App() {
+  return <div>Hello World</div>;
+}
+render(<App />, document.body);
+
+// types
+const x: number = 1;
 function square(x: number): number {
   return x ** 2;
 }
 
-// type interface will be deleted
-type IPoint = {
-  x: number;
-  y: number;
-};
-interface X {}
+type T = any;
+declare const _hidden: number;
 
-// class implements
-class Point<T extends IPoint = any> implements IPoint {
-  public x: number;
-  private y: number;
-  constructor(private x: number, private y: number) {}
-  public static async foo(arg: number):  number {
-    return x;
-  }
+class Point<Num extends number = number> {
+  private z: Num = 0;
+  constructor(private x: Num, private y: Num) {}
 }
 
-// function call with type parameter
-func<T>();
+console.log(new Point<1 | 2>(1, 2));
 `;
 
 let timeout: any = null;
@@ -44,6 +44,7 @@ function App() {
   const [code, setCode] = useState(initialCode);
   const [output, setOutput] = useState("");
   const [buildTime, setBuildTime] = useState(0);
+  const ref = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
     try {
@@ -67,6 +68,31 @@ function App() {
       console.error(err);
     }
   }, [code, setCode, setOutput, setBuildTime]);
+  const onClickRun = useCallback(() => {
+    if (ref.current == null) return;
+    const encoded = btoa(unescape(encodeURIComponent(output)));
+    const blob = new Blob(
+      [
+        `<!DOCTYPE html>
+<html>
+  <head>
+  </head>
+  <body>
+  <script type=module>
+    console.log("start in ifarme");
+    import("data:text/javascript;base64,${encoded}");
+  </script>
+  </body>
+</html>`,
+      ],
+      { type: "text/html" }
+    );
+
+    // const iframe = document.querySelector("iframe");
+    // if (ref.current) {
+    ref.current.src = URL.createObjectURL(blob);
+    // }
+  }, [output, ref]);
   return (
     <div style={{ display: "flex", width: "100vw", hegiht: "100vh" }}>
       <div
@@ -97,12 +123,33 @@ function App() {
           />
         </div>
       </div>
-      <div style={{ flex: 1 }}>
-        <h3>Output</h3>
-        <div>BuildTime: {buildTime}ms</div>
-        <pre>
-          <code style={{ whiteSpace: "pre-wrap" }}>{output}</code>
-        </pre>
+      <div style={{ flex: 1, height: "100%" }}>
+        <div style={{ height: "20vh", width: "45vw", position: "relative" }}>
+          <button
+            onClick={onClickRun}
+            style={{
+              padding: 5,
+              position: "absolute",
+              right: 0,
+              top: 0,
+              // background: "gray",
+              // color: "white",
+            }}
+          >
+            Run
+          </button>
+          <iframe
+            sandbox="allow-scripts"
+            ref={ref}
+            style={{ width: "100%", height: "100%", background: "white" }}
+          />
+        </div>
+        <div style={{ flex: 1, paddingTop: 10 }}>
+          <div>BuildTime: {buildTime}ms</div>
+          <pre>
+            <code style={{ whiteSpace: "pre-wrap" }}>{output}</code>
+          </pre>
+        </div>
       </div>
     </div>
   );

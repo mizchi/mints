@@ -1390,7 +1390,7 @@ const buildJsxCode = (
       childrenCode += `,${child}`;
     }
   }
-  const isDomPrimitive = /[a-z-]+/.test(ident);
+  const isDomPrimitive = /^[a-z-]+$/.test(ident);
   let element = isDomPrimitive ? `"${ident}"` : ident;
   if (ident === "") {
     element = config.jsxFragment;
