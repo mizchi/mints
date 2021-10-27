@@ -1308,10 +1308,18 @@ const semicolonRequiredStatement = $def(() =>
         `(${K_CLASS}|${K_EXPORT}|${K_IF}|${K_WHILE}|${K_DO}|${K_SWITCH}|${K_FOR}|${K_INTERFACE}|${K_TRY})[ {\\(]`
       ),
     ]),
-    anyStatement,
-
-    // _s,
-    // $skip_opt(";"),
+    $or([
+      debuggerStatement,
+      breakStatement,
+      returnStatement,
+      declareVariableStatement,
+      variableStatement,
+      typeStatement,
+      importStatement,
+      exportStatement,
+      labeledStatement,
+      expressionStatement,
+    ]),
   ])
 );
 
@@ -1364,12 +1372,12 @@ const line = $def(() =>
     $seq([
       // class{}(;\n)
       semicolonlessStatement,
-      $or([$skip($token("\n")), $token(";"), $skip(_)]),
+      $or([$skip($token("\n")), $skip($token(";")), $skip(_s)]),
     ]),
     // $seq([$opt(anyStatement), _, $r`[;\\n]+`, _]),
     $seq([
       // enter or semicolon end statements
-      $opt(anyStatement),
+      $opt(semicolonRequiredStatement),
       $r`[ ]*`,
       // $r`[\\n;]`,
       $or([$skip($token("\n")), $token(";")]),
@@ -2093,54 +2101,12 @@ if (process.env.NODE_ENV === "test") {
     is(parse("declare const x: number = 1;"), { result: ";" });
     is(parse("type x = number;"), { result: ";" });
     is(parse("type x = {};"), { result: ";" });
-    is(parse("export type x = number;"), { result: ";" });
-    is(parse("interface I {};"), { result: ";" });
+    is(parse("export type x = number;"), { result: "" });
+    is(parse("interface I {}"), { result: "" });
     is(parse("interface I extends T {};"), { result: ";" });
     is(parse("interface I extends T { a: number; };"), { result: ";" });
     is(parse("export interface I {};"), { result: ";" });
-
-    // const code = `let a: number, b: number, c: Array<string>;
-    // const x:  number = 1;
-
-    // function square(x: number): number {
-    //   return x ** 2;
-    // }
-
-    // // type IPoint = {
-    // //   x: number;
-    // //   y: number;
-    // // };
-    // // interface X {}
-
-    // class Point<T extends IPoint = any> implements IPoint {
-    //   public x: number;
-    //   private y: number;
-    //   constructor() {
-    //     this.x = 1;
-    //     this.y = 2;
-    //   }
-    //   public static async foo(arg: number): number {
-    //     return arg;
-    //   }
-    // }
-
-    // // func<T>();
-    // `;
-    // is(parse(code), { error: false });
   });
-
-  //   test("long program", () => {
-  //     const parse = compile(program, { end: true });
-  //     const code2 = `
-  // let a: number, b: number[], c: Array<string>;
-  // const x:  number = 1;
-  // function square(x: number): number {
-  //   return x ** 2;
-  // }
-  // interface X {}`;
-  //     is(parse(code2), { error: false });
-  //   });
-
   test("multiline program control", () => {
     const parse = compile(program, { end: true });
     expectSame(parse, [
