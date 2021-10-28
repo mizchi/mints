@@ -36,7 +36,10 @@ import {
   createStringMatcher,
 } from "./utils";
 
+const USE_RANGE = Symbol();
+
 export const createParseSuccess = (
+  ctx: ParseContext,
   result: any,
   pos: number,
   len: number,
@@ -45,9 +48,7 @@ export const createParseSuccess = (
   // hasReshaper: boolean = false
 ) => {
   let newRanges: (Range | string)[] = [];
-  // console.log("createSuccess:raw", ranges);
   if (ranges.length > 0) {
-    // let start = ranges[0][0];
     newRanges = ranges.reduce((acc, range, index) => {
       // first item
       if (index === 0) return [range];
@@ -68,8 +69,10 @@ export const createParseSuccess = (
       return [...acc, [nextStart, nextEnd]];
     }, [] as (Range | string)[]);
   }
-  // if (c
-  // console.log("createSuccess:raw", ranges, "=>", newRanges);
+
+  if (result === USE_RANGE) {
+    result = buildRangesToString(ctx.raw, newRanges);
+  }
 
   return {
     error: false,
@@ -145,7 +148,14 @@ function compileFragmentInternal(
           const result = childParser(ctx, pos);
           if (result.error === true) {
             // early stop
-            return createParseSuccess(result, pos, 0, undefined, rule.reshape);
+            return createParseSuccess(
+              ctx,
+              result,
+              pos,
+              0,
+              undefined,
+              rule.reshape
+            );
           }
         }
         return createParseError(rule, pos, rootId, {
@@ -171,7 +181,7 @@ function compileFragmentInternal(
       return (ctx, pos) => {
         const ended = Array.from(ctx.raw).length === pos;
         if (ended) {
-          return createParseSuccess("", pos, 0, undefined, rule.reshape);
+          return createParseSuccess(ctx, "", pos, 0, undefined, rule.reshape);
         }
         return createParseError(rule, pos, rootId, {
           errorType: ERROR_Eof_Unmatch,
@@ -186,7 +196,14 @@ function compileFragmentInternal(
         const matched: string | null = matcher(ctx.raw, pos);
         if (matched == null) {
           if (rule.optional) {
-            return createParseSuccess(null, pos, 0, undefined, rule.reshape);
+            return createParseSuccess(
+              ctx,
+              null,
+              pos,
+              0,
+              undefined,
+              rule.reshape
+            );
           } else {
             return createParseError(rule, pos, rootId, {
               errorType: ERROR_Regex_Unmatch,
@@ -195,6 +212,7 @@ function compileFragmentInternal(
           }
         }
         return createParseSuccess(
+          ctx,
           matched,
           pos,
           Array.from(matched).length,
@@ -211,7 +229,14 @@ function compileFragmentInternal(
         const matched: string | null = matcher(ctx.raw, pos);
         if (matched == null) {
           if (rule.optional) {
-            return createParseSuccess(null, pos, 0, undefined, rule.reshape);
+            return createParseSuccess(
+              ctx,
+              null,
+              pos,
+              0,
+              undefined,
+              rule.reshape
+            );
           } else {
             return createParseError(rule, pos, rootId, {
               errorType: ERROR_Token_Unmatch,
@@ -219,6 +244,7 @@ function compileFragmentInternal(
           }
         }
         return createParseSuccess(
+          ctx,
           matched,
           pos,
           Array.from(matched).length,
@@ -229,12 +255,12 @@ function compileFragmentInternal(
     }
     case OR: {
       // const heads = rule.heads;
-      const compiledHeads = rule.heads.map((p) => {
-        return {
-          parse: compileFragment(p, compiler, rootId),
-          node: p,
-        };
-      });
+      // const compiledHeads = rule.heads.map((p) => {
+      //   return {
+      //     parse: compileFragment(p, compiler, rootId),
+      //     node: p,
+      //   };
+      // });
 
       const compiledPatterns = rule.patterns.map((p) => {
         return {
@@ -243,29 +269,29 @@ function compileFragmentInternal(
         };
       });
       return (ctx, pos) => {
-        const headErrors = [];
+        // const headErrors = [];
         // if heads is 0, return success
-        if (false && compiledHeads.length > 0) {
-          let isHeadSuccess = false;
-          for (const head of compiledHeads) {
-            const parsed = head.parse(ctx, pos);
-            if (parsed.error) {
-              // TODO: Cache
-              headErrors.push(parsed);
-            } else {
-              isHeadSuccess = true;
-            }
-          }
-          if (!isHeadSuccess) {
-            if (rootId === 15) {
-              console.log("fail to parse head", headErrors);
-            }
-            return createParseError(rule, pos, rootId, {
-              errorType: ERROR_Or_UnmatchAll,
-              errors: headErrors,
-            });
-          }
-        }
+        // if (false && compiledHeads.length > 0) {
+        //   let isHeadSuccess = false;
+        //   for (const head of compiledHeads) {
+        //     const parsed = head.parse(ctx, pos);
+        //     if (parsed.error) {
+        //       // TODO: Cache
+        //       headErrors.push(parsed);
+        //     } else {
+        //       isHeadSuccess = true;
+        //     }
+        //   }
+        //   if (!isHeadSuccess) {
+        //     if (rootId === 15) {
+        //       console.log("fail to parse head", headErrors);
+        //     }
+        //     return createParseError(rule, pos, rootId, {
+        //       errorType: ERROR_Or_UnmatchAll,
+        //       errors: headErrors,
+        //     });
+        //   }
+        // }
 
         const errors: ParseError[] = [];
         for (const next of compiledPatterns) {
@@ -273,7 +299,14 @@ function compileFragmentInternal(
           // console.log("parsed:or", parsed);
           if (parsed.error === true) {
             if (rule.optional) {
-              return createParseSuccess(null, pos, 0, undefined, rule.reshape);
+              return createParseSuccess(
+                ctx,
+                undefined,
+                pos,
+                0,
+                undefined,
+                rule.reshape
+              );
             }
             errors.push(parsed);
             continue;
@@ -281,8 +314,6 @@ function compileFragmentInternal(
           return parsed as ParseResult;
         }
 
-        // restore stack at fail
-        // ctx.openStack = beforeOpenStack;
         return createParseError(rule, pos, rootId, {
           errorType: ERROR_Or_UnmatchAll,
           errors,
@@ -319,6 +350,7 @@ function compileFragmentInternal(
           });
         }
         return createParseSuccess(
+          ctx,
           rule.reshape ? xs.map(rule.reshape as any) : xs,
           pos,
           cursor - pos,
@@ -359,6 +391,7 @@ function compileFragmentInternal(
           }
           // const reshaped = reshape(result);
           return createParseSuccess(
+            ctx,
             result,
             pos,
             cursor - pos,
@@ -387,9 +420,9 @@ function compileFragmentInternal(
             }
             cursor += parseResult.len;
           }
-          const text = buildRangesToString(ctx.raw, ranges);
           return createParseSuccess(
-            text,
+            ctx,
+            USE_RANGE,
             pos,
             cursor - pos,
             ranges,
