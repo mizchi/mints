@@ -15,6 +15,7 @@ import {
   OR,
   PAIR_CLOSE,
   PAIR_OPEN,
+  ParseContext,
   ParseError,
   ParseErrorData,
   ParseResult,

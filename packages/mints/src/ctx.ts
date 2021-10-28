@@ -28,9 +28,7 @@ const compileWithPreprocess = (
     if (overrideJsx) config.jsx = overrideJsx;
     const overrideJsxFragment = pragma.jsxFragment ?? opts?.jsxFragment;
     if (overrideJsxFragment) config.jsxFragment = overrideJsxFragment;
-
-    console.log("override", config, pragma, input);
-
+    // console.log("override", config, pragma, input);
     const pre = preprocessLight(input);
     const parseResult = parser(pre, 0);
 

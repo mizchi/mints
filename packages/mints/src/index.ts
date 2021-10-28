@@ -1,5 +1,5 @@
 import { program } from "./grammar";
-import { compile, config } from "./ctx";
+import { compile } from "./ctx";
 
 const parse = compile(program, { end: true });
 
@@ -23,7 +23,7 @@ if (process.env.NODE_ENV === "test") {
   test("jsx pragma", () => {
     const code = `/* @jsx h */\nconst el = <div></div>`;
     const result = transform(code);
-    console.log("config", config);
+    // console.log("config", config);
     // console.log(result);
     is(result, {
       result: `const el=h("div",{})`,

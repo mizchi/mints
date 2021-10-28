@@ -63,9 +63,9 @@ export function main() {
   // const targets = [code1, code2, code3];
   const targets = [
     // x
-    // code0,
-    // code1,
-    // code2,
+    code0,
+    code1,
+    code2,
     code3,
     // code4,
     // code5,
