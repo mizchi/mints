@@ -101,6 +101,99 @@ export function buildTokenMap<T extends string>(
   return map;
 }
 
+export function preparse(text: string): Array<string[]> {
+  const lines: Array<string[]> = [];
+  let braceStack = 0;
+  let parenStack = 0;
+  const isStackClean = () => braceStack === 0 && parenStack === 0;
+
+  let _buf = "";
+  let _tokens: string[] = [];
+
+  const pushChar = (char: string) => {
+    if (_buf === " " && ["\n", "\t", " "].includes(char)) {
+      return;
+    }
+    if (_buf.length === 0 && char === "\n") {
+      return;
+    }
+    _buf += char;
+  };
+
+  const finishToken = (next?: string) => {
+    if (next) {
+      pushChar(next);
+    }
+
+    if (_buf.length > 0) {
+      _tokens.push(_buf);
+    }
+    _buf = "";
+  };
+
+  const finishLine = () => {
+    finishToken();
+    if (_tokens.length) {
+      // lines.push(_tokens.join(""));
+      lines.push(_tokens);
+      _tokens = [];
+      _buf = "";
+    }
+  };
+
+  // let isString = '';
+  const chars = Array.from(text);
+  for (let i = 0; i < chars.length; i++) {
+    const char = chars[i];
+    switch (char) {
+      case " ": {
+        // tokenize finish
+        finishToken();
+        break;
+      }
+      case ";": {
+        finishToken();
+        isStackClean() && finishLine();
+        break;
+      }
+      // support next line;
+      case "}": {
+        finishToken();
+        finishToken(char);
+        braceStack--;
+        // pushChar(char);
+        if (isStackClean() && chars[i + 1] === "\n") {
+          finishLine();
+          // skip next newLine
+          i++;
+        }
+        break;
+      }
+      case "(":
+        parenStack++;
+        finishToken();
+        finishToken(char);
+        break;
+      case ")":
+        parenStack--;
+        finishToken();
+        finishToken(char);
+        break;
+      case "{":
+        braceStack++;
+        finishToken();
+        finishToken(char);
+        break;
+      default: {
+        pushChar(char);
+      }
+    }
+  }
+
+  finishLine();
+  return lines;
+}
+
 export function readPairedBlock(
   tokenMap: TokenMap<any>,
   pos: number,
@@ -135,6 +228,21 @@ if (process.env.NODE_ENV === "test") {
   const assert = require("assert");
   // @ts-ignore
   const eq = (...args: any[]) => assert.deepStrictEqual(...(args as any));
+
+  test("preparse", () => {
+    const text = "a;bb;{a};{}\nccc;\nfunction(){}";
+    const lines = preparse(text);
+    console.log("lines", lines);
+    eq(lines, [
+      ["a"],
+      ["bb"],
+      ["{", "a", "}"],
+      ["{", "}"],
+      ["ccc"],
+      ["function", "(", ")", "{", "}"],
+    ]);
+  });
+
   test("buildTokenMap & pair", () => {
     const text = "( { { a } } ) [ ]";
     const chars = ["(", ")", "{", "}", "[", "]"];

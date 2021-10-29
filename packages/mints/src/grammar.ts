@@ -2223,13 +2223,13 @@ if (process.env.NODE_ENV === "test") {
   test("exportStatement", () => {
     const parse = compile(exportStatement, { end: true });
     expectSame(parse, [
-      "export {}",
+      "export{}",
       "export {a}",
       "export {a,b}",
       "export {a as b}",
       "export {a as default}",
       "export {default as default}",
-      "export {} from 'a'",
+      "export{} from 'a'",
       "export {default as x} from 'a'",
       "export const x = 1",
       "export function f(){}",
@@ -2410,10 +2410,10 @@ if (process.env.NODE_ENV === "test") {
     expectError(parse, [`class{f(a={a = 1}){}}`]);
   });
 
-  // test("f(''+\\n'b');", () => {
-  //   const parse = compile(program, { end: true });
-  //   is(parse(`f(''+\n'b');`), { result: "f(''+'b');" });
-  // });
+  test("f(''+\\n'b');", () => {
+    const parse = compile(program, { end: true });
+    is(parse(`f(''+\n'b');`), { result: "f(''+'b');" });
+  });
 
   test("transform: class constructor", () => {
     const parse = compile(program, { end: true });
