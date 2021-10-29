@@ -2410,10 +2410,10 @@ if (process.env.NODE_ENV === "test") {
     expectError(parse, [`class{f(a={a = 1}){}}`]);
   });
 
-  test("f(''+\\n'b');", () => {
-    const parse = compile(program, { end: true });
-    is(parse(`f(''+\n'b');`), { result: "f(''+'b');" });
-  });
+  // test("f(''+\\n'b');", () => {
+  //   const parse = compile(program, { end: true });
+  //   is(parse(`f(''+\n'b');`), { result: "f(''+'b');" });
+  // });
 
   test("transform: class constructor", () => {
     const parse = compile(program, { end: true });
