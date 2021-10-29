@@ -69,6 +69,20 @@ export const K_BLACE_CLOSE = "}";
 export const REST_SPREAD = "...";
 export const SPACE_REQUIRED_OPERATORS = [K_INSTANCEOF, K_IN];
 
+const SINGLE_OPERATORS = [
+  "+",
+  "-",
+  "|",
+  "&",
+  "*",
+  "/",
+  ">",
+  "<",
+  "^",
+  "%",
+  "=",
+];
+
 export const OPERATORS = [
   // relation
   // "instanceof",
@@ -98,17 +112,7 @@ export const OPERATORS = [
   "??",
 
   // 1 chars
-  "+",
-  "-",
-  "|",
-  "&",
-  "*",
-  "/",
-  ">",
-  "<",
-  "^",
-  "%",
-  "=",
+  ...SINGLE_OPERATORS,
 ] as const;
 
 const KEYWORDS = [

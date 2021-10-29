@@ -490,9 +490,9 @@ const callArguments = $def(() =>
 const stringLiteral = $def(() =>
   $or([
     // double quote
-    $r`("[^"\\n]*")`,
+    $r`"[^"\\n]*?"`,
     // single
-    $r`('[^'\\n]*')`,
+    $r`'[^'\\n]*?'`,
   ])
 );
 
@@ -1663,6 +1663,11 @@ if (process.env.NODE_ENV === "test") {
     expectSame(parse, ["''", `""`, '"hello"', `'hello'`]);
     expectError(parse, [`"a\nb"`]);
   });
+  test("string:no-end", () => {
+    const parse = compile(stringLiteral);
+    is(parse("'hello'"), { result: "'hello'" });
+    is(parse("'a'+\n'b'"), { result: "'a'" });
+  });
 
   test("template", () => {
     const parse = compile(templateLiteral, { end: true });
@@ -2403,6 +2408,11 @@ if (process.env.NODE_ENV === "test") {
     });
 
     expectError(parse, [`class{f(a={a = 1}){}}`]);
+  });
+
+  test("f(''+\\n'b');", () => {
+    const parse = compile(program, { end: true });
+    is(parse(`f(''+\n'b');`), { result: "f(''+'b');" });
   });
 
   test("transform: class constructor", () => {
