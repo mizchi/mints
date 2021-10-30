@@ -70,44 +70,14 @@ function* parseStream(
   let isInlineComment = false;
 
   let i: number;
-  // let _start = 0;
-  // let _end = 0;
-
-  const pushChar = (char: string) => {
-    _buf += char;
-  };
-
-  const flushable = () => _buf.length > 0;
-  const flush = () => {
-    if (_buf.length === 0) {
-      throw new Error(`can not flush`);
-    }
-    const r = _buf;
-    // const r = [_buf, _start, _end] as Token;
-    log(`> push`, JSON.stringify(_buf));
-    _buf = "";
-    // _start = 0;
-    // _end = 0;
-    return r;
-  };
-
-  const pushAndFlush = (char: string) => {
-    pushChar(char);
-    // _end = end;
-    return flush();
-  };
-
   for (i = initialCursor; i < chars.length; i++) {
     const char = chars[i];
-    // log("next char", char);
-    // skip under line comment
     if (isLineComment) {
       if (char === "\n") {
         isLineComment = false;
       }
       continue;
     }
-
     // skip under inline comment
     if (isInlineComment) {
       const nextChar = chars[i + 1];
@@ -117,23 +87,25 @@ function* parseStream(
       }
       continue;
     }
-
     // string
     if (wrapStringContext) {
       const prevChar = chars[i - 1];
-      // log({ char, prevChar });
-      // single char match but not escaped
       if (char === wrapStringContext && prevChar !== "\\") {
-        if (flushable()) yield flush();
-        // if (_buf.length > 0) yield _buf;
-        // _buf = "";
+        if (_buf.length > 0) {
+          yield _buf;
+          _buf = "";
+        }
         wrapStringContext = null;
-        yield pushAndFlush(char);
+        yield char;
       } else {
         // detect ${expr} in ``
         if (wrapStringContext === "`" && char === "$" && chars[i + 1] === "{") {
-          if (flushable()) yield flush();
-          yield pushAndFlush("${");
+          // if (flushable()) yield flush();
+          if (_buf.length > 0) {
+            yield _buf;
+            _buf = "";
+          }
+          yield "${";
           i += 2;
           for (const tok of parseStream(input, i, depth + 1)) {
             if (typeof tok === "string") {
@@ -142,8 +114,7 @@ function* parseStream(
               i = tok;
             }
           }
-          yield pushAndFlush("}");
-          // log("next char", i, chars[i + 1]);
+          yield "}";
           i += 1;
         } else {
           _buf += char;
@@ -153,17 +124,22 @@ function* parseStream(
     }
     if (CONTROL_TOKENS.includes(char)) {
       const nextChar = chars[i + 1];
-      // found /*
       if (char === "/" && nextChar === "*") {
         log("enter inline", i);
-        if (flushable()) yield flush();
+        if (_buf.length > 0) {
+          yield _buf;
+          _buf = "";
+        }
+
         isInlineComment = true;
-        // i += 1;
         continue;
       }
-      // found //
       if (char === "/" && nextChar === "/") {
-        if (flushable()) yield flush();
+        if (_buf.length > 0) {
+          yield _buf;
+          _buf = "";
+        }
+
         isLineComment = true;
         i += 1;
         continue;
@@ -180,31 +156,39 @@ function* parseStream(
         }
         if (openBraceStack === 0 && nextChar === "\n") {
           // push separator
-          yield pushAndFlush("\n");
+          yield "\n";
         }
       }
       // switch context
       if (SIMPLE_CHAR_PAIR.includes(char)) {
         wrapStringContext = char as any;
       }
-      if (flushable()) yield flush();
+      // if (flushable()) yield flush();
+      if (_buf.length > 0) {
+        yield _buf;
+        _buf = "";
+      }
       if (SKIP_TOKENS.includes(char)) {
         // yield [SPACE, i];
       } else {
-        yield pushAndFlush(char);
+        yield char;
         if (
           char === ";" &&
           openBraceStack === 0 &&
           wrapStringContext === null
         ) {
-          yield pushAndFlush("\n");
+          yield "\n";
         }
       }
     } else {
-      pushChar(char);
+      _buf += char;
     }
   }
-  if (flushable()) yield flush();
+
+  if (_buf.length > 0) {
+    yield _buf;
+    _buf = "";
+  }
 
   if (depth > 0) {
     yield i;
@@ -300,7 +284,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("inline comment 3", () => {
     const code = `{  /* Invalid session is passed. Ignore. */}x`;
-    const result = [...parseStream(code)].map(([token]) => token);
+    const result = [...parseStream(code)].map((token) => token);
     console.log(result);
     eq(result, ["{", "}", "x"]);
   });
@@ -309,34 +293,34 @@ if (process.env.NODE_ENV === "test") {
 }
 
 if (process.env.NODE_ENV === "perf") {
-  const fs = require("fs");
-  const path = require("path");
-  const big = fs.readFileSync(
-    path.join(__dirname, "_fixtures/vscode-example.ts"),
-    "utf8"
-  );
-  const start = process.hrtime.bigint();
-  let result = [];
-  // let checkpoint = start;
-  let tokenCount = 0;
-  // const perfs = [];
-  for (const token of parseStream(big)) {
-    if (token === "\n") {
-      tokenCount += result.length;
-      // console.log(result.join(" "));
-      result = [];
-    } else {
-      result.push(token);
+  for (let i = 0; i < 10; i++) {
+    const fs = require("fs");
+    const path = require("path");
+    const big = fs.readFileSync(
+      path.join(__dirname, "_fixtures/vscode-example.ts"),
+      "utf8"
+    );
+    const start = process.hrtime.bigint();
+    let result = [];
+    let tokenCount = 0;
+    for (const token of parseStream(big)) {
+      if (token === "\n") {
+        tokenCount += result.length;
+        result = [];
+      } else {
+        result.push(token);
+      }
     }
+    console.log(
+      "finish",
+      `${i}`,
+      tokenCount + "tokens",
+      Number(process.hrtime.bigint() - start) / 1_000_000 + "ms",
+      Math.floor(
+        tokenCount / (Number(process.hrtime.bigint() - start) / 1_000_000)
+      ) + "tokens/ms"
+    );
   }
-  console.log(
-    "finish",
-    tokenCount + "tokens",
-    Number(process.hrtime.bigint() - start) / 1_000_000 + "ms",
-    Math.floor(
-      tokenCount / (Number(process.hrtime.bigint() - start) / 1_000_000)
-    ) + "tokens/ms"
-  );
 }
 
 // export function preparse(text: string): Array<string[]> {
