@@ -43,11 +43,9 @@ const CONTROL_TOKENS = [
 ];
 const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
 
-type Token = string | number;
-
-function parseTokens(input: string): Generator<Token> {
+function parseTokens(input: string): Generator<string> {
   const chars = createCharSlice(input);
-  return parseStream(chars);
+  return parseStream(chars) as Generator<string>;
 }
 
 function* parseStream(
@@ -55,7 +53,7 @@ function* parseStream(
   chars: string | string[],
   initialCursor: number = 0,
   root = true
-): Generator<Token> {
+): Generator<string | number> {
   let _buf = "";
   let wrapStringContext: "'" | '"' | "`" | null = null;
   let openBraceStack = 0;
@@ -295,7 +293,7 @@ if (process.env.NODE_ENV === "perf") {
   const fs = require("fs");
   const path = require("path");
   const code = fs.readFileSync(
-    path.join(__dirname, "_fixtures/vscode-example.ts"),
+    path.join(__dirname, "../benchmark/cases/example4.ts"),
     "utf8"
   );
   for (let i = 0; i < 10; i++) {
