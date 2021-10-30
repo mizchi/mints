@@ -1,16 +1,10 @@
-// const TOKEN_MODE = 0;
-const UNDER_DOUBLE_QUOTE = '"';
-const UNDER_SINGLE_QUOTE = "'";
-// const UNDER_REGEX = "/";
-const UNDER_BACK_QUOTE = "`";
-// const UNDER_LINE_COMMENT = "/*";
-// const UNDER_INLINE_COMMENT = "//";
+import { isNumber } from "./utils";
+const DOUBLE_QUOTE = '"';
+const SINGLE_QUOTE = "'";
+const BACK_QUOTE = "`";
+const SLASH = "/";
 
-const SIMPLE_CHAR_PAIR = [
-  UNDER_SINGLE_QUOTE,
-  UNDER_DOUBLE_QUOTE,
-  UNDER_BACK_QUOTE,
-];
+const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE] as const;
 
 const L_BRACE = "{";
 const R_BRACE = "}";
@@ -50,25 +44,24 @@ const CONTROL_TOKENS = [
 ];
 const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
 
-// type Token = [token: typeof END | string, start: number, end: number];
 type Token = string | number;
 
-function* parseStream(
-  input: string,
-  initialCursor: number = 0,
-  depth = 0
-): Generator<Token> {
-  const prefix = " ".repeat(depth);
-  const DEBUG = process.env.NODE_ENV === "test";
-  const log = (...args: any) => DEBUG && console.log(prefix, ...args);
+function parseTokens(input: string): Generator<Token> {
+  const chars = createCharSlice(input);
+  return parseStream(chars);
+}
 
-  const chars = Array.from(input);
+function* parseStream(
+  // unicode slice or raw ascii string
+  chars: string | string[],
+  initialCursor: number = 0,
+  root = true
+): Generator<Token> {
   let _buf = "";
   let wrapStringContext: "'" | '"' | "`" | null = null;
   let openBraceStack = 0;
   let isLineComment = false;
   let isInlineComment = false;
-
   let i: number;
   for (i = initialCursor; i < chars.length; i++) {
     const char = chars[i];
@@ -83,7 +76,7 @@ function* parseStream(
       const nextChar = chars[i + 1];
       if (char === "*" && nextChar === "/") {
         isInlineComment = false;
-        i += 1; // skip to next
+        i += 1; // exit comment
       }
       continue;
     }
@@ -99,15 +92,18 @@ function* parseStream(
         yield char;
       } else {
         // detect ${expr} in ``
-        if (wrapStringContext === "`" && char === "$" && chars[i + 1] === "{") {
-          // if (flushable()) yield flush();
+        if (
+          wrapStringContext === "`" &&
+          char === "$" &&
+          chars[i + 1] === L_BRACE
+        ) {
           if (_buf.length > 0) {
             yield _buf;
             _buf = "";
           }
           yield "${";
           i += 2;
-          for (const tok of parseStream(input, i, depth + 1)) {
+          for (const tok of parseStream(chars, i, false)) {
             if (typeof tok === "string") {
               yield tok;
             } else {
@@ -124,33 +120,32 @@ function* parseStream(
     }
     if (CONTROL_TOKENS.includes(char)) {
       const nextChar = chars[i + 1];
-      if (char === "/" && nextChar === "*") {
-        log("enter inline", i);
-        if (_buf.length > 0) {
-          yield _buf;
-          _buf = "";
+      if (char === SLASH) {
+        if (nextChar === "*") {
+          if (_buf.length > 0) {
+            yield _buf;
+            _buf = "";
+          }
+          isInlineComment = true;
+          continue;
         }
-
-        isInlineComment = true;
-        continue;
-      }
-      if (char === "/" && nextChar === "/") {
-        if (_buf.length > 0) {
-          yield _buf;
-          _buf = "";
+        if (nextChar === SLASH) {
+          if (_buf.length > 0) {
+            yield _buf;
+            _buf = "";
+          }
+          isLineComment = true;
+          i += 1;
+          continue;
         }
-
-        isLineComment = true;
-        i += 1;
-        continue;
       }
 
       // Handle negative stack to go out parent
       if (char === L_BRACE) openBraceStack++;
       else if (char === R_BRACE) {
         openBraceStack--;
-        if (openBraceStack < 0) {
-          log("> exit by negative stack", i, char);
+        if (!root && openBraceStack < 0) {
+          // exit by negative stack
           i--; // back to prev char
           break;
         }
@@ -159,18 +154,15 @@ function* parseStream(
           yield "\n";
         }
       }
-      // switch context
-      if (SIMPLE_CHAR_PAIR.includes(char)) {
+      // switch to string context
+      if (STRING_PAIR.includes(char as any)) {
         wrapStringContext = char as any;
       }
-      // if (flushable()) yield flush();
       if (_buf.length > 0) {
         yield _buf;
         _buf = "";
       }
-      if (SKIP_TOKENS.includes(char)) {
-        // yield [SPACE, i];
-      } else {
+      if (!SKIP_TOKENS.includes(char)) {
         yield char;
         if (
           char === ";" &&
@@ -190,15 +182,18 @@ function* parseStream(
     _buf = "";
   }
 
-  if (depth > 0) {
+  if (!root) {
     yield i;
   }
 
-  if (depth === 0) {
-    if (isInlineComment) {
-      throw new Error(`unclosed inline comment`);
-    }
+  if (isInlineComment || wrapStringContext) {
+    throw new Error(`unclosed ${i}`);
   }
+}
+
+function createCharSlice(input: string) {
+  let chars: string | string[] = Array.from(input);
+  return chars.length === input.length ? input : chars;
 }
 
 import { test, run } from "@mizchi/test";
@@ -293,17 +288,18 @@ if (process.env.NODE_ENV === "test") {
 }
 
 if (process.env.NODE_ENV === "perf") {
+  const fs = require("fs");
+  const path = require("path");
+  const code = fs.readFileSync(
+    path.join(__dirname, "_fixtures/vscode-example.ts"),
+    "utf8"
+  );
+
   for (let i = 0; i < 10; i++) {
-    const fs = require("fs");
-    const path = require("path");
-    const big = fs.readFileSync(
-      path.join(__dirname, "_fixtures/vscode-example.ts"),
-      "utf8"
-    );
     const start = process.hrtime.bigint();
     let result = [];
     let tokenCount = 0;
-    for (const token of parseStream(big)) {
+    for (const token of parseTokens(code)) {
       if (token === "\n") {
         tokenCount += result.length;
         result = [];
@@ -322,137 +318,3 @@ if (process.env.NODE_ENV === "perf") {
     );
   }
 }
-
-// export function preparse(text: string): Array<string[]> {
-//   let braceStack = 0;
-//   let parenStack = 0;
-//   let _mode:
-//     | typeof TOKEN_MODE
-//     | typeof UNDER_BACK_QUOTE
-//     | typeof UNDER_SINGLE_QUOTE
-//     | typeof UNDER_DOUBLE_QUOTE
-//     | typeof UNDER_REGEX
-//     | typeof UNDER_BACK_QUOTE
-//     | typeof UNDER_LINE_COMMENT
-//     | typeof UNDER_INLINE_COMMENT = TOKEN_MODE;
-//   const isStackClean = () => braceStack === 0 && parenStack === 0;
-
-//   let _buf = "";
-//   let _tokens: string[] = [];
-//   let _stmts: Array<string[]> = [];
-
-//   const pushChar = (char: string) => {
-//     _buf += char;
-//   };
-
-//   const finishToken = () => {
-//     if (_buf.length > 0) {
-//       _tokens.push(_buf);
-//       _buf = "";
-//     }
-//   };
-
-//   const finishTokenWith = (next: string) => {
-//     finishToken();
-//     if (next && next.length > 0) {
-//       _tokens.push(next);
-//     }
-//   };
-
-//   const finishStmt = () => {
-//     finishToken();
-//     if (_tokens.length) {
-//       // lines.push(_tokens.join(""));
-//       _stmts.push(_tokens);
-//       _tokens = [];
-//       _buf = "";
-//     }
-//   };
-//   // let isString = '';
-//   const chars = Array.from(text);
-
-//   for (let i = 0; i < chars.length; i++) {
-//     const char = chars[i];
-
-//     // Handle token
-//     if (_mode === TOKEN_MODE) {
-//       if (SKIP_TOKENS.includes(char)) {
-//         finishToken();
-//         continue;
-//       }
-
-//       if (char === ";") {
-//         finishStmt();
-//         continue;
-//       }
-//       if (char === "}" && chars[i + 1] === "\n") {
-//         finishTokenWith(char);
-//         finishStmt();
-//         continue;
-//       }
-
-//       switch (char) {
-//         // support next line;
-//         case "}": {
-//           finishTokenWith(char);
-//           braceStack--;
-//           const isNextNewline = chars[i + 1] === "\n";
-//           // NOTE: if next line is newline, then finish stmt
-//           if (isStackClean() && isNextNewline) {
-//             finishStmt();
-//           }
-//           break;
-//         }
-//         case "(":
-//           parenStack++;
-//           finishTokenWith(char);
-//           break;
-//         case ")":
-//           parenStack--;
-//           finishTokenWith(char);
-//           break;
-//         case "{":
-//           braceStack++;
-//           finishTokenWith(char);
-//           break;
-//         case '"':
-//           finishTokenWith(char);
-//           _mode = UNDER_DOUBLE_QUOTE;
-//           break;
-//         case '"':
-//           finishTokenWith(char);
-//           _mode = UNDER_SINGLE_QUOTE;
-//           break;
-//         default: {
-//           pushChar(char);
-//         }
-//       }
-//       continue;
-//     }
-
-//     if (SIMPLE_CHAR_PAIR.includes(_mode as any)) {
-//       if (char === _mode) {
-//         _mode = TOKEN_MODE;
-//         finishTokenWith(char);
-//       }
-
-//       continue;
-//     }
-//   }
-//   finishStmt();
-//   return _stmts;
-// }
-
-// test("preparse", () => {
-//   const text = "a;bb;{a};{}\nccc;\nfunction(){}";
-//   const lines = preparse(text);
-//   console.log("lines", lines);
-//   is(lines, [
-//     ["a"],
-//     ["bb"],
-//     ["{", "a", "}"],
-//     ["{", "}"],
-//     ["ccc"],
-//     ["function", "(", ")", "{", "}"],
-//   ]);
-// });
