@@ -101,97 +101,131 @@ export function buildTokenMap<T extends string>(
   return map;
 }
 
+const TOKEN_MODE = 0;
+const UNDER_DOUBLE_QUOTE = '"';
+const UNDER_SINGLE_QUOTE = "'";
+const UNDER_REGEX = "/";
+const UNDER_BACK_QUOTE = "`";
+const UNDER_LINE_COMMENT = "/*";
+const UNDER_INLINE_COMMENT = "//";
+
+const SIMPLE_CHAR_PAIR = [
+  UNDER_SINGLE_QUOTE,
+  UNDER_DOUBLE_QUOTE,
+  UNDER_REGEX,
+] as const;
+
 export function preparse(text: string): Array<string[]> {
-  const lines: Array<string[]> = [];
   let braceStack = 0;
   let parenStack = 0;
+  let _mode:
+    | typeof TOKEN_MODE
+    | typeof UNDER_BACK_QUOTE
+    | typeof UNDER_SINGLE_QUOTE
+    | typeof UNDER_DOUBLE_QUOTE
+    | typeof UNDER_REGEX
+    | typeof UNDER_BACK_QUOTE
+    | typeof UNDER_LINE_COMMENT
+    | typeof UNDER_INLINE_COMMENT = TOKEN_MODE;
   const isStackClean = () => braceStack === 0 && parenStack === 0;
 
   let _buf = "";
   let _tokens: string[] = [];
+  let _stmts: Array<string[]> = [];
 
   const pushChar = (char: string) => {
-    if (_buf === " " && ["\n", "\t", " "].includes(char)) {
-      return;
-    }
-    if (_buf.length === 0 && char === "\n") {
-      return;
-    }
     _buf += char;
   };
 
-  const finishToken = (next?: string) => {
-    if (next) {
-      pushChar(next);
-    }
-
+  const finishTokenWith = (next?: string) => {
     if (_buf.length > 0) {
       _tokens.push(_buf);
+      _buf = "";
     }
-    _buf = "";
+    if (next && next.length > 0) {
+      _tokens.push(next);
+    }
   };
 
-  const finishLine = () => {
-    finishToken();
+  const finishStmt = () => {
+    finishTokenWith();
     if (_tokens.length) {
       // lines.push(_tokens.join(""));
-      lines.push(_tokens);
+      _stmts.push(_tokens);
       _tokens = [];
       _buf = "";
     }
   };
-
   // let isString = '';
   const chars = Array.from(text);
   for (let i = 0; i < chars.length; i++) {
     const char = chars[i];
-    switch (char) {
-      case " ": {
-        // tokenize finish
-        finishToken();
-        break;
-      }
-      case ";": {
-        finishToken();
-        isStackClean() && finishLine();
-        break;
-      }
-      // support next line;
-      case "}": {
-        finishToken();
-        finishToken(char);
-        braceStack--;
-        // pushChar(char);
-        if (isStackClean() && chars[i + 1] === "\n") {
-          finishLine();
-          // skip next newLine
-          i++;
+
+    // Handle token
+    if (_mode === TOKEN_MODE) {
+      switch (char) {
+        case "\r":
+        case "\t":
+        case "\n":
+        case " ": {
+          // tokenize finish
+          finishTokenWith();
+          break;
         }
-        break;
+        case ";": {
+          finishTokenWith();
+          isStackClean() && finishStmt();
+          break;
+        }
+        // support next line;
+        case "}": {
+          finishTokenWith(char);
+          braceStack--;
+          const isNextNewline = chars[i + 1] === "\n";
+          // NOTE: if next line is newline, then finish stmt
+          if (isStackClean() && isNextNewline) {
+            finishStmt();
+          }
+          break;
+        }
+        case "(":
+          parenStack++;
+          finishTokenWith(char);
+          break;
+        case ")":
+          parenStack--;
+          finishTokenWith(char);
+          break;
+        case "{":
+          braceStack++;
+          finishTokenWith(char);
+          break;
+        case '"':
+          finishTokenWith(char);
+          _mode = UNDER_DOUBLE_QUOTE;
+          break;
+        case '"':
+          finishTokenWith(char);
+          _mode = UNDER_SINGLE_QUOTE;
+          break;
+        default: {
+          pushChar(char);
+        }
       }
-      case "(":
-        parenStack++;
-        finishToken();
-        finishToken(char);
-        break;
-      case ")":
-        parenStack--;
-        finishToken();
-        finishToken(char);
-        break;
-      case "{":
-        braceStack++;
-        finishToken();
-        finishToken(char);
-        break;
-      default: {
-        pushChar(char);
+      continue;
+    }
+
+    if (SIMPLE_CHAR_PAIR.includes(_mode as typeof UNDER_SINGLE_QUOTE)) {
+      if (char === _mode) {
+        _mode = TOKEN_MODE;
+        finishTokenWith();
       }
+      pushChar(char);
+      continue;
     }
   }
-
-  finishLine();
-  return lines;
+  finishStmt();
+  return _stmts;
 }
 
 export function readPairedBlock(
