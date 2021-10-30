@@ -1,10 +1,10 @@
-const TOKEN_MODE = 0;
+// const TOKEN_MODE = 0;
 const UNDER_DOUBLE_QUOTE = '"';
 const UNDER_SINGLE_QUOTE = "'";
-const UNDER_REGEX = "/";
+// const UNDER_REGEX = "/";
 const UNDER_BACK_QUOTE = "`";
-const UNDER_LINE_COMMENT = "/*";
-const UNDER_INLINE_COMMENT = "//";
+// const UNDER_LINE_COMMENT = "/*";
+// const UNDER_INLINE_COMMENT = "//";
 
 const SIMPLE_CHAR_PAIR = [
   UNDER_SINGLE_QUOTE,
@@ -59,14 +59,16 @@ function* parseStream(
   initialCursor: number = 0,
   depth = 0
 ): Generator<Token> {
-  // debug
   const prefix = " ".repeat(depth);
-  const log = (...args: any) => console.log(prefix, ...args);
+  const DEBUG = process.env.NODE_ENV === "test";
+  const log = (...args: any) => DEBUG && console.log(prefix, ...args);
 
   const chars = Array.from(input);
   let _buf = "";
-  let wrapContext: "'" | '"' | "`" | null = null;
+  let wrapStringContext: "'" | '"' | "`" | null = null;
   let openBraceStack = 0;
+  let isLineComment = false;
+  let isInlineComment = false;
 
   let i: number;
   let _start = 0;
@@ -80,6 +82,7 @@ function* parseStream(
     _end = cur;
   };
 
+  const flushable = () => _buf.length > 0;
   const flush = () => {
     if (_buf.length === 0) {
       throw new Error(`can not flush`);
@@ -104,26 +107,48 @@ function* parseStream(
 
   for (i = initialCursor; i < chars.length; i++) {
     const char = chars[i];
-    if (wrapContext) {
-      // single char
-      if (char === wrapContext) {
-        if (_buf.length) yield flush();
-        wrapContext = null;
+    // log("next char", char);
+    // skip under line comment
+    if (isLineComment) {
+      if (char === "\n") {
+        isLineComment = false;
+      }
+      continue;
+    }
+
+    // skip under inline comment
+    if (isInlineComment) {
+      const nextChar = chars[i + 1];
+      if (char === "*" && nextChar === "/") {
+        isInlineComment = false;
+        i += 1; // skip to next
+      }
+      continue;
+    }
+
+    // string
+    if (wrapStringContext) {
+      const prevChar = chars[i - 1];
+      // log({ char, prevChar });
+      // single char match but not escaped
+      if (char === wrapStringContext && prevChar !== "\\") {
+        if (flushable()) yield flush();
+        wrapStringContext = null;
         yield pushAndFlush(char, i, i + 1);
       } else {
-        // detect ${expr} in `...`
-        if (wrapContext === "`" && char === "$" && chars[i + 1] === "{") {
-          if (_buf.length) yield flush();
+        // detect ${expr} in ``
+        if (wrapStringContext === "`" && char === "$" && chars[i + 1] === "{") {
+          if (flushable()) yield flush();
           yield pushAndFlush("${", i, i + 2);
           i += 2;
-          for (const child of parseStream(input, i, depth + 1)) {
-            if (child[0] !== END) {
-              yield child;
+          for (const [t, s, e] of parseStream(input, i, depth + 1)) {
+            if (t !== END) {
+              yield [t, s, e];
             }
-            i = child[2];
+            i = e;
           }
           yield pushAndFlush("}", i, i + 1);
-          log("next char", i, chars[i + 1]);
+          // log("next char", i, chars[i + 1]);
           i += 1;
         } else {
           _buf += char;
@@ -132,55 +157,85 @@ function* parseStream(
       continue;
     }
     if (CONTROL_TOKENS.includes(char)) {
-      // if (char === "") {};
+      const nextChar = chars[i + 1];
+      // found /*
+      if (char === "/" && nextChar === "*") {
+        log("enter inline", i);
+        if (flushable()) yield flush();
+        isInlineComment = true;
+        // i += 1;
+        continue;
+      }
+      // found //
+      if (char === "/" && nextChar === "/") {
+        if (flushable()) yield flush();
+        isLineComment = true;
+        i += 1;
+        continue;
+      }
 
       // Handle negative stack to go out parent
       if (char === L_BRACE) openBraceStack++;
       else if (char === R_BRACE) {
         openBraceStack--;
         if (openBraceStack < 0) {
-          log("> quit negative stack", i, char);
+          log("> exit by negative stack", i, char);
           i--; // back to prev char
           break;
+        }
+        if (openBraceStack === 0 && nextChar === "\n") {
+          // push separator
+          yield pushAndFlush("\n", i, i);
         }
       }
       // switch context
       if (SIMPLE_CHAR_PAIR.includes(char)) {
-        wrapContext = char as any;
+        wrapStringContext = char as any;
       }
-      // flush
-      if (_buf.length) {
-        yield flush();
-      }
-      // skip whitespace
+      if (flushable()) yield flush();
       if (SKIP_TOKENS.includes(char)) {
         // yield [SPACE, i];
       } else {
         yield pushAndFlush(char, i, i + 1);
+        if (
+          char === ";" &&
+          openBraceStack === 0 &&
+          wrapStringContext === null
+        ) {
+          // i += 1;
+          yield pushAndFlush("\n", i, i);
+        }
       }
     } else {
       pushChar(char, i);
     }
   }
-  if (_buf.length > 0) {
-    yield flush();
-  }
+  if (flushable()) yield flush();
+
   if (depth > 0) {
     yield [END, i, i];
   }
+
+  if (depth === 0) {
+    if (isInlineComment) {
+      throw new Error(`unclosed inline comment`);
+    }
+  }
 }
 
-import { test, run, is } from "@mizchi/test";
+import { test, run } from "@mizchi/test";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
+  const assert = require("assert");
+  const eq = assert.deepStrictEqual;
   const expectParseResult = (input: string, expected: string[]) => {
     for (const [token] of parseStream(input)) {
-      is(token, expected.shift());
+      eq(expected.shift(), token);
     }
   };
   test("parse tokens", () => {
     const input = "a;bb cccc  d+e";
-    let expected = ["a", ";", "bb", "cccc", "d", "+", "e"];
+    let expected = ["a", ";", "\n", "bb", "cccc", "d", "+", "e"];
     expectParseResult(input, expected);
   });
   test("parse string", () => {
@@ -188,6 +243,16 @@ if (process.env.NODE_ENV === "test") {
     let expected = ["'", "x y ", "'"];
     expectParseResult(input, expected);
   });
+
+  // TODO: Handle escape
+  // test("parse escaped string", () => {
+  //   // prettier-ignore
+  //   const input = "'\'aaa\''";
+  //   // prettier-ignore
+  //   let expected = ["'", "'aaa'", "'"];
+  //   expectParseResult(input, expected);
+  // });
+
   test("parse template", () => {
     const input = "`xxx`";
     let expected = ["`", "xxx", "`"];
@@ -222,7 +287,71 @@ if (process.env.NODE_ENV === "test") {
     expectParseResult(input, expected);
   });
 
+  test("line comment", () => {
+    expectParseResult("//aaa", []);
+    expectParseResult("a//aaa", ["a"]);
+    expectParseResult("a//aaa \nb\n//", ["a", "b"]);
+    // expectParseResult("a//aaa \nb", ["a", "b"]);
+  });
+
+  test("inline comment2 ", () => {
+    expectParseResult("/* */", []);
+    expectParseResult("/**/", []);
+    expectParseResult("a/**/", ["a"]);
+    expectParseResult("a/* */", ["a"]);
+
+    expectParseResult("a/* */a", ["a", "a"]);
+    expectParseResult("a/* */a/**/a", ["a", "a", "a"]);
+  });
+
+  test("inline comment 3", () => {
+    const code = `{  /* Invalid session is passed. Ignore. */}x`;
+    const result = [...parseStream(code)].map(([token]) => token);
+    console.log(result);
+    eq(result, ["{", "}", "x"]);
+  });
+
   run({ stopOnFail: true, stub: true, isMain });
+}
+
+if (process.env.NODE_ENV === "perf") {
+  const fs = require("fs");
+  const path = require("path");
+  const big = fs.readFileSync(
+    path.join(__dirname, "_fixtures/vscode-example.ts"),
+    "utf8"
+  );
+  const start = process.hrtime.bigint();
+  let result = [];
+  let checkpoint = start;
+  let tokenCount = 0;
+  for (const [token, _s, e] of parseStream(big)) {
+    if (token === "\n") {
+      const current = process.hrtime.bigint();
+      console.log(
+        "===",
+        e,
+        Number(current - checkpoint) / 1e6 + "ms",
+        // Number(current - start) / 1e6 + "ms",
+        result.length + "tokens"
+        // result
+      );
+      // console.log(result.length + "words");
+      tokenCount += result.length;
+      result = [];
+      checkpoint = current;
+    } else {
+      result.push(token);
+    }
+  }
+  console.log(
+    "finish",
+    tokenCount + "tokens",
+    Number(process.hrtime.bigint() - start) / 1_000_000 + "ms",
+    Math.floor(
+      tokenCount / (Number(process.hrtime.bigint() - start) / 1_000_000)
+    ) + "tokens/ms"
+  );
 }
 
 // export function preparse(text: string): Array<string[]> {
