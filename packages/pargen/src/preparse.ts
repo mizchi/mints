@@ -50,9 +50,8 @@ const CONTROL_TOKENS = [
 ];
 const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
 
-const END = Symbol();
-
-type Token = [token: typeof END | string, start: number, end: number];
+// type Token = [token: typeof END | string, start: number, end: number];
+type Token = string | number;
 
 function* parseStream(
   input: string,
@@ -71,15 +70,11 @@ function* parseStream(
   let isInlineComment = false;
 
   let i: number;
-  let _start = 0;
-  let _end = 0;
+  // let _start = 0;
+  // let _end = 0;
 
-  const pushChar = (char: string, cur: number) => {
-    if (_buf.length === 0) {
-      _start = cur;
-    }
+  const pushChar = (char: string) => {
     _buf += char;
-    _end = cur;
   };
 
   const flushable = () => _buf.length > 0;
@@ -87,21 +82,18 @@ function* parseStream(
     if (_buf.length === 0) {
       throw new Error(`can not flush`);
     }
-    const r = [_buf, _start, _end] as Token;
-    log(`> push`, JSON.stringify(_buf), _start, _end);
+    const r = _buf;
+    // const r = [_buf, _start, _end] as Token;
+    log(`> push`, JSON.stringify(_buf));
     _buf = "";
-    _start = 0;
-    _end = 0;
+    // _start = 0;
+    // _end = 0;
     return r;
   };
 
-  const pushAndFlush = (
-    char: string,
-    cur: number,
-    end: number = cur + char.length
-  ) => {
-    pushChar(char, cur);
-    _end = end;
+  const pushAndFlush = (char: string) => {
+    pushChar(char);
+    // _end = end;
     return flush();
   };
 
@@ -133,21 +125,24 @@ function* parseStream(
       // single char match but not escaped
       if (char === wrapStringContext && prevChar !== "\\") {
         if (flushable()) yield flush();
+        // if (_buf.length > 0) yield _buf;
+        // _buf = "";
         wrapStringContext = null;
-        yield pushAndFlush(char, i, i + 1);
+        yield pushAndFlush(char);
       } else {
         // detect ${expr} in ``
         if (wrapStringContext === "`" && char === "$" && chars[i + 1] === "{") {
           if (flushable()) yield flush();
-          yield pushAndFlush("${", i, i + 2);
+          yield pushAndFlush("${");
           i += 2;
-          for (const [t, s, e] of parseStream(input, i, depth + 1)) {
-            if (t !== END) {
-              yield [t, s, e];
+          for (const tok of parseStream(input, i, depth + 1)) {
+            if (typeof tok === "string") {
+              yield tok;
+            } else {
+              i = tok;
             }
-            i = e;
           }
-          yield pushAndFlush("}", i, i + 1);
+          yield pushAndFlush("}");
           // log("next char", i, chars[i + 1]);
           i += 1;
         } else {
@@ -185,7 +180,7 @@ function* parseStream(
         }
         if (openBraceStack === 0 && nextChar === "\n") {
           // push separator
-          yield pushAndFlush("\n", i, i);
+          yield pushAndFlush("\n");
         }
       }
       // switch context
@@ -196,24 +191,23 @@ function* parseStream(
       if (SKIP_TOKENS.includes(char)) {
         // yield [SPACE, i];
       } else {
-        yield pushAndFlush(char, i, i + 1);
+        yield pushAndFlush(char);
         if (
           char === ";" &&
           openBraceStack === 0 &&
           wrapStringContext === null
         ) {
-          // i += 1;
-          yield pushAndFlush("\n", i, i);
+          yield pushAndFlush("\n");
         }
       }
     } else {
-      pushChar(char, i);
+      pushChar(char);
     }
   }
   if (flushable()) yield flush();
 
   if (depth > 0) {
-    yield [END, i, i];
+    yield i;
   }
 
   if (depth === 0) {
@@ -229,7 +223,7 @@ if (process.env.NODE_ENV === "test") {
   const assert = require("assert");
   const eq = assert.deepStrictEqual;
   const expectParseResult = (input: string, expected: string[]) => {
-    for (const [token] of parseStream(input)) {
+    for (const token of parseStream(input)) {
       eq(expected.shift(), token);
     }
   };
@@ -323,23 +317,14 @@ if (process.env.NODE_ENV === "perf") {
   );
   const start = process.hrtime.bigint();
   let result = [];
-  let checkpoint = start;
+  // let checkpoint = start;
   let tokenCount = 0;
-  for (const [token, _s, e] of parseStream(big)) {
+  // const perfs = [];
+  for (const token of parseStream(big)) {
     if (token === "\n") {
-      const current = process.hrtime.bigint();
-      console.log(
-        "===",
-        e,
-        Number(current - checkpoint) / 1e6 + "ms",
-        // Number(current - start) / 1e6 + "ms",
-        result.length + "tokens"
-        // result
-      );
-      // console.log(result.length + "words");
       tokenCount += result.length;
+      // console.log(result.join(" "));
       result = [];
-      checkpoint = current;
     } else {
       result.push(token);
     }
