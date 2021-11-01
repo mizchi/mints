@@ -86,10 +86,10 @@ export type Seq<T = string, U = string> = RuleBase & {
   reshape?: (results: T[], ctx: ParseContext) => U;
 };
 
-export type SeqObject<T = string, U = any> = RuleBase & {
+export type SeqObject<T = any, U = any> = RuleBase & {
   kind: typeof SEQ_OBJECT;
   children: SeqChildRule[];
-  reshape?: (results: T[], ctx: ParseContext) => U;
+  reshape?: (results: T, ctx: ParseContext) => U;
 };
 
 export type SerializedSeq = [

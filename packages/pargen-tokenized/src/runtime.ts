@@ -187,28 +187,31 @@ function compileFragmentInternal(
     case SEQ_OBJECT: {
       const parsers = rule.children.map((c) => {
         const parse = compileFragment(c as Rule, compiler, rootId);
-        return { parse, node: c };
+        return { parse, opt: c.opt, key: c.key };
       });
       return (ctx, pos) => {
         let cursor = pos;
-        const resultObj: any = {};
-        for (const parser of parsers) {
+        let result: any = {};
+        for (let i = 0; i < parsers.length; i++) {
+          const parser = parsers[i];
           const parsed = parser.parse(ctx, cursor);
           if (parsed.error) {
-            if (parser.node.opt) continue;
+            if (parser.opt) continue;
             return fail(cursor, rootId, {
               errorType: ERROR_Seq_Stop,
               childError: parsed,
-              index: parsers.indexOf(parser),
+              index: i,
             });
-          }
-          if (parser.node.key && !parser.node.skip) {
-            const reshaped = parsed.results;
-            resultObj[parser.node.key] = reshaped;
+          } else {
+            if (parser.key) {
+              result[parser.key] = parsed.results;
+            }
           }
           cursor += parsed.len;
         }
-        return success(pos, cursor - pos, [resultObj]);
+        if (rule.reshape) result = rule.reshape(result, ctx);
+
+        return success(pos, cursor - pos, [result]);
       };
     }
 
