@@ -28,6 +28,8 @@ import {
   SeqChildParams,
   SEQ_OBJECT,
   SeqObject,
+  ANY,
+  Any,
 } from "./types";
 
 let cnt = 2;
@@ -82,6 +84,14 @@ export function $ref(refId: string | number, reshape?: Reshape): Ref {
     ref: refId,
     reshape,
   } as Ref;
+}
+
+export function $any<T = string>(reshape?: (token: string) => T): Any {
+  return {
+    id: genId(),
+    kind: ANY,
+    reshape,
+  } as Any;
 }
 
 const toSeqChild = (
@@ -188,19 +198,19 @@ export function $not(children: InputNodeExpr[], reshape?: Reshape): Not {
   } as Not;
 }
 
-function findFirstNonOptionalRule(seq: Seq): Rule | undefined {
-  if (seq.kind === SEQ) {
-    for (const child of seq.children) {
-      if (child.opt) continue;
-      if (child.kind === SEQ) {
-        return findFirstNonOptionalRule(child as unknown as Seq);
-      } else {
-        return child as unknown as Seq;
-      }
-    }
-  }
-  return undefined;
-}
+// function findFirstNonOptionalRule(seq: Seq): Rule | undefined {
+//   if (seq.kind === SEQ) {
+//     for (const child of seq.children) {
+//       if (child.opt) continue;
+//       if (child.kind === SEQ) {
+//         return findFirstNonOptionalRule(child as unknown as Seq);
+//       } else {
+//         return child as unknown as Seq;
+//       }
+//     }
+//   }
+//   return undefined;
+// }
 
 // function buildHeadTable(rule: Rule): Rule[] {
 //   switch (rule.kind) {

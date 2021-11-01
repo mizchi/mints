@@ -1,4 +1,5 @@
 import {
+  ANY,
   ATOM,
   Compiler,
   EOF,
@@ -102,6 +103,12 @@ function compileFragmentInternal(
   rootId: number
 ): InternalParser {
   switch (rule.kind) {
+    case ANY: {
+      return (ctx, pos) => {
+        const token = ctx.tokens[pos];
+        return success(pos, 1, [rule.reshape ? rule.reshape(token) : pos]);
+      };
+    }
     case TOKEN: {
       let expr = rule.expr;
       return (ctx, pos) => {

@@ -120,21 +120,21 @@ const addPerfTime = (id: string, time: number) => {
   }
 };
 
-const measurePerf = <Fn extends (...args: any[]) => any>(
-  id: string,
-  fn: Fn
-): ReturnType<Fn> => {
-  if (process.env.NODE_ENV === "perf") {
-    // const start = Date.now();
-    // const ret = fn();
-    // addPerfTime(id, Date.now() - start);
-    const start = process.hrtime.bigint();
-    const ret = fn();
-    addPerfTime(id, Number(process.hrtime.bigint() - start));
-    return ret;
-  }
-  return fn();
-};
+// const measurePerf = <Fn extends (...args: any[]) => any>(
+//   id: string,
+//   fn: Fn
+// ): ReturnType<Fn> => {
+//   if (process.env.NODE_ENV === "perf") {
+//     // const start = Date.now();
+//     // const ret = fn();
+//     // addPerfTime(id, Date.now() - start);
+//     const start = process.hrtime.bigint();
+//     const ret = fn();
+//     addPerfTime(id, Number(process.hrtime.bigint() - start));
+//     return ret;
+//   }
+//   return fn();
+// };
 
 export const printPerfResult = () => {
   if (process.env.NODE_ENV === "perf") {

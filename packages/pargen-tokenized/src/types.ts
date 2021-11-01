@@ -7,12 +7,12 @@ export const SEQ_OBJECT = 2;
 export const REPEAT = 3;
 export const TOKEN = 4;
 export const REGEX = 5;
-export const STRING = 6;
-export const OR = 7;
-export const REF = 8;
-export const EOF = 9;
-export const NOT = 11;
-export const ATOM = 14;
+export const OR = 6;
+export const REF = 7;
+export const EOF = 8;
+export const NOT = 9;
+export const ATOM = 10;
+export const ANY = 11;
 
 export const ERROR_Not_IncorrectMatch = 400;
 export const ERROR_Eof_Unmatch = 402;
@@ -52,6 +52,14 @@ export type SerializedAtom = [
   parsePtr: number,
   ...body: SerializedRuleBody
 ];
+
+export type Any<T = any> = RuleBase & {
+  kind: typeof ANY;
+  reshape?: (token: string) => T;
+};
+
+// Atom can not serialize
+// export type SerializedEof = [kind: typeof EOF, ...body: SerializedRuleBody];
 
 export type Eof = RuleBase & {
   kind: typeof EOF;
@@ -186,7 +194,8 @@ export type Rule =
   | Eof
   | Not
   | Atom
-  | Regex;
+  | Regex
+  | Any;
 
 // ==== public interface
 
