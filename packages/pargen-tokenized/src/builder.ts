@@ -99,13 +99,12 @@ const toSeqChild = (
 
 type SeqChildInputNodeExpr = InputNodeExpr | SeqChildRule;
 
-export function $seq<T = string, U = string>(
+const toSeqChildren = (
   children: Array<
     SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
-  >,
-  reshape?: (results: T[], ctx: ParseContext) => U
-): Seq {
-  const compiledChildren = children.map((child): SeqChildRule => {
+  >
+): SeqChildRule[] => {
+  return children.map((child): SeqChildRule => {
     if (Array.isArray(child)) {
       const [params, child_] = child;
       if (typeof params === "string") {
@@ -117,10 +116,18 @@ export function $seq<T = string, U = string>(
       return toSeqChild(toNode(child as InputNodeExpr));
     }
   });
+};
+
+export function $seq<T = string, U = string>(
+  children: Array<
+    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
+  >,
+  reshape?: (results: T[], ctx: ParseContext) => U
+): Seq {
   return {
     id: genId(),
     kind: SEQ,
-    children: compiledChildren,
+    children: toSeqChildren(children),
     reshape,
   } as Seq;
 }
@@ -131,22 +138,10 @@ export function $seqo<T = string, U = any>(
   >,
   reshape?: (results: T[], ctx: ParseContext) => U
 ): SeqObject<T, U> {
-  const compiledChildren = children.map((child): SeqChildRule => {
-    if (Array.isArray(child)) {
-      const [params, child_] = child;
-      if (typeof params === "string") {
-        return toSeqChild(toNode(child_), false, false, params);
-      } else {
-        return toSeqChild(toNode(child_), params.opt, params.skip, params.key);
-      }
-    } else {
-      return toSeqChild(toNode(child as InputNodeExpr));
-    }
-  });
   return {
     id: genId(),
     kind: SEQ_OBJECT,
-    children: compiledChildren,
+    children: toSeqChildren(children),
     reshape,
   } as SeqObject<T, U>;
 }
