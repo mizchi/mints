@@ -530,37 +530,39 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       { end: true }
     );
     expectSuccess(parser, "abcd".split(""), "a_d");
-    // is(parser("abbd"), { error: true });
+    is(parser("abbd".split("")), { error: true });
   });
 
-  // test("seq:skip-nested", () => {
-  //   const { compile } = createContext();
-  //   const parser = compile(
-  //     $seq([
-  //       //xx
-  //       "a",
-  //       $seq([$skip("b"), "c"]),
-  //     ])
-  //   );
-  //   is(parser("abc"), { result: "ac" });
-  // });
-  // test("seq:skip-nested2", () => {
-  //   const { compile } = createContext();
-  //   const parser = compile($or([$seq([$skip("b")])]));
-  //   is(parser("b"), { result: "" });
-  // });
-  // test("seq:skip-nested3-optional", () => {
-  //   const { compile } = createContext();
-  //   const parser = compile($or([$seq([$skip_opt("b")])]));
-  //   is(parser("b"), { result: "" });
-  //   is(parser(""), { result: "" });
-  // });
+  test("seq:skip-nested", () => {
+    const { compile } = createContext();
+    const parser = compile(
+      $seq([
+        //xx
+        "a",
+        $seq([$skip("b"), "c"]),
+      ])
+    );
+    expectSuccess(parser, "abc".split(""), "ac");
+  });
 
-  // test("skip with repeat", () => {
-  //   const { compile } = createContext();
-  //   const parser = compile($seq([$repeat_seq(["a", $skip("b")])]));
-  //   is(parser("ababab"), { result: "aaa" });
-  // });
+  test("seq:skip-nested2", () => {
+    const { compile } = createContext();
+    const parser = compile($or([$seq([$skip("b")])]));
+    expectSuccess(parser, ["b"], "");
+  });
+
+  test("seq:skip-nested3-optional", () => {
+    const { compile } = createContext();
+    const parser = compile($or([$seq([$skip_opt("b")])]));
+    expectSuccess(parser, ["b"], "");
+    expectSuccess(parser, [""], "");
+  });
+
+  test("skip with repeat", () => {
+    const { compile } = createContext();
+    const parser = compile($seq([$repeat_seq(["a", $skip("b")])]));
+    expectSuccess(parser, "ababab".split(""), "aaa");
+  });
 
   // test("paired close", () => {
   //   const { compile } = createContext();
