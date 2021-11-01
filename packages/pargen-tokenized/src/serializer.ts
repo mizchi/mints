@@ -3,7 +3,6 @@ import {
   Rule,
   SEQ,
   SerializedRule,
-  SerializedRuleBody,
   SerializedToken,
   TOKEN,
 } from "./types";
@@ -48,23 +47,26 @@ export function createSerializer() {
 
   const serialize = (node: Rule): SerializedRule => {
     // node base flags
-    const flags = (node.optional ? 0b1 : 0) + (node.skip ? 0b10 : 0);
-    const body: SerializedRuleBody = [
-      node.id,
-      flags,
-      addString(node.key),
-      addFunc(undefined),
-      // addFunc(node.reshape),
-    ];
+    // const flags = (node.opt ? 0b1 : 0) + (node.skip ? 0b10 : 0);
+    // const body: SerializedRuleBody = [
+    //   node.id,
+    //   // flags,
+    //   // addString(node.key),
+    //   addFunc(undefined),
+    //   // addFunc(node.reshape),
+    // ];
     if (node.kind === TOKEN) {
-      return [node.kind, node.expr, ...body] as SerializedToken;
+      return [node.kind, node.expr] as SerializedToken;
     }
     if (node.kind === REGEX) {
-      return [node.kind, addString(node.expr), ...body];
+      // @ts-ignore
+      return [node.kind, addString(node.expr)];
     }
     if (node.kind === SEQ) {
+      // @ts-ignore
       node.children.forEach(serialize);
-      return [node.kind, addChildren(node.children.map((x) => x.id)), ...body];
+      // @ts-ignore
+      return [node.kind, addChildren(node.children.map((x) => x.id))];
     }
 
     throw new Error("Unsupported node kind");

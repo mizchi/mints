@@ -176,7 +176,6 @@ import {
   $regex,
   $repeat,
   $repeat_seq,
-  $reshape,
   $seq,
   $skip,
   $skip_opt,
@@ -339,7 +338,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
   test("seq", () => {
     const { compile } = createContext();
-    const parser = compile($seq([$param("a", "x"), $param("b", "y"), $eof()]));
+    const parser = compile($seq([["a", "x"], ["b", "y"], $eof()]));
     expectSuccessSeqObject(parser, ["x", "y"], {
       a: "x",
       b: "y",
@@ -412,7 +411,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
   test("seq-with-param", () => {
     const { compile } = createContext();
-    const seq = $seq([$param("a", "a")]);
+    const seq = $seq([["a", "a"]]);
     const parser = compile(seq);
     is(parser(["a"]), { results: [{ a: [0] }], len: 1, pos: 0 });
     expectSuccessSeqObject(parser, ["a"], { a: "a" });

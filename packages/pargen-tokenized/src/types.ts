@@ -2,12 +2,6 @@
 
 // ==== constants ====
 
-export const nodeBaseDefault: Omit<RuleBase, "id" | "reshape" | "kind"> = {
-  key: undefined,
-  optional: false,
-  skip: false,
-};
-
 export const SEQ = 1;
 export const ATOM = 2;
 export const REPEAT = 3;
@@ -38,9 +32,7 @@ export const defaultReshape: Reshape<any, any> = <T>(i: T): T => i;
 
 export type RuleBase = {
   id: number;
-  key?: string | void;
-  optional?: boolean;
-  skip?: boolean;
+  kind: number;
 };
 
 export type SerializedRuleBody = [
@@ -79,9 +71,17 @@ export type SerializedNot = [
   ...body: SerializedRuleBody
 ];
 
+export type SeqChildParams = {
+  key?: string;
+  opt?: boolean;
+  skip?: boolean;
+};
+
+export type SeqChildRule = RuleBase & SeqChildParams;
+
 export type Seq<T = string, U = string> = RuleBase & {
   kind: typeof SEQ;
-  children: Rule[];
+  children: SeqChildRule[];
   reshape?: (results: T[], ctx: ParseContext) => U;
 };
 
@@ -137,11 +137,7 @@ export type Token<T = string> = RuleBase & {
   reshape?: (raw: string) => T;
 };
 
-export type SerializedToken = [
-  kind: typeof TOKEN,
-  exprPtr: string,
-  ...body: SerializedRuleBody
-];
+export type SerializedToken = [kind: typeof TOKEN, exprPtr: string];
 
 export type Regex<T = string> = RuleBase & {
   kind: typeof REGEX;

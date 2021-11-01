@@ -38,6 +38,9 @@ import {
 
 // const USE_RANGE = Symbol();
 
+const resolveTokens = (tokens: string[], results: any[]) =>
+  results.map((r) => (typeof r === "number" ? tokens[r] : r));
+
 export const success = <T = any>(
   pos: number,
   len: number,
@@ -112,17 +115,13 @@ function compileFragmentInternal(
       let expr = rule.expr;
       return (ctx, pos) => {
         const token = ctx.tokens[pos];
-        const matched = token === expr;
-        if (!matched) {
-          if (rule.optional) {
-            return success(pos, 0, []);
-          } else {
-            return fail(pos, rootId, {
-              errorType: ERROR_Token_Unmatch,
-            });
-          }
+        if (token === expr) {
+          return success(pos, 1, [rule.reshape ? rule.reshape(token) : pos]);
+        } else {
+          return fail(pos, rootId, {
+            errorType: ERROR_Token_Unmatch,
+          });
         }
-        return success(pos, 1, [rule.reshape ? rule.reshape(token) : pos]);
       };
     }
     case REGEX: {
@@ -131,29 +130,26 @@ function compileFragmentInternal(
       return (ctx, pos) => {
         const token = ctx.tokens[pos];
         const matched = re.test(token);
-        if (!matched) {
-          if (rule.optional) {
-            return success(pos, 1, []);
-          } else {
-            return fail(pos, rootId, {
-              errorType: ERROR_Regex_Unmatch,
-              expr: expr,
-            });
-          }
+        if (matched) {
+          return success(pos, 1, [rule.reshape ? rule.reshape(token) : pos]);
+        } else {
+          return fail(pos, rootId, {
+            errorType: ERROR_Regex_Unmatch,
+            expr: expr,
+          });
         }
-        return success(pos, 1, [rule.reshape ? rule.reshape(token) : pos]);
       };
     }
     case EOF: {
       return (ctx, pos) => {
         const ended = pos === ctx.tokens.length;
-        // console.log("ended", pos, { ended, token: ctx.tokens[pos] });
         if (ended) {
           return success(pos, 1, []);
+        } else {
+          return fail(pos, rootId, {
+            errorType: ERROR_Eof_Unmatch,
+          });
         }
-        return fail(pos, rootId, {
-          errorType: ERROR_Eof_Unmatch,
-        });
       };
     }
     case NOT: {
@@ -171,27 +167,27 @@ function compileFragmentInternal(
             });
           }
         }
+        // all parser does not match. it's correct
         return success(pos, 0, []);
       };
     }
     case REF: {
       return (ctx, pos) => {
-        const resolved = compiler.parsers.get(rule.ref);
-        return resolved!(ctx, pos);
+        const resolvedRule = compiler.parsers.get(rule.ref);
+        return resolvedRule!(ctx, pos);
       };
     }
+    // generic rule
     case ATOM: {
       return (ctx, pos) => {
         return rule.parse(ctx, pos);
       };
     }
-
     case SEQ: {
       let isObjectMode = false;
       const parsers = rule.children.map((c) => {
-        const parse = compileFragment(c, compiler, rootId);
+        const parse = compileFragment(c as Rule, compiler, rootId);
         if (c.key) isObjectMode = true;
-        // if (c.skip) hasSkip = true;
         return { parse, node: c };
       });
       return (ctx, pos) => {
@@ -201,7 +197,7 @@ function compileFragmentInternal(
           for (const parser of parsers) {
             const parsed = parser.parse(ctx, cursor);
             if (parsed.error) {
-              if (parser.node.optional) continue;
+              if (parser.node.opt) continue;
               return fail(cursor, rootId, {
                 errorType: ERROR_Seq_Stop,
                 childError: parsed,
@@ -220,7 +216,7 @@ function compileFragmentInternal(
           for (const parser of parsers) {
             const parseResult = parser.parse(ctx, cursor);
             if (parseResult.error) {
-              if (parser.node.optional) continue;
+              if (parser.node.opt) continue;
               return fail(cursor, rootId, {
                 errorType: ERROR_Seq_Stop,
                 childError: parseResult,
@@ -233,9 +229,7 @@ function compileFragmentInternal(
             cursor += parseResult.len;
           }
           if (rule.reshape) {
-            const resolvedTokens = results.map((r) =>
-              typeof r === "number" ? ctx.tokens[r] : r
-            );
+            const resolvedTokens = resolveTokens(ctx.tokens, results);
             results = rule.reshape(resolvedTokens, ctx) as any;
           }
           return success(pos, cursor - pos, results);
@@ -254,15 +248,11 @@ function compileFragmentInternal(
         for (const next of compiledPatterns) {
           const parsed = next.parse(ctx, pos);
           if (parsed.error === true) {
-            if (rule.optional) {
-              return success(pos, 0, []);
-            }
             errors.push(parsed);
             continue;
           }
           return parsed as ParseResult;
         }
-
         return fail(pos, rootId, {
           errorType: ERROR_Or_UnmatchAll,
           errors,
