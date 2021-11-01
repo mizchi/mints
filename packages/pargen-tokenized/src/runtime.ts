@@ -1,4 +1,3 @@
-// import { Regex } from "./../../pargen/src/types";
 import {
   ATOM,
   Compiler,
@@ -6,17 +5,15 @@ import {
   ERROR_Eof_Unmatch,
   ERROR_Not_IncorrectMatch,
   ERROR_Or_UnmatchAll,
-  ERROR_Pair_Unmatch,
   ERROR_Regex_Unmatch,
   ERROR_Repeat_RangeError,
+  ERROR_Seq_NoStackOnPop,
   ERROR_Seq_Stop,
+  ERROR_Seq_UnmatchStack,
   ERROR_Token_Unmatch,
   InternalParser,
   NOT,
   OR,
-  PAIR_CLOSE,
-  PAIR_OPEN,
-  ParseContext,
   ParseError,
   ParseErrorData,
   ParseResult,
@@ -25,22 +22,20 @@ import {
   REGEX,
   REPEAT,
   Repeat,
-  Reshape,
   Rule,
   SEQ,
   SEQ_OBJECT,
   TOKEN,
 } from "./types";
-// import {
-//   // buildRangesToString,
-//   createRegexMatcher,
-//   createStringMatcher,
-// } from "./utils";
 
-// const USE_RANGE = Symbol();
-
+const resolveToken = (tokens: string[], result: any) => {
+  if (typeof result === "number") {
+    return tokens[result];
+  }
+  return result;
+};
 const resolveTokens = (tokens: string[], results: any[]) =>
-  results.map((r) => (typeof r === "number" ? tokens[r] : r));
+  results.map((r) => resolveToken(tokens, r));
 
 export const success = <T = any>(
   pos: number,
@@ -78,13 +73,10 @@ export function compileFragment(
   const internalParser = compileFragmentInternal(rule, compiler, rootId);
   // generic cache
   const parser: InternalParser = (ctx, pos) => {
-    const beforeStack = ctx.openStack.slice();
     const parsed = ctx.cache.getOrCreate(rule.id, pos, () =>
       internalParser(ctx, pos)
     );
-    // restore stack on parse error
     if (parsed.error) {
-      ctx.openStack = beforeStack;
       // TODO: Refactor to Format error
       if (
         parsed.error &&
@@ -96,9 +88,7 @@ export function compileFragment(
         ].includes(parsed.errorType)
       ) {
         ctx.currentError ??= parsed;
-        if (ctx.currentError.pos < parsed.pos) {
-          ctx.currentError = parsed;
-        }
+        if (ctx.currentError.pos < parsed.pos) ctx.currentError = parsed;
       }
     }
     return parsed;
@@ -187,14 +177,16 @@ function compileFragmentInternal(
     case SEQ_OBJECT: {
       const parsers = rule.children.map((c) => {
         const parse = compileFragment(c as Rule, compiler, rootId);
-        return { parse, opt: c.opt, key: c.key };
+        return { parse, opt: c.opt, key: c.key, push: c.push, pop: c.pop };
       });
       return (ctx, pos) => {
         let cursor = pos;
         let result: any = {};
+        const capturedStack: ParseSuccess[] = [];
         for (let i = 0; i < parsers.length; i++) {
           const parser = parsers[i];
           const parsed = parser.parse(ctx, cursor);
+          // check stack pop
           if (parsed.error) {
             if (parser.opt) continue;
             return fail(cursor, rootId, {
@@ -203,6 +195,24 @@ function compileFragmentInternal(
               index: i,
             });
           } else {
+            if (parser.push) {
+              capturedStack.push(parsed);
+            }
+            if (parser.pop) {
+              const top = capturedStack.pop();
+              if (top == null) {
+                return fail(cursor, rootId, {
+                  errorType: ERROR_Seq_NoStackOnPop,
+                  index: parsers.indexOf(parser),
+                });
+              }
+              if (!parser.pop(top.results, parsed.results, ctx)) {
+                return fail(cursor, rootId, {
+                  errorType: ERROR_Seq_UnmatchStack,
+                  index: parsers.indexOf(parser),
+                });
+              }
+            }
             if (parser.key) {
               result[parser.key] = parsed.results;
             }
@@ -210,7 +220,6 @@ function compileFragmentInternal(
           cursor += parsed.len;
         }
         if (rule.reshape) result = rule.reshape(result, ctx);
-
         return success(pos, cursor - pos, [result]);
       };
     }
@@ -218,25 +227,43 @@ function compileFragmentInternal(
     case SEQ: {
       const parsers = rule.children.map((c) => {
         const parse = compileFragment(c as Rule, compiler, rootId);
-        return { parse, skip: c.skip, opt: c.opt };
+        return { parse, skip: c.skip, opt: c.opt, push: c.push, pop: c.pop };
       });
       return (ctx, pos) => {
         let cursor = pos;
         let results: any[] = [];
-        for (const parser of parsers) {
-          const parseResult = parser.parse(ctx, cursor);
-          if (parseResult.error) {
+        let capturedStack: ParseSuccess[] = [];
+        for (let i = 0; i < parsers.length; i++) {
+          let parser = parsers[i];
+          const parsed = parser.parse(ctx, cursor);
+          if (parsed.error) {
             if (parser.opt) continue;
             return fail(cursor, rootId, {
               errorType: ERROR_Seq_Stop,
-              childError: parseResult,
-              index: parsers.indexOf(parser),
+              childError: parsed,
+              index: i,
             });
           }
-          if (!parser.skip) {
-            results.push(...parseResult.results);
+          if (parser.push) capturedStack.push(parsed);
+          if (parser.pop) {
+            const top = capturedStack.pop();
+            if (top == null) {
+              return fail(cursor, rootId, {
+                errorType: ERROR_Seq_NoStackOnPop,
+                index: i,
+              });
+            }
+            if (!parser.pop(top.results, parsed.results, ctx)) {
+              return fail(cursor, rootId, {
+                errorType: ERROR_Seq_UnmatchStack,
+                index: i,
+              });
+            }
           }
-          cursor += parseResult.len;
+          if (!parser.skip) {
+            results.push(...parsed.results);
+          }
+          cursor += parsed.len;
         }
         if (rule.reshape) {
           const resolvedTokens = resolveTokens(ctx.tokens, results);
@@ -295,37 +322,6 @@ function compileFragmentInternal(
         return success(pos, cursor - pos, results);
       };
     }
-    // WIP
-    // case PAIR_OPEN: {
-    //   const parser = compileFragment(rule.pattern, compiler, rootId);
-    //   return (ctx, pos) => {
-    //     const parsed = parser(ctx, pos);
-    //     // push stack
-    //     if (!parsed.error) {
-    //       ctx.openStack.push(parsed.results);
-    //     }
-    //     return parsed;
-    //   };
-    // }
-    // case PAIR_CLOSE: {
-    //   const parser = compileFragment(rule.pattern, compiler, rootId);
-    //   return (ctx, pos) => {
-    //     const parsed = parser(ctx, pos);
-    //     // push stack
-    //     if (!parsed.error) {
-    //       const lastItem = ctx.openStack.slice(-1)[0];
-    //       if (lastItem === parsed.result) {
-    //         ctx.openStack.pop();
-    //         return parsed;
-    //       } else {
-    //         return fail(rule, pos, rootId, {
-    //           errorType: ERROR_Pair_Unmatch,
-    //         });
-    //       }
-    //     }
-    //     return parsed;
-    //   };
-    // }
     default: {
       throw new Error();
     }

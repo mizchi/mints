@@ -11,14 +11,10 @@ export const STRING = 6;
 export const OR = 7;
 export const REF = 8;
 export const EOF = 9;
-// export const PAIR = 10;
 export const NOT = 11;
-export const PAIR_OPEN = 12;
-export const PAIR_CLOSE = 13;
 export const ATOM = 14;
 
 export const ERROR_Not_IncorrectMatch = 400;
-export const ERROR_Pair_Unmatch = 401;
 export const ERROR_Eof_Unmatch = 402;
 export const ERROR_Token_Unmatch = 403;
 export const ERROR_Regex_Unmatch = 404;
@@ -26,6 +22,9 @@ export const ERROR_Seq_Stop = 405;
 export const ERROR_Or_UnmatchAll = 406;
 export const ERROR_Repeat_RangeError = 407;
 export const ERROR_Atom_ParseError = 408;
+export const ERROR_Seq_UnmatchStack = 409;
+export const ERROR_Seq_NoStackOnPop = 410;
+export const ERROR_Seq_StackLeft = 411;
 
 export const defaultReshape: Reshape<any, any> = <T>(i: T): T => i;
 
@@ -72,10 +71,17 @@ export type SerializedNot = [
   ...body: SerializedRuleBody
 ];
 
+// export const STACK_PUSH = 0;
 export type SeqChildParams = {
   key?: string;
   opt?: boolean;
   skip?: boolean;
+  push?: boolean;
+  pop?: (
+    a: ParseSuccess["results"],
+    b: ParseSuccess["results"],
+    ctx: ParseContext
+  ) => boolean;
 };
 
 export type SeqChildRule = RuleBase & SeqChildParams;
@@ -128,7 +134,7 @@ export type SerializedRepeat = [
 
 export type Or = RuleBase & {
   kind: typeof OR;
-  heads: Rule[];
+  // heads: Rule[];
   patterns: Array<Seq | Token | Ref | Regex>;
 };
 
@@ -158,16 +164,6 @@ export type SerializedRegex = [
   ...body: SerializedRuleBody
 ];
 
-export type PairOpen = RuleBase & {
-  kind: typeof PAIR_OPEN;
-  pattern: Rule;
-};
-
-export type PairClose = RuleBase & {
-  kind: typeof PAIR_CLOSE;
-  pattern: Rule;
-};
-
 export type SerializedRule =
   | SerializedSeq
   // | SerializedSeqStruct // WIP
@@ -190,9 +186,7 @@ export type Rule =
   | Eof
   | Not
   | Atom
-  | Regex
-  | PairOpen
-  | PairClose;
+  | Regex;
 
 // ==== public interface
 
@@ -226,14 +220,11 @@ export type PackratCache = {
     creator: () => ParseResult
   ): ParseResult;
 };
-
 // internal
 export type CacheMap = { [key: `${number}@${string}`]: ParseSuccess };
-
 export type ParseContext = {
   root: number | string;
   tokens: string[];
-  openStack: Array<string>;
   cache: PackratCache;
   currentError: ParseError | null;
 };
@@ -279,6 +270,19 @@ type SeqStop = {
   childError: ParseError;
 };
 
+type SeqNoStack = {
+  errorType: typeof ERROR_Seq_NoStackOnPop;
+  index: number;
+};
+type SeqStackLeft = {
+  errorType: typeof ERROR_Seq_StackLeft;
+};
+
+type SeqUnmatchStack = {
+  errorType: typeof ERROR_Seq_UnmatchStack;
+  index: number;
+};
+
 type UnmatchAll = {
   errorType: typeof ERROR_Or_UnmatchAll;
   errors: Array<ParseError>;
@@ -289,10 +293,6 @@ type AtomError = {
   childError: ParseError;
 };
 
-type PairUnmatchError = {
-  errorType: typeof ERROR_Pair_Unmatch;
-};
-
 export type ParseErrorData =
   | RepeatRangeError
   | NotIncorrectMatch
@@ -300,8 +300,10 @@ export type ParseErrorData =
   | TokenUnmatch
   | RegexUnmatch
   | SeqStop
+  | SeqUnmatchStack
+  | SeqNoStack
+  | SeqStackLeft
   | AtomError
-  | PairUnmatchError
   | UnmatchAll;
 
 export type ParseErrorBase = {

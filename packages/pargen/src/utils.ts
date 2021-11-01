@@ -137,18 +137,22 @@ export function preparse(text: string): Array<string[]> {
     _buf += char;
   };
 
-  const finishTokenWith = (next?: string) => {
+  const finishToken = () => {
     if (_buf.length > 0) {
       _tokens.push(_buf);
       _buf = "";
     }
+  };
+
+  const finishTokenWith = (next: string) => {
+    finishToken();
     if (next && next.length > 0) {
       _tokens.push(next);
     }
   };
 
   const finishStmt = () => {
-    finishTokenWith();
+    finishToken();
     if (_tokens.length) {
       // lines.push(_tokens.join(""));
       _stmts.push(_tokens);
@@ -169,11 +173,11 @@ export function preparse(text: string): Array<string[]> {
         case "\n":
         case " ": {
           // tokenize finish
-          finishTokenWith();
+          finishToken();
           break;
         }
         case ";": {
-          finishTokenWith();
+          finishToken();
           isStackClean() && finishStmt();
           break;
         }
@@ -215,12 +219,12 @@ export function preparse(text: string): Array<string[]> {
       continue;
     }
 
-    if (SIMPLE_CHAR_PAIR.includes(_mode as typeof UNDER_SINGLE_QUOTE)) {
+    if (SIMPLE_CHAR_PAIR.includes(_mode as any)) {
       if (char === _mode) {
         _mode = TOKEN_MODE;
-        finishTokenWith();
+        finishTokenWith(char);
       }
-      pushChar(char);
+
       continue;
     }
   }

@@ -1,6 +1,8 @@
-import { ERROR_Or_UnmatchAll, ERROR_Repeat_RangeError } from "./types";
-// import { ErrorType } from "@mizchi/pargen/src/types";
-// import { ParseSuccess } from "./types";
+import {
+  ERROR_Or_UnmatchAll,
+  ERROR_Repeat_RangeError,
+  ERROR_Seq_UnmatchStack,
+} from "./types";
 import { compileFragment } from "./runtime";
 import {
   CacheMap,
@@ -16,8 +18,6 @@ import {
   SEQ,
   Seq,
 } from "./types";
-
-// export { reportError } from "./error_reporter";
 
 const isNumber = (x: any): x is number => typeof x === "number";
 
@@ -50,23 +50,17 @@ export function createContext(partial: Partial<Compiler> = {}) {
         } as Seq)
       : _resolved;
     const parseFromRoot = compileFragment(resolved, compiler, resolved.id);
-
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = createPackratCache();
       const rootResult = parseFromRoot(
         {
           root: resolved.id,
           tokens,
-          openStack: [],
           currentError: null,
-          // chars: Array.from(input),
           cache,
         },
         0
       );
-      // if (!rootResult.error && rootResult.result === "") {
-      //   return rootResult;
-      // }
       return rootResult;
     };
     return rootParser;
@@ -95,17 +89,17 @@ function createPackratCache(): PackratCache {
     pos: number,
     creator: () => ParseResult
   ): ParseResult => {
-    return measurePerf("c-" + id, () => {
-      const cached = get(id as number, pos);
-      if (cached) {
-        cacheHitCount++;
-        return cached;
-      }
-      cacheMissCount++;
-      const result = creator();
-      add(id as number, pos, result);
-      return result;
-    });
+    // return measurePerf("c-" + id, () => {
+    const cached = get(id as number, pos);
+    if (cached) {
+      cacheHitCount++;
+      return cached;
+    }
+    cacheMissCount++;
+    const result = creator();
+    add(id as number, pos, result);
+    return result;
+    // });
   };
   return {
     add,
@@ -167,11 +161,7 @@ import {
   $def,
   $eof,
   $not,
-  $opt,
   $or,
-  $pairClose,
-  $pairOpen,
-  $param,
   $ref,
   $regex,
   $repeat,
@@ -563,48 +553,126 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parser, "ababab".split(""), "aaa");
   });
 
-  // test("paired close", () => {
-  //   const { compile } = createContext();
-  //   const parser = compile(
-  //     $seq([
-  //       "<",
-  //       ["key", $pairOpen($regex("[a-z]+"))],
-  //       ">",
-  //       ["v", "x"],
-  //       "</",
-  //       $pairClose($regex("[a-z]+")),
-  //       ">",
-  //     ])
-  //   );
-  //   is(parser("<div>x</div>"), { result: { v: "x", key: "div" } });
-  //   is(parser("<a>x</a>"), { result: { v: "x", key: "a" } });
-  // });
+  test("seq paired close", () => {
+    const { compile } = createContext();
+    const parser = compile(
+      $seqo([
+        [{ key: "key", push: true }, $or(["x", "y"])],
+        [
+          {
+            pop: ([a], [b], ctx) => ctx.tokens[a] === ctx.tokens[b],
+          },
+          $or(["x", "y"]),
+        ],
+      ])
+    );
+    is(parser(["x", "x"]), {
+      results: [{ key: [0] }],
+    });
+    is(parser(["y", "y"]), {
+      results: [{ key: [0] }],
+    });
+    is(parser(["x", "y"]), {
+      error: true,
+      errorType: ERROR_Seq_UnmatchStack,
+    });
+  });
+  test("paired close: like jsx", () => {
+    const { compile } = createContext();
+    const parser = compile(
+      $seqo([
+        "<",
+        [{ key: "key", push: true }, $regex("[a-z]+")],
+        ">",
+        [{ key: "value" }, $regex("[a-z]+")],
+        "<",
+        "/",
+        [
+          { pop: ([a], [b], { tokens }) => tokens[a] === tokens[b] },
+          $regex("[a-z]+"),
+        ],
+        ">",
+      ])
+    );
+    is(parser(["<", "div", ">", "x", "<", "/", "div", ">"]), {
+      results: [{ key: [1], value: [3] }],
+    });
+    is(parser(["<", "div", ">", "x", "<", "/", "a", ">"]), {
+      error: true,
+      errorType: ERROR_Seq_UnmatchStack,
+    });
+  });
+  test("paired close: like jsx nested", () => {
+    const { compile } = createContext();
+    const parser = compile(
+      $seqo([
+        "<",
+        [{ key: "tag1", push: true }, $regex("[a-z]+")],
+        ">",
+        "<",
+        [{ key: "tag2", push: true }, $regex("[a-z]+")],
+        ">",
+        "<",
+        "/",
+        [
+          { pop: ([a], [b], { tokens }) => tokens[a] === tokens[b] },
+          $regex("[a-z]+"),
+        ],
+        ">",
+        "<",
+        "/",
+        [
+          { pop: ([a], [b], { tokens }) => tokens[a] === tokens[b] },
+          $regex("[a-z]+"),
+        ],
+        ">",
+      ])
+    );
+    is(
+      parser([
+        "<",
+        "div",
+        ">",
+        "<",
+        "a",
+        ">",
+        "<",
+        "/",
+        "a",
+        ">",
+        "<",
+        "/",
+        "div",
+        ">",
+      ]),
+      {
+        results: [{ tag1: [1], tag2: [4] }],
+      }
+    );
 
-  // test("paired close nested", () => {
-  //   const { compile } = createContext();
-  //   const tag = $def(() =>
-  //     $seq([
-  //       "<",
-  //       $pairOpen($regex("[a-z]+")),
-  //       ">",
-  //       $repeat($or([tag, $regex("[a-z]+")])),
-  //       "</",
-  //       $pairClose($regex("[a-z]+")),
-  //       ">",
-  //     ])
-  //   );
-  //   const parser = compile(tag, { end: true });
-  //   is(parser("<div></div>"), { result: "<div></div>" });
-  //   is(parser("<div><a></a></div>"), { result: "<div><a></a></div>" });
-  //   is(parser("<div><a></a><b></b>xxx</div>"), {
-  //     result: "<div><a></a><b></b>xxx</div>",
-  //   });
-  //   is(parser("<div><a></b></div>"), {
-  //     error: true,
-  //   });
-
-  //   // is(parser("<a>x</a>"), { result: { v: "x" } });
-  // });
+    is(
+      parser([
+        "<",
+        "div",
+        ">",
+        "<",
+        "a",
+        ">",
+        "<",
+        "/",
+        "div",
+        ">",
+        "<",
+        "/",
+        "div",
+        ">",
+      ]),
+      {
+        error: true,
+        errorType: ERROR_Seq_UnmatchStack,
+      }
+    );
+  });
 
   run({ stopOnFail: true, stub: true });
 }

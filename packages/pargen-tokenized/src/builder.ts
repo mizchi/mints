@@ -23,10 +23,6 @@ import {
   REGEX,
   ATOM,
   EOF,
-  PairOpen,
-  PAIR_OPEN,
-  PairClose,
-  PAIR_CLOSE,
   ParseContext,
   SeqChildRule,
   SeqChildParams,
@@ -90,11 +86,13 @@ export function $ref(refId: string | number, reshape?: Reshape): Ref {
 
 const toSeqChild = (
   rule: Rule,
+  key?: string,
   opt?: boolean,
   skip?: boolean,
-  key?: string
+  push?: boolean,
+  pop?: (a: any[], b: any[], ctx: ParseContext) => boolean
 ): SeqChildRule => {
-  return { key, skip, opt, ...rule };
+  return { key, skip, opt, push, pop, ...rule };
 };
 
 type SeqChildInputNodeExpr = InputNodeExpr | SeqChildRule;
@@ -108,9 +106,16 @@ const toSeqChildren = (
     if (Array.isArray(child)) {
       const [params, child_] = child;
       if (typeof params === "string") {
-        return toSeqChild(toNode(child_), false, false, params);
+        return toSeqChild(toNode(child_), params);
       } else {
-        return toSeqChild(toNode(child_), params.opt, params.skip, params.key);
+        return toSeqChild(
+          toNode(child_),
+          params.key,
+          params.opt,
+          params.skip,
+          params.push,
+          params.pop
+        );
       }
     } else {
       return toSeqChild(toNode(child as InputNodeExpr));
@@ -197,35 +202,35 @@ function findFirstNonOptionalRule(seq: Seq): Rule | undefined {
   return undefined;
 }
 
-function buildHeadTable(rule: Rule): Rule[] {
-  switch (rule.kind) {
-    case PAIR_CLOSE:
-      throw new Error();
-    case PAIR_OPEN: {
-      return [rule.pattern];
-    }
-    case ATOM:
-    case REGEX:
-    case NOT:
-    case REF:
-    case EOF:
-    case TOKEN:
-      return [rule];
-    case REPEAT: {
-      return buildHeadTable(rule.pattern);
-    }
-    case SEQ: {
-      const head = findFirstNonOptionalRule(rule);
-      return head ? buildHeadTable(head) : [];
-    }
-    case SEQ_OBJECT: {
-      throw new Error();
-    }
-    case OR: {
-      return rule.patterns.map((pat) => buildHeadTable(pat)).flat();
-    }
-  }
-}
+// function buildHeadTable(rule: Rule): Rule[] {
+//   switch (rule.kind) {
+//     case PAIR_CLOSE:
+//       throw new Error();
+//     case PAIR_OPEN: {
+//       return [rule.pattern];
+//     }
+//     case ATOM:
+//     case REGEX:
+//     case NOT:
+//     case REF:
+//     case EOF:
+//     case TOKEN:
+//       return [rule];
+//     case REPEAT: {
+//       return buildHeadTable(rule.pattern);
+//     }
+//     case SEQ: {
+//       const head = findFirstNonOptionalRule(rule);
+//       return head ? buildHeadTable(head) : [];
+//     }
+//     case SEQ_OBJECT: {
+//       throw new Error();
+//     }
+//     case OR: {
+//       return rule.patterns.map((pat) => buildHeadTable(pat)).flat();
+//     }
+//   }
+// }
 
 export function $or(
   patterns: Array<InputNodeExpr>,
@@ -236,11 +241,11 @@ export function $or(
   }
 
   const builtPatterns = patterns.map(toNode) as Array<Seq | Token | Ref>;
-  const heads = builtPatterns.map(buildHeadTable).flat();
+  // const heads = builtPatterns.map(buildHeadTable).flat();
 
   return {
     kind: OR,
-    heads,
+    // heads: [],
     patterns: builtPatterns,
     reshape,
     id: genId(),
@@ -296,24 +301,6 @@ export function $regex<T = string>(
     kind: REGEX,
     expr,
     reshape,
-  };
-}
-
-// pairOpen
-export function $pairOpen(rule: InputNodeExpr): PairOpen {
-  return {
-    id: genId(),
-    kind: PAIR_OPEN,
-    pattern: toNode(rule),
-  };
-}
-
-// pairClose
-export function $pairClose(rule: InputNodeExpr): PairClose {
-  return {
-    id: genId(),
-    kind: PAIR_CLOSE,
-    pattern: toNode(rule),
   };
 }
 
