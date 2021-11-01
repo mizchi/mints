@@ -30,6 +30,8 @@ import {
   ParseContext,
   SeqChildRule,
   SeqChildParams,
+  SEQ_OBJECT,
+  SeqObject,
 } from "./types";
 
 let cnt = 2;
@@ -123,6 +125,32 @@ export function $seq<T = string, U = string>(
   } as Seq;
 }
 
+export function $seqo<T = string, U = any>(
+  children: Array<
+    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
+  >,
+  reshape?: (results: T[], ctx: ParseContext) => U
+): SeqObject<T, U> {
+  const compiledChildren = children.map((child): SeqChildRule => {
+    if (Array.isArray(child)) {
+      const [params, child_] = child;
+      if (typeof params === "string") {
+        return toSeqChild(toNode(child_), false, false, params);
+      } else {
+        return toSeqChild(toNode(child_), params.opt, params.skip, params.key);
+      }
+    } else {
+      return toSeqChild(toNode(child as InputNodeExpr));
+    }
+  });
+  return {
+    id: genId(),
+    kind: SEQ_OBJECT,
+    children: compiledChildren,
+    reshape,
+  } as SeqObject<T, U>;
+}
+
 export function $repeat_seq(
   input: Array<
     SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
@@ -194,6 +222,9 @@ function buildHeadTable(rule: Rule): Rule[] {
     case SEQ: {
       const head = findFirstNonOptionalRule(rule);
       return head ? buildHeadTable(head) : [];
+    }
+    case SEQ_OBJECT: {
+      throw new Error();
     }
     case OR: {
       return rule.patterns.map((pat) => buildHeadTable(pat)).flat();

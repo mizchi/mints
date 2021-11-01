@@ -28,6 +28,7 @@ import {
   Reshape,
   Rule,
   SEQ,
+  SEQ_OBJECT,
   TOKEN,
 } from "./types";
 // import {
@@ -183,57 +184,62 @@ function compileFragmentInternal(
         return rule.parse(ctx, pos);
       };
     }
-    case SEQ: {
-      let isObjectMode = false;
+    case SEQ_OBJECT: {
       const parsers = rule.children.map((c) => {
         const parse = compileFragment(c as Rule, compiler, rootId);
-        if (c.key) isObjectMode = true;
         return { parse, node: c };
       });
       return (ctx, pos) => {
         let cursor = pos;
-        if (isObjectMode) {
-          const resultObj: any = {};
-          for (const parser of parsers) {
-            const parsed = parser.parse(ctx, cursor);
-            if (parsed.error) {
-              if (parser.node.opt) continue;
-              return fail(cursor, rootId, {
-                errorType: ERROR_Seq_Stop,
-                childError: parsed,
-                index: parsers.indexOf(parser),
-              });
-            }
-            if (parser.node.key && !parser.node.skip) {
-              const reshaped = parsed.results;
-              resultObj[parser.node.key] = reshaped;
-            }
-            cursor += parsed.len;
+        const resultObj: any = {};
+        for (const parser of parsers) {
+          const parsed = parser.parse(ctx, cursor);
+          if (parsed.error) {
+            if (parser.node.opt) continue;
+            return fail(cursor, rootId, {
+              errorType: ERROR_Seq_Stop,
+              childError: parsed,
+              index: parsers.indexOf(parser),
+            });
           }
-          return success(pos, cursor - pos, [resultObj]);
-        } else {
-          let results: any[] = [];
-          for (const parser of parsers) {
-            const parseResult = parser.parse(ctx, cursor);
-            if (parseResult.error) {
-              if (parser.node.opt) continue;
-              return fail(cursor, rootId, {
-                errorType: ERROR_Seq_Stop,
-                childError: parseResult,
-                index: parsers.indexOf(parser),
-              });
-            }
-            if (!parser.node.skip) {
-              results.push(...parseResult.results);
-            }
-            cursor += parseResult.len;
+          if (parser.node.key && !parser.node.skip) {
+            const reshaped = parsed.results;
+            resultObj[parser.node.key] = reshaped;
           }
-          if (rule.reshape) {
-            const resolvedTokens = resolveTokens(ctx.tokens, results);
-            results = rule.reshape(resolvedTokens, ctx) as any;
-          }
-          return success(pos, cursor - pos, results);
+          cursor += parsed.len;
         }
+        return success(pos, cursor - pos, [resultObj]);
+      };
+    }
+
+    case SEQ: {
+      const parsers = rule.children.map((c) => {
+        const parse = compileFragment(c as Rule, compiler, rootId);
+        return { parse, skip: c.skip, opt: c.opt };
+      });
+      return (ctx, pos) => {
+        let cursor = pos;
+        let results: any[] = [];
+        for (const parser of parsers) {
+          const parseResult = parser.parse(ctx, cursor);
+          if (parseResult.error) {
+            if (parser.opt) continue;
+            return fail(cursor, rootId, {
+              errorType: ERROR_Seq_Stop,
+              childError: parseResult,
+              index: parsers.indexOf(parser),
+            });
+          }
+          if (!parser.skip) {
+            results.push(...parseResult.results);
+          }
+          cursor += parseResult.len;
+        }
+        if (rule.reshape) {
+          const resolvedTokens = resolveTokens(ctx.tokens, results);
+          results = rule.reshape(resolvedTokens, ctx) as any;
+        }
+        return success(pos, cursor - pos, results);
       };
     }
     case OR: {

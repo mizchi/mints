@@ -177,6 +177,7 @@ import {
   $repeat,
   $repeat_seq,
   $seq,
+  $seqo,
   $skip,
   $skip_opt,
   $token,
@@ -336,17 +337,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parser, ["a", "b", "c"], "abc");
   });
 
-  test("seq", () => {
-    const { compile } = createContext();
-    const parser = compile($seq([["a", "x"], ["b", "y"], $eof()]));
-    expectSuccessSeqObject(parser, ["x", "y"], {
-      a: "x",
-      b: "y",
-    });
-    expectFail(parser, ["x", "z"]);
-    expectFail(parser, " xy".split(""));
-  });
-
   test("seq reshape", () => {
     const { compile } = createContext();
     const parser = compile(
@@ -357,10 +347,21 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parser, ["a", "b"], "a.b.");
   });
 
-  test("seq shorthand", () => {
+  test("seqo", () => {
+    const { compile } = createContext();
+    const parser = compile($seqo([["a", "x"], ["b", "y"], $eof()]));
+    expectSuccessSeqObject(parser, ["x", "y"], {
+      a: "x",
+      b: "y",
+    });
+    expectFail(parser, ["x", "z"]);
+    expectFail(parser, " xy".split(""));
+  });
+
+  test("seqo shorthand", () => {
     const { compile } = createContext();
     const parser = compile(
-      $seq([
+      $seqo([
         ["a", "x"],
         ["b", "y"],
       ])
@@ -409,13 +410,12 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parse, ["xz"], "");
   });
 
-  test("seq-with-param", () => {
+  test("seq with param", () => {
     const { compile } = createContext();
-    const seq = $seq([["a", "a"]]);
+    const seq = $seqo([["a", "a"]]);
     const parser = compile(seq);
     is(parser(["a"]), { results: [{ a: [0] }], len: 1, pos: 0 });
     expectSuccessSeqObject(parser, ["a"], { a: "a" });
-
     is(parser(["x"]), {
       error: true,
       errorType: ERROR_Seq_Stop,

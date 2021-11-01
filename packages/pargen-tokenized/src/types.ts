@@ -3,7 +3,7 @@
 // ==== constants ====
 
 export const SEQ = 1;
-export const ATOM = 2;
+export const SEQ_OBJECT = 2;
 export const REPEAT = 3;
 export const TOKEN = 4;
 export const REGEX = 5;
@@ -15,6 +15,7 @@ export const EOF = 9;
 export const NOT = 11;
 export const PAIR_OPEN = 12;
 export const PAIR_CLOSE = 13;
+export const ATOM = 14;
 
 export const ERROR_Not_IncorrectMatch = 400;
 export const ERROR_Pair_Unmatch = 401;
@@ -81,6 +82,12 @@ export type SeqChildRule = RuleBase & SeqChildParams;
 
 export type Seq<T = string, U = string> = RuleBase & {
   kind: typeof SEQ;
+  children: SeqChildRule[];
+  reshape?: (results: T[], ctx: ParseContext) => U;
+};
+
+export type SeqObject<T = string, U = any> = RuleBase & {
+  kind: typeof SEQ_OBJECT;
   children: SeqChildRule[];
   reshape?: (results: T[], ctx: ParseContext) => U;
 };
@@ -163,6 +170,7 @@ export type PairClose = RuleBase & {
 
 export type SerializedRule =
   | SerializedSeq
+  // | SerializedSeqStruct // WIP
   | SerializedToken
   | SerializedOr
   | SerializedRepeat
@@ -174,6 +182,7 @@ export type SerializedRule =
 
 export type Rule =
   | Seq
+  | SeqObject
   | Token
   | Or
   | Repeat
