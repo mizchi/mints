@@ -1,4 +1,4 @@
-import { ERROR_Repeat_RangeError } from "./types";
+import { ERROR_Or_UnmatchAll, ERROR_Repeat_RangeError } from "./types";
 // import { ErrorType } from "@mizchi/pargen/src/types";
 // import { ParseSuccess } from "./types";
 import { compileFragment } from "./runtime";
@@ -283,6 +283,16 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parse2, ["a"], "a");
   });
 
+  test("regex with reshape", () => {
+    const { compile } = createContext();
+    const parse = compile($regex(`\\w+`));
+    expectSuccess(parse, ["abc"], "abc");
+    expectFail(parse, [""]);
+    const parse2 = compile($regex(`a`));
+    expectFail(parse2, ["xa"]);
+    expectSuccess(parse2, ["a"], "a");
+  });
+
   test("not", () => {
     const { compile } = createContext();
     const parse = compile($not(["a"]));
@@ -337,6 +347,17 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectFail(parser, ["x", "z"]);
     expectFail(parser, " xy".split(""));
   });
+
+  test("seq reshape", () => {
+    const { compile } = createContext();
+    const parser = compile(
+      $seq(["a", "b", $eof()], (results) => {
+        return results.map((i) => i + ".");
+      })
+    );
+    expectSuccess(parser, ["a", "b"], "a.b.");
+  });
+
   test("seq shorthand", () => {
     const { compile } = createContext();
     const parser = compile(
@@ -389,324 +410,128 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parse, ["xz"], "");
   });
 
-  // test("seq-with-param", () => {
-  //   const { compile } = createContext();
-  //   const seq = $seq([$param("a", "a")]);
-  //   const parser = compile(seq);
-  //   is(parser("a"), { result: { a: "a" }, len: 1, pos: 0 });
-  //   is(parser("ab"), {
-  //     result: { a: "a" },
-  //     len: 1,
-  //     pos: 0,
-  //   });
-  //   is(parser("x"), {
-  //     error: true,
-  //     errorType: ERROR_Seq_Stop,
-  //     pos: 0,
-  //     childError: {
-  //       pos: 0,
-  //       error: true,
-  //       errorType: ERROR_Token_Unmatch,
-  //     },
-  //   });
-  // });
+  test("seq-with-param", () => {
+    const { compile } = createContext();
+    const seq = $seq([$param("a", "a")]);
+    const parser = compile(seq);
+    is(parser(["a"]), { results: [{ a: [0] }], len: 1, pos: 0 });
+    expectSuccessSeqObject(parser, ["a"], { a: "a" });
 
-  // test("reuse symbol", () => {
-  //   const { compile } = createContext({});
-  //   const _ = $def(() => $regex("\\s"));
+    is(parser(["x"]), {
+      error: true,
+      errorType: ERROR_Seq_Stop,
+      pos: 0,
+      childError: {
+        pos: 0,
+        error: true,
+        errorType: ERROR_Token_Unmatch,
+      },
+    });
+  });
 
-  //   const seq = $seq(["a", _, "b", _, "c"]);
-  //   const parser = compile(seq);
-  //   is(parser("a b c"), {
-  //     result: "a b c",
-  //     len: 5,
-  //     pos: 0,
-  //   });
-  // });
+  test("reuse symbol", () => {
+    const { compile } = createContext({});
+    const seq = $seq(["a", "b", "c"]);
+    const parser = compile(seq);
+    expectSuccess(parser, ["a", "b", "c"], "abc");
+  });
 
-  // test("repeat:str", () => {
-  //   const { compile } = createContext();
-  //   const parser = compile($repeat_seq(["a", "b", $eof()]));
-  //   is(parser("ab"), {
-  //     error: false,
-  //     result: ["ab"],
-  //     pos: 0,
-  //     len: 2,
-  //   });
-  //   const parser2 = compile($seq([$repeat($seq(["a", "b", $eof()])), $eof()]));
-  //   is(parser2("ab"), {
-  //     error: false,
-  //     result: "ab",
-  //     pos: 0,
-  //     len: 2,
-  //   });
-  // });
+  test("or", () => {
+    const { compile } = createContext();
+    const seq = $or(["x", "y"]);
+    const parser = compile(seq);
+    expectSuccess(parser, ["x"], "x");
+    expectSuccess(parser, ["y"], "y");
+    is(parser(["z"]), {
+      error: true,
+      errorType: ERROR_Or_UnmatchAll,
+      pos: 0,
+      errors: [
+        {
+          error: true,
+          pos: 0,
+          errorType: ERROR_Token_Unmatch,
+        },
+        {
+          error: true,
+          pos: 0,
+          errorType: ERROR_Token_Unmatch,
+        },
+      ],
+      // ]
+    });
+  });
 
-  // test("repeat:minmax", () => {
-  //   const { compile } = createContext();
-  //   const rep = $repeat($seq(["xy"]), [1, 2]);
-  //   const parser = compile(rep);
-  //   // 1
-  //   is(parser("xy"), {
-  //     error: false,
-  //     result: ["xy"],
-  //     len: 2,
-  //   });
+  test("or:with-cache", () => {
+    const { compile } = createContext();
+    const seq = $or([$seq(["x", "y", "z"]), $seq(["x", "y", "a"])]);
+    const parser = compile(seq);
+    expectSuccess(parser, ["x", "y", "a"], "xya");
+    expectSuccess(parser, ["x", "y", "z"], "xyz");
+    is(parser(["x", "y", "b"]), {
+      error: true,
+      pos: 0,
+      errorType: ERROR_Or_UnmatchAll,
+    });
+  });
 
-  //   // 2
-  //   is(parser("xyxy"), {
-  //     error: false,
-  //     result: ["xy", "xy"],
-  //     len: 4,
-  //   });
-  //   // range out
-  //   // 0
-  //   is(parser(""), { error: true });
-  //   // 3
-  //   is(parser("xyxyxy"), { error: true });
-  // });
+  test("reuse recursive with suffix", () => {
+    // const Paren = 1000;
+    const { compile } = createContext({});
+    const paren = $def(() =>
+      $seq([
+        "(",
+        $or([
+          // nested: ((1))
+          $ref(paren),
+          // (1),
+          "1",
+        ]),
+        ")",
+      ])
+    );
+    const parser = compile(paren, { end: true });
+    expectSuccess(parser, "(1)".split(""), "(1)");
+    expectSuccess(parser, "((1))".split(""), "((1))");
+    expectFail(parser, "((1)".split(""));
+    expectFail(parser, "(1))".split(""));
+  });
 
-  // test("repeat:direct-repeat", () => {
-  //   const { compile } = createContext();
-  //   const parser = compile($repeat($seq(["ab"]), [1, 2]));
-  //   is(parser("ab"), {
-  //     result: ["ab"],
-  //     pos: 0,
-  //     len: 2,
-  //   });
-  //   is(parser("abab"), {
-  //     result: ["ab", "ab"],
-  //     pos: 0,
-  //     len: 4,
-  //   });
-  // });
+  test("skip in or", () => {
+    const { compile } = createContext();
+    // read next >
+    const parser = compile($or([$seq(["a", $skip("b"), "c"]), "xxx"]));
+    expectSuccess(parser, "abc".split(""), "ac");
+  });
 
-  // test("seq:multiline", () => {
-  //   const { compile } = createContext();
-  //   const seq = $seq([$regex("aaa\\nbbb")]);
-  //   const parser = compile(seq);
-  //   is(parser(`aaa\nbbb`), {
-  //     result: "aaa\nbbb",
-  //     len: 7,
-  //     pos: 0,
-  //   });
-  // });
+  test("skip in repeat", () => {
+    const { compile } = createContext();
+    const parser = compile(
+      $seq([
+        // seq
+        $repeat($or([$seq(["a", $skip("b"), "c"]), "x"])),
+        $eof(),
+      ])
+    );
+    expectSuccess(parser, "abcabcxxx".split(""), "acacxxx");
+    expectFail(parser, "abcz".split(""));
+  });
 
-  // test("seq:opt", () => {
-  //   const { compile } = createContext();
-  //   const seq = $seq(["a", $opt("b"), "c"]);
-  //   const parser = compile(seq);
-  //   is(parser(`abc`), {
-  //     result: "abc",
-  //     len: 3,
-  //     pos: 0,
-  //   });
-  //   is(parser(`ac`), {
-  //     result: "ac",
-  //     len: 2,
-  //     pos: 0,
-  //   });
-  // });
-
-  // test("repeat", () => {
-  //   const { compile } = createContext();
-  //   const seq = $repeat(
-  //     $seq([
-  //       ["a", "x"],
-  //       ["b", "y"],
-  //     ])
-  //   );
-  //   const parser = compile(seq);
-  //   is(parser("xy"), {
-  //     result: [{ a: "x", b: "y" }],
-  //     pos: 0,
-  //     len: 2,
-  //   });
-  //   is(parser("xyxy"), {
-  //     result: [
-  //       { a: "x", b: "y" },
-  //       { a: "x", b: "y" },
-  //     ],
-  //     pos: 0,
-  //     len: 4,
-  //   });
-  //   is(parser("xyxz"), {
-  //     result: [{ a: "x", b: "y" }],
-  //     pos: 0,
-  //     len: 2,
-  //   });
-  //   is(parser("xzxy"), { result: [], pos: 0, len: 0 });
-  // });
-
-  // test("repeat:with-padding", () => {
-  //   const { compile } = createContext();
-  //   const seq = $seq([
-  //     $regex("__"),
-  //     $param(
-  //       "xylist",
-  //       $repeat(
-  //         $seq([
-  //           ["a", "x"],
-  //           ["b", "y"],
-  //         ])
-  //       )
-  //     ),
-  //     $regex("_+"),
-  //   ]);
-  //   const parser = compile(seq);
-
-  //   is(parser("__xyxy_"), {
-  //     result: {
-  //       xylist: [
-  //         { a: "x", b: "y" },
-  //         { a: "x", b: "y" },
-  //       ],
-  //     },
-  //     pos: 0,
-  //     len: 7,
-  //   });
-  // });
-
-  // test("or", () => {
-  //   const { compile } = createContext();
-  //   const seq = $or(["x", "y"]);
-  //   const parser = compile(seq);
-  //   is(parser("x"), {
-  //     result: "x",
-  //     len: 1,
-  //   });
-  //   is(parser("y"), {
-  //     result: "y",
-  //     len: 1,
-  //   });
-  //   is(parser("z"), {
-  //     error: true,
-  //     errorType: ERROR_Or_UnmatchAll,
-  //     pos: 0,
-  //     errors: [
-  //       {
-  //         error: true,
-  //         pos: 0,
-  //         errorType: ERROR_Token_Unmatch,
-  //         // detail: "x",
-  //       },
-  //       {
-  //         error: true,
-  //         pos: 0,
-  //         errorType: ERROR_Token_Unmatch,
-  //         // detail: "y",
-  //       },
-  //     ],
-  //     // ]
-  //   });
-  // });
-
-  // test("or:with-cache", () => {
-  //   const { compile } = createContext();
-  //   const seq = $or([$seq(["x", "y", "z"]), $seq(["x", "y", "a"])]);
-  //   const parser = compile(seq);
-  //   is(parser("xya"), {
-  //     result: "xya",
-  //     len: 3,
-  //     pos: 0,
-  //   });
-  //   // console.log("xyb", JSON.stringify(parser("xyb"), null, 2));
-  //   is(parser("xyb"), {
-  //     error: true,
-  //     pos: 0,
-  //     errorType: ERROR_Or_UnmatchAll,
-  //     // errors: [
-  //     //   {
-  //     //     error: true,
-  //     //     errorType: ErrorType.Seq_Stop,
-  //     //     pos: 0,
-  //     //     childError: {
-  //     //       error: true,
-  //     //       pos: 0,
-  //     //       errorType: ErrorType.Token_Unmatch,
-  //     //       // detail: "xyz",
-  //     //     },
-  //     //   },
-  //     //   {
-  //     //     error: true,
-  //     //     errorType: ErrorType.Seq_Stop,
-  //     //     pos: 0,
-  //     //     childError: {
-  //     //       error: true,
-  //     //       pos: 0,
-  //     //       errorType: ErrorType.Token_Unmatch,
-  //     //       // detail: "xya",
-  //     //     },
-  //     //   },
-  //     // ],
-  //   });
-  // });
-
-  // test("reuse recursive with suffix", () => {
-  //   // const Paren = 1000;
-  //   const { compile } = createContext({});
-  //   const paren = $def(() =>
-  //     $seq([
-  //       "\\(",
-  //       $or([
-  //         // nested: ((1))
-  //         $ref(paren),
-  //         // (1),
-  //         "1",
-  //       ]),
-  //       "\\)",
-  //     ])
-  //   );
-  //   const parser = compile(paren);
-  //   // console.log("compile success");
-  //   is(parser("(1)_"), { result: "(1)", len: 3, pos: 0 });
-  //   is(parser("((1))"), {
-  //     result: "((1))",
-  //     len: 5,
-  //     pos: 0,
-  //   });
-  //   is(parser("(((1)))"), {
-  //     result: "(((1)))",
-  //     len: 7,
-  //     pos: 0,
-  //   });
-  //   is(parser("((((1))))"), {
-  //     result: "((((1))))",
-  //     len: 9,
-  //     pos: 0,
-  //   });
-  //   is(parser("((1)").error, true);
-  // });
-
-  // test("skip in or", () => {
-  //   const { compile } = createContext();
-  //   // read next >
-  //   const parser = compile($or([$seq(["a", $skip("b"), "c"]), "xxx"]));
-  //   is(parser("abc"), { result: "ac" });
-  // });
-  // test("skip in repeat", () => {
-  //   const { compile } = createContext();
-  //   const parser = compile(
-  //     $seq([$repeat($or([$seq(["a", $skip("b"), "c"]), "xxx"]))])
-  //   );
-  //   is(parser("abcabcxxx"), { result: "acacxxx" });
-  // });
-
-  // test("seq-string with reshape", () => {
-  //   const { compile } = createContext();
-  //   const parser = compile(
-  //     $seq([
-  //       // a
-  //       "a",
-  //       $seq(["bb"], () => "_"),
-  //       $skip("c"),
-  //       "d",
-  //     ]),
-  //     { end: true }
-  //   );
-  //   is(parser("abbcd"), { result: "a_d" });
-  //   // is(parser("abbd"), { error: true });
-  // });
+  test("seq-string with reshape", () => {
+    const { compile } = createContext();
+    const parser = compile(
+      $seq([
+        //
+        "a",
+        $seq(["b"], () => "_"),
+        $skip("c"),
+        "d",
+      ]),
+      { end: true }
+    );
+    expectSuccess(parser, "abcd".split(""), "a_d");
+    // is(parser("abbd"), { error: true });
+  });
 
   // test("seq:skip-nested", () => {
   //   const { compile } = createContext();

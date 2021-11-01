@@ -79,9 +79,10 @@ export type SerializedNot = [
   ...body: SerializedRuleBody
 ];
 
-export type Seq = RuleBase & {
+export type Seq<T = string, U = string> = RuleBase & {
   kind: typeof SEQ;
   children: Rule[];
+  reshape?: (results: T[], ctx: ParseContext) => U;
 };
 
 export type SerializedSeq = [
@@ -101,13 +102,13 @@ export type SerializedRef = [
   ...body: SerializedRuleBody
 ];
 
-export type Repeat = RuleBase & {
+export type Repeat<T = string, U = T, R = U[]> = RuleBase & {
   kind: typeof REPEAT;
   pattern: Rule;
   min: number;
   max?: number | void;
-  reshapeEach?: Reshape<any, any>;
-  reshape?: Reshape<any, any>;
+  reshapeEach?: (results: T[], ctx: ParseContext) => U;
+  reshape?: (results: U[], ctx: ParseContext) => R;
 };
 
 export type SerializedRepeat = [

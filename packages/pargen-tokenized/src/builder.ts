@@ -28,6 +28,7 @@ import {
   PAIR_OPEN,
   PairClose,
   PAIR_CLOSE,
+  ParseContext,
 } from "./types";
 
 let cnt = 2;
@@ -53,27 +54,26 @@ const toNode = (input: InputNodeExpr): Rule => {
   return typeof input === "string" ? $token(input) : input;
 };
 
-const registeredPatterns: Array<[number, () => InputNodeExpr]> = [];
-
+const __registeredPatterns: Array<[number, () => InputNodeExpr]> = [];
 export const $close = (compiler: Compiler) => {
   const nodes: Rule[] = [];
-  registeredPatterns.forEach(([rootId, nodeCreator]) => {
+  __registeredPatterns.forEach(([rootId, nodeCreator]) => {
     const node = nodeCreator();
     const resolvedNode = toNode(node);
     const parser = compileFragment(resolvedNode, compiler, rootId);
     compiler.parsers.set(rootId, parser);
     // TODO: Remove on prod
-    compiler.definitions.set(rootId, resolvedNode);
+    // compiler.definitions.set(rootId, resolvedNode);
     nodes.push(resolvedNode);
   });
-  registeredPatterns.length = 0;
+  __registeredPatterns.length = 0;
   nodes.length = 0;
 };
 
 let _defCounter = 2;
 export function $def(nodeCreator: () => InputNodeExpr): number {
   const id = _defCounter++;
-  registeredPatterns.push([id as any, nodeCreator]);
+  __registeredPatterns.push([id as any, nodeCreator]);
   return id;
 }
 
@@ -87,9 +87,9 @@ export function $ref(refId: string | number, reshape?: Reshape): Ref {
   } as Ref;
 }
 
-export function $seq(
+export function $seq<T = string, U = string>(
   children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
-  reshape?: Reshape
+  reshape?: (results: T[], ctx: ParseContext) => U
 ): Seq {
   const compiledChildren = children.map((child): Rule => {
     if (Array.isArray(child)) {
@@ -101,10 +101,10 @@ export function $seq(
   });
   return {
     ...nodeBaseDefault,
-    reshape,
     id: genId(),
     kind: SEQ,
     children: compiledChildren,
+    reshape,
   } as Seq;
 }
 
