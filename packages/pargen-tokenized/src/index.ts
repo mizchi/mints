@@ -157,10 +157,12 @@ export const printPerfResult = () => {
 /* Test */
 import { is, run, test } from "@mizchi/test";
 import {
+  $any,
   $close,
   $def,
   $eof,
   $not,
+  $opt,
   $or,
   $ref,
   $regex,
@@ -235,6 +237,21 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parse(["a"]), { error: true, errorType: ERROR_Eof_Unmatch });
   });
 
+  test("any", () => {
+    const { compile } = createContext();
+    const parse = compile($any());
+    is(parse(["a"]), { results: [0] });
+
+    const parseNull = compile($any(0));
+    is(parseNull([]), { results: [] });
+
+    const parseWhitespace = compile($any(0, () => " "));
+    is(parseWhitespace([]), { results: [" "] });
+
+    const parseTwo = compile($any(2));
+    is(parseTwo(["a", "b"]), { results: [0, 1] });
+  });
+
   test("token", () => {
     const { compile } = createContext();
     const parse = compile($token("a"));
@@ -265,22 +282,19 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
   test("regex", () => {
     const { compile } = createContext();
-    const parse = compile($regex(`\\w+`));
+    const parse = compile($regex(/^\w+$/));
     expectSuccess(parse, ["abc"], "abc");
     expectFail(parse, [""]);
-    const parse2 = compile($regex(`a`));
+    const parse2 = compile($regex(/^a$/));
     expectFail(parse2, ["xa"]);
     expectSuccess(parse2, ["a"], "a");
   });
 
   test("regex with reshape", () => {
     const { compile } = createContext();
-    const parse = compile($regex(`\\w+`));
-    expectSuccess(parse, ["abc"], "abc");
+    const parse = compile($regex(/^\w+$/, (token) => token + "_mod"));
+    expectSuccess(parse, ["abc"], "abc_mod");
     expectFail(parse, [""]);
-    const parse2 = compile($regex(`a`));
-    expectFail(parse2, ["xa"]);
-    expectSuccess(parse2, ["a"], "a");
   });
 
   test("not", () => {
@@ -353,7 +367,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const parser = compile(
       $seqo([
         ["a", "x"],
-        ["b", "y"],
+        [{ key: "b" }, "y"],
       ])
     );
     expectSuccessSeqObject(parser, ["x", "y"], {
@@ -524,13 +538,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
   test("seq:skip-nested", () => {
     const { compile } = createContext();
-    const parser = compile(
-      $seq([
-        //xx
-        "a",
-        $seq([$skip("b"), "c"]),
-      ])
-    );
+    const parser = compile($seq(["a", $seq([$skip("b"), "c"])]));
     expectSuccess(parser, "abc".split(""), "ac");
   });
 
@@ -551,6 +559,12 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const { compile } = createContext();
     const parser = compile($seq([$repeat_seq(["a", $skip("b")])]));
     expectSuccess(parser, "ababab".split(""), "aaa");
+  });
+
+  test("opt with repeat", () => {
+    const { compile } = createContext();
+    const parser = compile($repeat_seq([$opt("a"), $skip("b")]));
+    expectSuccess(parser, "abbab".split(""), "aa");
   });
 
   test("seq paired close", () => {
@@ -582,14 +596,14 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const parser = compile(
       $seqo([
         "<",
-        [{ key: "key", push: true }, $regex("[a-z]+")],
+        [{ key: "key", push: true }, $regex(/^[a-z]+$/)],
         ">",
-        [{ key: "value" }, $regex("[a-z]+")],
+        [{ key: "value" }, $regex(/^[a-z]+$/)],
         "<",
         "/",
         [
           { pop: ([a], [b], { tokens }) => tokens[a] === tokens[b] },
-          $regex("[a-z]+"),
+          $regex(/^[a-z]+$/),
         ],
         ">",
       ])

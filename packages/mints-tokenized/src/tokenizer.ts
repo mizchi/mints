@@ -179,13 +179,10 @@ function* parseStream(
     _buf = "";
   }
 
-  if (!root) {
-    yield i;
-  }
-
-  if (isInlineComment || wrapStringContext) {
-    throw new Error(`unclosed ${i}`);
-  }
+  if (!root) yield i;
+  // if (isInlineComment || wrapStringContext) {
+  //   throw new Error(`unclosed ${i}`);
+  // }
 }
 
 function createCharSlice(input: string) {

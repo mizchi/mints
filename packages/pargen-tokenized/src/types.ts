@@ -55,7 +55,8 @@ export type SerializedAtom = [
 
 export type Any<T = any> = RuleBase & {
   kind: typeof ANY;
-  reshape?: (token: string) => T;
+  len: number;
+  reshape?: (tokens: string[]) => T;
 };
 
 // Atom can not serialize
@@ -162,7 +163,7 @@ export type SerializedToken = [kind: typeof TOKEN, exprPtr: string];
 
 export type Regex<T = string> = RuleBase & {
   kind: typeof REGEX;
-  expr: string;
+  expr: string | RegExp;
   reshape?: (raw: string) => T;
 };
 

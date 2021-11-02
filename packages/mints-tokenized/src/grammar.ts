@@ -1,5 +1,10 @@
-import { ParseError } from "./../../pargen-tokenized/src/types";
 import {
+  ERROR_Regex_Unmatch,
+  ERROR_Seq_Stop,
+  ParseError,
+} from "./../../pargen-tokenized/src/types";
+import {
+  $any,
   $def,
   $eof,
   $not,
@@ -78,8 +83,6 @@ import {
   RESERVED_WORDS,
   REST_SPREAD,
   SPACE_REQUIRED_OPERATORS,
-  _ as _w,
-  __ as __w,
 } from "./constants";
 
 import { config } from "./ctx";
@@ -91,7 +94,11 @@ import { config } from "./ctx";
 // const controlls = CONTROL_TOKENS.map((r) => "\\" + r).join("");
 export const identifier = $def(() =>
   // TODO: optimize
-  $seq([$not([...RESERVED_WORDS, ...CONTROL_TOKENS]), $regex(`[^\\d].*`)])
+  $seq([
+    $not([...RESERVED_WORDS, ...CONTROL_TOKENS]),
+    // $regex(/^[a-zA-Z_$][a-zA-Z_$0-9]*$/),
+    $regex(/^[_$a-zA-Z\xA0-\uFFFF][_$a-zA-Z0-9\xA0-\uFFFF]*$/m),
+  ])
 );
 
 const ThisKeyword = $token(K_THIS);
@@ -442,21 +449,26 @@ const callArguments = $def(() =>
 
 const stringLiteral = $def(() =>
   $or([
-    // double quote
-    $r`"[^"\\n]*?"`,
-    // single
-    $r`'[^'\\n]*?'`,
+    $seq(["'", $opt($regex(/^[^']+$/u)), "'"]),
+    $seq(['"', $opt($regex(/^[^"]+$/u)), '"']),
   ])
 );
 
-const nonBacktickChars = "[^`]*";
+// const nonBacktickChars = "[^`]*";
 
+// const templateLiteralString = $def(() => $regex(/^[^`]+$/mu));
+const templateExpressionStart = $token("${");
+const templateLiteralString = $def(() => $regex(/^[^`]+$/mu));
 const templateLiteral = $def(() =>
   $seq([
     "`",
-    // aaa${}
-    $repeat_seq([$regex(nonBacktickChars), "${", anyExpression, K_BLACE_CLOSE]),
-    $regex(nonBacktickChars),
+    $repeat_seq([
+      $opt($seq([$not([templateExpressionStart]), templateLiteralString])),
+      templateExpressionStart,
+      anyExpression,
+      K_BLACE_CLOSE,
+    ]),
+    $opt(templateLiteralString),
     "`",
   ])
 );
@@ -465,62 +477,61 @@ const regexpLiteral = $def(() => $seq([$r`\\/[^\\/]+\\/([igmsuy]*)?`]));
 
 // TODO: 111_000
 // TODO: 0b1011
+
+// const digit = $regex(/^[1-9][0-9_]*$/);
+const digit = $regex(/^[1-9](_?\d)*$/);
+const digitWithSuffix = $regex(/^[1-9](_?\d)*(e[1-9]\d*)?$/);
 const numberLiteral = $def(() =>
   $or([
-    // 16
-    $r`(0(x|X)[0-9a-fA-F]+)`,
-    // 8
-    $r`(0(o|O)[0-7]+)`,
-    // 2
-    $r`(0(b|B)[0-1]+)`,
-    // decimal
-    // $regex(`([1-9][0-9_]*\\.\\d+|[1-9][0-9_]*|\\d)(e\\-?\\d+)?`),
-    $regex(`[1-9][0-9_]*`),
+    $regex(/^0[bB][0-1]+$/),
+    $regex(/^0[oO][0-8]+$/),
+    $regex(/^0[xX][0-9a-f]+$/),
+    $seq([digit, ".", digitWithSuffix]),
+    digitWithSuffix,
   ])
 );
 
 const booleanLiteral = $def(() => $or([K_TRUE, K_FALSE]));
 const nullLiteral = $def(() => K_NULL);
 
-const restSpread = $def(() => $seq([REST_SPREAD, anyExpression]));
+const exressionWithSpread = $def(() => $seq([".", ".", ".", anyExpression]));
 
+const arrayItem = $def(() =>
+  $seq([$opt($seq([".", ".", "."])), anyExpression])
+);
 const arrayLiteral = $def(() =>
-  $or([
-    $seq([
-      "[",
-      $repeat($seq([$or([$opt(restSpread), anyExpression]), ","])),
-
-      $or([$opt(restSpread), anyExpression]),
-
-      "]",
-    ]),
+  $seq([
+    // [a,...b,]
+    "[",
+    $repeat_seq([$opt(arrayItem), ","]),
+    $opt(arrayItem),
+    "]",
   ])
 );
 
 // key: val
 const objectItem = $def(() =>
   $or([
-    $seq([
-      // function
-      $opt($seq([$or([K_ASYNC, K_GET, K_SET])])),
-      $or([stringLiteral, $seq(["[", anyExpression, "]"]), identifier]),
-      $seq([K_PAREN_OPEN, functionArguments, K_PAREN_CLOSE, block]),
-    ]),
+    $seq([".", ".", ".", anyExpression]),
+    // $seq([
+    //   // function
+    //   $opt($or([K_ASYNC, K_GET, K_SET])),
+    //   $or([stringLiteral, $seq(["[", anyExpression, "]"]), identifier]),
+    //   $seq([K_PAREN_OPEN, functionArguments, K_PAREN_CLOSE, block]),
+    // ]),
     $seq([
       // value
       $or([
-        // key:
+        // 'key':
         stringLiteral,
         // [key]:
         $seq(["[", anyExpression, "]"]),
         // a
         identifier,
       ]),
-      // value or shorthand
-      $seq([":", anyExpression]),
+      ":",
+      anyExpression,
     ]),
-    // rest spread
-    $seq([REST_SPREAD, anyExpression]),
     // shothand
     identifier,
   ])
@@ -530,12 +541,8 @@ const objectItem = $def(() =>
 const objectLiteral = $def(() =>
   $seq([
     K_BLACE_OPEN,
-
     $repeat($seq([objectItem, ","])),
-
-    // $opt($or([restSpread, objectItem])),
-    $or([$opt(restSpread), objectItem]),
-
+    $opt($seq([objectItem, $opt(",")])),
     K_BLACE_CLOSE,
   ])
 );
@@ -589,8 +596,7 @@ const classConstructor = $def(() =>
 
       K_PAREN_OPEN,
       ["args", $repeat($seq([classConstructorArg, $skip(",")]))],
-      ["last", $opt($seq([classConstructorArg, $skip_opt(",")]))],
-
+      [{ key: "last", opt: true }, $seq([classConstructorArg, $skip_opt(",")])],
       K_PAREN_CLOSE,
 
       K_BLACE_OPEN,
@@ -738,17 +744,18 @@ const newExpression = $def(() =>
 );
 
 const paren = $def(() =>
-  $seq([K_PAREN_OPEN, anyExpression, K_PAREN_CLOSE, $not(["=>"])])
+  $seq([K_PAREN_OPEN, anyExpression, K_PAREN_CLOSE, $not([$seq(["=", ">"])])])
 );
 
 const primary = $def(() =>
   $or([
-    jsxExpression,
+    // jsxExpression,
     paren,
-    newExpression,
+    // newExpression,
     objectLiteral,
+    arrayLiteral,
     stringLiteral,
-    regexpLiteral,
+    // regexpLiteral,
     templateLiteral,
     identifier,
     // should be after identifier
@@ -870,7 +877,11 @@ const ternaryExpression = $def(() =>
   $seq([asExpression, K_QUESTION, anyExpression, ":", anyExpression])
 );
 
-export const anyExpression = $def(() => $or([ternaryExpression, asExpression]));
+// export const anyExpression = $def(() => $or([ternaryExpression, asExpression]));
+export const anyExpression = $def(
+  // () => primary
+  () => $or([primary, numberLiteral, stringLiteral, identifier])
+);
 
 const _typeAnnotation = $seq([":", typeExpression]);
 // const emptyStatement = $def(() => $seq([$r`(\\s)*`]));
@@ -898,18 +909,13 @@ const _importRightSide = $def(() =>
       // TODO: * as b
       $seq([
         K_BLACE_OPEN,
-
         $repeat_seq([identifier, $opt($seq([K_AS, identifier])), ","]),
         // last item
         $opt($seq([identifier, $opt($seq([K_AS, identifier, $r`,?`]))])),
-
         K_BLACE_CLOSE,
       ]),
     ]),
-
-    //
     K_FROM,
-
     stringLiteral,
   ])
 );
@@ -1441,11 +1447,7 @@ const anyStatement = $def(() =>
 
 const line = $def(() =>
   $or([
-    $seq([
-      // class{}(;\n)
-      semicolonlessStatement,
-      $skip($or(["\n", ";"])),
-    ]),
+    $seq([semicolonlessStatement, $skip($or(["\n", ";"]))]),
     $seq([$opt(semicolonRequiredStatement), $or([$seq(["\n"]), $seq([";"])])]),
   ])
 );
@@ -1546,7 +1548,7 @@ if (process.env.NODE_ENV === "test") {
     return wrappedParser;
   };
 
-  const expectResult = (parse: any, input: string, expect: string = input) => {
+  const expectSuccess = (parse: any, input: string, expect: string = input) => {
     is(parse(input), expect);
   };
 
@@ -1559,13 +1561,13 @@ if (process.env.NODE_ENV === "test") {
 
   test("identifier", () => {
     const parse = compile(identifier);
-    expectResult(parse, "a");
-    expectResult(parse, "Aaa");
-    expectResult(parse, "doc");
-    expectResult(parse, "あああ");
-    expectResult(parse, "a1");
-    expectResult(parse, "a1");
-    expectResult(parse, "foo");
+    expectSuccess(parse, "a");
+    expectSuccess(parse, "Aaa");
+    expectSuccess(parse, "doc");
+    expectSuccess(parse, "あああ");
+    expectSuccess(parse, "a1");
+    expectSuccess(parse, "a1");
+    expectSuccess(parse, "foo");
     expectFail(parse, "1");
     expectFail(parse, "&");
     expectFail(parse, "1_");
@@ -1573,106 +1575,137 @@ if (process.env.NODE_ENV === "test") {
     expectFail(parse, "import");
   });
 
-  //   test("string", () => {
-  //     const parse = compile(stringLiteral, { end: true });
-  //     expectSame(parse, ["''", `""`, '"hello"', `'hello'`]);
-  //     expectError(parse, [`"a\nb"`]);
-  //   });
-  //   test("string:no-end", () => {
-  //     const parse = compile(stringLiteral);
-  //     is(parse("'hello'"), { result: "'hello'" });
-  //     is(parse("'a'+\n'b'"), { result: "'a'" });
-  //   });
+  test("string", () => {
+    const parse = compile(stringLiteral);
+    expectSuccess(parse, "''");
+    expectSuccess(parse, "'hello'");
+    expectFail(parse, "");
+    is(parse("'hello"), {
+      error: true,
+      errorType: ERROR_Seq_Stop,
+    });
+    is(parse("hello'"), {
+      error: true,
+      errorType: ERROR_Seq_Stop,
+    });
+  });
 
-  //   test("template", () => {
-  //     const parse = compile(templateLiteral, { end: true });
-  //     expectSame(parse, [
-  //       "``",
-  //       "`x`",
-  //       "`x\nx`",
-  //       "`${a}`",
-  //       "`x${a}`",
-  //       "`${a}_${b}_c`",
-  //     ]);
-  //   });
+  test("this", () => {
+    const parse = compile(ThisKeyword);
+    expectSuccess(parse, "this");
+    expectFail(parse, "thisx");
+  });
 
+  test("template", () => {
+    const parse = compile(templateLiteral);
+    expectSuccess(parse, "``");
+    expectSuccess(parse, "`x`");
+    expectSuccess(parse, "`x\nx`");
+    expectSuccess(parse, "`${a}`");
+    expectSuccess(parse, "`a${a}`");
+    expectSuccess(parse, "`${a}_${b}_c`");
+  });
   //   test("RegExp", () => {
   //     const parse = compile(regexpLiteral);
   //     expectSame(parse, ["/hello/", "/hello/i", "/hello/gui"]);
   //     expectError(parse, ["//"]);
   //   });
 
-  //   test("number", () => {
-  //     const parse = compile(numberLiteral);
-  //     expectSame(parse, [
-  //       "1",
-  //       "11",
-  //       "11.1e5",
-  //       "1.1",
-  //       "111_111",
-  //       "0xfff",
-  //       "0x435",
-  //       "0b1001",
-  //     ]);
-  //     // expectError(parse, ["0o8", "0b2"]);
-  //   });
+  test("number", () => {
+    const parse = compile(numberLiteral);
+    expectSuccess(parse, "1");
+    expectSuccess(parse, "11");
+    expectSuccess(parse, "111.222");
+    expectFail(parse, "01");
+    expectSuccess(parse, "1_1");
+    expectFail(parse, "1_");
+    expectSuccess(parse, "1_1");
+    expectSuccess(parse, "1_11_1");
+    expectFail(parse, "1__1");
+    expectSuccess(parse, "1e1");
+    expectSuccess(parse, "1.1e1");
+    expectFail(parse, "1e");
+    expectFail(parse, "1e1.1");
+    expectSuccess(parse, "0b1");
+    expectFail(parse, "0b2");
+    expectSuccess(parse, "0o333");
+    expectFail(parse, "0o9");
+    expectSuccess(parse, "0x19af");
+    expectFail(parse, "0xg");
+  });
 
-  //   test("array", () => {
-  //     const parseArray = compile(arrayLiteral);
-  //     expectSame(parseArray, [
-  //       "[]",
-  //       "[  ]",
-  //       "[,,]",
-  //       "[,,a]",
-  //       "[,a,]",
-  //       "[1,2]",
-  //       "[1, a, {}]",
-  //       "[...a]",
-  //       "[a,...b]",
-  //       "[,...b]",
-  //       "[a,]",
-  //     ]);
-  //   });
+  test("array", () => {
+    const parse = compile(arrayLiteral);
+    expectSuccess(parse, "[]");
+    expectFail(parse, "[");
+    expectFail(parse, "]");
+    expectSuccess(parse, "[   ]", "[]");
+    expectSuccess(parse, "[a]", "[a]");
+    expectSuccess(parse, "[a,a]");
+    expectSuccess(parse, "[,]");
+    expectSuccess(parse, "[,,,]");
+    expectSuccess(parse, "[a,,a,]");
+    expectSuccess(parse, "[[],[]]");
+    expectFail(parse, "[[],[]");
+    expectFail(parse, "[]]");
+    expectSuccess(parse, "[...a]");
+    expectSuccess(parse, "[...a,a]");
+    expectSuccess(parse, "[...a,...a]");
+    expectSuccess(parse, "[...a,...a,]");
+    expectFail(parse, "[..a]");
+  });
 
-  //   test("object", () => {
-  //     const parseExpression = compile(anyLiteral);
-  //     expectSame(
-  //       parseExpression,
-  //       [
-  //         `{}`,
-  //         `{}`,
-  //         `{a:1}`,
-  //         `{a:1,b:2}`,
-  //         `{a:1,b:2,}`,
-  //         `{a:1,b:2,...rest}`,
-  //         `{a}`,
-  //         `{a,b}`,
-  //         `{[1]:1}`,
-  //         `{a(){}}`,
-  //         `{[1](){}}`,
-  //         `{async a(){}}`,
-  //         `{get a(){}}`,
-  //         `{set a(){}}`,
-  //         `{get 'aaa'(){}}`,
-  //         `{"a":1,"b":"text","c":true,"d":null}`,
-  //         `{"a":{"b":"2"},c:{},"d":[1],"e":[{}]}`,
-  //       ],
-  //       { format: false }
-  //     );
-  //     expectError(parseExpression, [`{ async a: 1 }`, `{ async get a() {} }`]);
-  //     is(parseExpression(`{\n }`), { result: "{}" });
-  //   });
+  test("object", () => {
+    const parse = compile(objectLiteral);
+    expectSuccess(parse, "{}");
+    expectSuccess(parse, "{a:1}");
+    // expectSuccess(parse, "{a:1,}");
+    // expectSuccess(parse, "{'a':1}");
+    // expectSuccess(parse, '{"a":1}');
+    // expectSuccess(parse, "{a:1,b:2}");
+    // expectSuccess(parse, "{a:1,b:2,}");
+    // expectSuccess(parse, "{a}");
+    // expectSuccess(parse, "{a,}");
+    // expectSuccess(parse, "{a,b}");
+    // expectSuccess(parse, "{[a]:1}");
+    // expectFail(parse, "{");
+    // expectFail(parse, "}");
+    // expectFail(parse, "{a:}");
+    // expectFail(parse, "{[a]}");
+    // expectFail(parse, "{'a'}");
+    // expectFail(parse, "{,}");
+    // expectSuccess(parse, "{a:{}}");
+    // expectSuccess(parse, "{a:{b:{c:1}}}");
+    // expectFail(parse, "{a:{}");
+    // expectFail(parse, "{a:{}}}");
+    // TODO: Impl a(){} after statement
+    // expectSuccess(parse, "{a(){}}");
+  });
 
-  //   test("newExpression", () => {
-  //     const parse = compile(newExpression, { end: true });
-  //     expectSame(parse, ["new X()", "new X[1]()", "new X.Y()"]);
-  //   });
+  // test("newExpression", () => {
+  //   const parse = compile(newExpression);
+  //   expectSuccess(parse, ["new X()", "new X[1]()", "new X.Y()"]);
+  // });
+  test("paren", () => {
+    const parse = compile(paren);
+    expectSuccess(parse, "(a)");
+    expectFail(parse, "(a)=>1");
+    // expectSuccess(parse, "{}");
+  });
 
-  //   test("memberExpression", () => {
-  //     const parse = compile(memberable, { end: true });
-  //     expectSame(parse, ["a.b", "a\n.b"]);
-  //     expectError(parse, ["a.new X()", "a.this", "(a).(b)"]);
-  //   });
+  test("primary", () => {
+    const parse = compile(primary);
+    expectSuccess(parse, "a");
+    expectSuccess(parse, "{}");
+  });
+
+  test("memberable", () => {
+    const parse = compile(memberable);
+    expectSuccess(parse, "a.b");
+    expectSuccess(parse, "a.b");
+
+    // expectError(parse, ["a.new X()", "a.this", "(a).(b)"]);
+  });
 
   //   test("unaryExpression", () => {
   //     const parse = compile(unary);

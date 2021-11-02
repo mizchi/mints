@@ -103,12 +103,6 @@ function compileFragmentInternal(
   rootId: number
 ): InternalParser {
   switch (rule.kind) {
-    case ANY: {
-      return (ctx, pos) => {
-        const token = ctx.tokens[pos];
-        return success(pos, 1, [rule.reshape ? rule.reshape(token) : pos]);
-      };
-    }
     case TOKEN: {
       let expr = rule.expr;
       return (ctx, pos) => {
@@ -123,8 +117,7 @@ function compileFragmentInternal(
       };
     }
     case REGEX: {
-      let expr = rule.expr;
-      const re = new RegExp(`^${expr}$`, "u");
+      let re = rule.expr instanceof RegExp ? rule.expr : new RegExp(rule.expr);
       return (ctx, pos) => {
         const token = ctx.tokens[pos];
         const matched = re.test(token);
@@ -133,7 +126,7 @@ function compileFragmentInternal(
         } else {
           return fail(pos, rootId, {
             errorType: ERROR_Regex_Unmatch,
-            expr: expr,
+            expr: re.toString(),
           });
         }
       };
@@ -148,6 +141,18 @@ function compileFragmentInternal(
             errorType: ERROR_Eof_Unmatch,
           });
         }
+      };
+    }
+    case ANY: {
+      return (ctx, pos) => {
+        // const tokens = ctx.tokens.slice(pos, pos + rule.len);
+        return success(
+          pos,
+          rule.len,
+          rule.reshape
+            ? [rule.reshape(ctx.tokens.slice(pos, pos + rule.len))]
+            : [...Array(rule.len).keys()].map((n) => n + pos)
+        );
       };
     }
     case NOT: {

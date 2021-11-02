@@ -86,10 +86,14 @@ export function $ref(refId: string | number, reshape?: Reshape): Ref {
   } as Ref;
 }
 
-export function $any<T = string>(reshape?: (token: string) => T): Any {
+export function $any<T = string>(
+  len: number = 1,
+  reshape?: (token: string) => T
+): Any {
   return {
     id: genId(),
     kind: ANY,
+    len,
     reshape,
   } as Any;
 }
@@ -295,17 +299,9 @@ export function $token<T = string>(
 
 // const regexCache: { [key: string]: Regex<any> } = {};
 export function $regex<T = string>(
-  expr: string,
+  expr: string | RegExp,
   reshape?: (raw: string) => T
 ): Regex<T> {
-  // if (regexCache[expr]) return regexCache[expr];
-  // return (regexCache[expr] = {
-  //   ...nodeBaseDefault,
-  //   id: genId(),
-  //   kind: REGEX,
-  //   expr,
-  //   reshape,
-  // });
   return {
     id: genId(),
     kind: REGEX,
@@ -315,7 +311,7 @@ export function $regex<T = string>(
 }
 
 // regex sharthand
-export function $r(strings: TemplateStringsArray, name?: string): Regex {
+export function $r(strings: TemplateStringsArray): Regex {
   return $regex(strings.join(""));
 }
 
