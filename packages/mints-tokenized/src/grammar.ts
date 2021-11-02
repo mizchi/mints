@@ -436,11 +436,11 @@ const functionArguments = $def(() =>
 const callArguments = $def(() =>
   $seq([
     $repeat_seq([anyExpression, ","]),
-
     $or([
       // rest spread
-      $seq([REST_SPREAD, anyExpression]),
+      $seq([".", ".", ".", anyExpression]),
       anyExpression,
+      $any(0),
     ]),
   ])
 );
@@ -737,7 +737,7 @@ const newExpression = $def(() =>
   $seq([
     K_NEW,
 
-    memberable,
+    accessible,
 
     $opt($seq([K_PAREN_OPEN, functionArguments, K_PAREN_CLOSE])),
   ])
@@ -764,61 +764,55 @@ const primary = $def(() =>
   ])
 );
 
-const __call = $def(() =>
+const _call = $def(() =>
   $or([
     $seq([
-      "?.",
-      $skip_opt($seq([typeParameters])),
-
+      "?",
+      ".",
+      // $skip_opt($seq([typeParameters])),
       K_PAREN_OPEN,
-
       callArguments,
-
       K_PAREN_CLOSE,
     ]),
     $seq([
-      $skip_opt($seq([typeParameters])),
-
+      // $skip_opt($seq([typeParameters])),
       K_PAREN_OPEN,
-
       callArguments,
-
       K_PAREN_CLOSE,
     ]),
   ])
 );
 
-const memberAccess = $def(() =>
+const questionDot = $seq(["?", "."]);
+const _access = $def(() =>
   $or([
     // ?. | !. | .
-    $seq([$or(["!.", "?.", "."]), $opt($seq(["#"])), identifier]),
-
-    // $seq([ $r`(\\?)?\\.`, $r`\\#?`, identifier]),
+    $seq([$opt($or(["!", "?"])), ".", $opt("#"), identifier]),
+    $seq([$opt(questionDot), "[", anyExpression, "]"]),
     $seq([
-      // ?.
-      $opt($seq(["?."])),
-      "[",
-
-      anyExpression,
-
-      "]",
+      $opt(questionDot),
+      // TODO: Activate
+      // $skip_opt($seq([typeParameters])),
+      K_PAREN_OPEN,
+      callArguments,
+      K_PAREN_CLOSE,
     ]),
-    __call,
   ])
 );
 
-const memberable = $def(() =>
-  $or([$seq([primary, $repeat(memberAccess)]), anyLiteral])
+const accessible = $def(() =>
+  $or([$seq([primary, $repeat(_access)]), anyLiteral])
 );
 
 // call chain access and member access
-const accessible = $def(() =>
-  $or([
-    // call chain
-    $seq([memberable, __call, $repeat_seq([memberAccess])]),
-    memberable,
-  ])
-);
+// const callable = accessible;
+// const callable = $def(() =>
+//   $or([
+//     // call chain
+//     $seq([memberable, _call, $repeat_seq([memberAccess])]),
+//     memberable,
+//   ])
+// );
 
 const unary = $def(() =>
   $or([
@@ -939,13 +933,10 @@ const exportStatement = $def(() =>
     // export clause
     $seq([
       K_EXPORT,
-
       K_BLACE_OPEN,
-
       $repeat_seq([
         defaultOrIdentifer,
         $opt($seq([K_AS, defaultOrIdentifer])),
-
         ",",
       ]),
       // last item
@@ -956,14 +947,12 @@ const exportStatement = $def(() =>
           $opt(","),
         ])
       ),
-
       K_BLACE_CLOSE,
       $opt($seq([K_FROM, stringLiteral])),
     ]),
     // export named expression
     $seq([
       K_EXPORT,
-
       $or([variableStatement, functionExpression, classExpression]),
     ]),
   ])
@@ -974,15 +963,10 @@ const ifStatement = $def(() =>
   $seq([
     // if
     K_IF,
-
     K_PAREN_OPEN,
-
     anyExpression,
-
     K_PAREN_CLOSE,
-
     blockOrStatement,
-
     $opt(
       $seq([
         K_ELSE,
@@ -1659,25 +1643,25 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(objectLiteral);
     expectSuccess(parse, "{}");
     expectSuccess(parse, "{a:1}");
-    // expectSuccess(parse, "{a:1,}");
-    // expectSuccess(parse, "{'a':1}");
-    // expectSuccess(parse, '{"a":1}');
-    // expectSuccess(parse, "{a:1,b:2}");
-    // expectSuccess(parse, "{a:1,b:2,}");
-    // expectSuccess(parse, "{a}");
-    // expectSuccess(parse, "{a,}");
-    // expectSuccess(parse, "{a,b}");
-    // expectSuccess(parse, "{[a]:1}");
-    // expectFail(parse, "{");
-    // expectFail(parse, "}");
-    // expectFail(parse, "{a:}");
-    // expectFail(parse, "{[a]}");
-    // expectFail(parse, "{'a'}");
-    // expectFail(parse, "{,}");
-    // expectSuccess(parse, "{a:{}}");
-    // expectSuccess(parse, "{a:{b:{c:1}}}");
-    // expectFail(parse, "{a:{}");
-    // expectFail(parse, "{a:{}}}");
+    expectSuccess(parse, "{a:1,}");
+    expectSuccess(parse, "{'a':1}");
+    expectSuccess(parse, '{"a":1}');
+    expectSuccess(parse, "{a:1,b:2}");
+    expectSuccess(parse, "{a:1,b:2,}");
+    expectSuccess(parse, "{a}");
+    expectSuccess(parse, "{a,}");
+    expectSuccess(parse, "{a,b}");
+    expectSuccess(parse, "{[a]:1}");
+    expectFail(parse, "{");
+    expectFail(parse, "}");
+    expectFail(parse, "{a:}");
+    expectFail(parse, "{[a]}");
+    expectFail(parse, "{'a'}");
+    expectFail(parse, "{,}");
+    expectSuccess(parse, "{a:{}}");
+    expectSuccess(parse, "{a:{b:{c:1}}}");
+    expectFail(parse, "{a:{}");
+    expectFail(parse, "{a:{}}}");
     // TODO: Impl a(){} after statement
     // expectSuccess(parse, "{a(){}}");
   });
@@ -1699,12 +1683,20 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "{}");
   });
 
-  test("memberable", () => {
-    const parse = compile(memberable);
+  test("accessible", () => {
+    const parse = compile(accessible);
+    expectSuccess(parse, "1");
+    expectSuccess(parse, "a");
     expectSuccess(parse, "a.b");
-    expectSuccess(parse, "a.b");
-
-    // expectError(parse, ["a.new X()", "a.this", "(a).(b)"]);
+    expectSuccess(parse, "a[1]");
+    expectSuccess(parse, "a?.b");
+    expectSuccess(parse, "a!.b");
+    expectSuccess(parse, "a.b.c");
+    expectSuccess(parse, "a()");
+    expectSuccess(parse, "a?.()");
+    expectSuccess(parse, "a(1)");
+    expectSuccess(parse, "a()()");
+    expectSuccess(parse, "a[1]()().x.y");
   });
 
   //   test("unaryExpression", () => {
