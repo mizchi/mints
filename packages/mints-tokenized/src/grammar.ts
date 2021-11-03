@@ -92,7 +92,7 @@ import { config } from "./ctx";
 // const __ = $regex(__w);
 
 // const controlls = CONTROL_TOKENS.map((r) => "\\" + r).join("");
-export const identifier = $def(() =>
+const identifier = $def(() =>
   // TODO: optimize
   $seq([
     $not([...RESERVED_WORDS, ...CONTROL_TOKENS]),
@@ -101,8 +101,9 @@ export const identifier = $def(() =>
   ])
 );
 
-const ThisKeyword = $token(K_THIS);
-const ImportKeyword = $token(K_IMPORT);
+const thisKeyword = $token(K_THIS);
+const importKeyword = $token(K_IMPORT);
+const dotDotDot = $def(() => $seq([".", ".", "."]));
 
 // const BINARY_OPS = K_PAREN_OPEN + OPERATORS.join("|") + K_PAREN_CLOSE;
 
@@ -130,7 +131,7 @@ const typeParameters = $def(() =>
   $seq([
     "<",
     $repeat_seq([typeExpression, ","]),
-    $seq([typeExpression, $r`,?`]),
+    $seq([typeExpression, $opt(",")]),
     ">",
   ])
 );
@@ -330,56 +331,39 @@ const typeBinaryExpression = $def(() =>
 const typeExpression = $def(() => typeBinaryExpression);
 
 /*
-  patterns
+  destructive patterns
 */
 
 // Destructive Pattren
 const destructiveArrayPattern = $def(() =>
   $seq([
     "[",
-
     $repeat_seq([
       // item, {},,
       $opt($seq([destructive, $opt($seq([assign]))])),
-
       ",",
     ]),
+    // last item
     $or([
       // [,...i]
-      $seq([REST_SPREAD, identifier]),
+      $seq([dotDotDot, identifier]),
       // [,a = 1 ,]
-      $seq([destructive, $opt($seq([assign])), $opt(",")]),
+      $seq([destructive, $opt(assign), $opt(",")]),
       $seq([$opt(",")]),
     ]),
-
     "]",
   ])
 );
 
 const destructiveObjectItem = $def(() =>
-  $or([
-    $seq([
-      // a : b
-      identifier,
-
-      $opt($seq([":", destructive])),
-      // a: b = 1,
-      $opt($seq([assign])),
-    ]),
-  ])
+  $seq([identifier, $opt($seq([":", destructive])), $opt(assign)])
 );
 
 const destructiveObjectPattern = $def(() =>
   $seq([
     K_BLACE_OPEN,
-
     $repeat_seq([destructiveObjectItem, ","]),
-    $or([
-      // ...
-      $seq([REST_SPREAD, identifier]),
-      destructiveObjectItem,
-    ]),
-
+    $opt($or([$seq([dotDotDot, identifier]), destructiveObjectItem])),
     K_BLACE_CLOSE,
   ])
 );
@@ -387,8 +371,7 @@ const destructiveObjectPattern = $def(() =>
 const destructive = $def(() =>
   $seq([
     $or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
-    // { a = 1 } = {}
-    $opt($seq([assign])),
+    $opt(assign),
   ])
 );
 
@@ -438,7 +421,7 @@ const callArguments = $def(() =>
     $repeat_seq([anyExpression, ","]),
     $or([
       // rest spread
-      $seq([".", ".", ".", anyExpression]),
+      $seq([dotDotDot, anyExpression]),
       anyExpression,
       $any(0),
     ]),
@@ -494,7 +477,7 @@ const numberLiteral = $def(() =>
 const booleanLiteral = $def(() => $or([K_TRUE, K_FALSE]));
 const nullLiteral = $def(() => K_NULL);
 
-const exressionWithSpread = $def(() => $seq([".", ".", ".", anyExpression]));
+// const exressionWithSpread = $def(() => $seq([".", ".", ".", anyExpression]));
 
 const arrayItem = $def(() =>
   $seq([$opt($seq([".", ".", "."])), anyExpression])
@@ -736,9 +719,8 @@ const arrowFunctionExpression = $def(() =>
 const newExpression = $def(() =>
   $seq([
     K_NEW,
-
+    whitespace,
     accessible,
-
     $opt($seq([K_PAREN_OPEN, functionArguments, K_PAREN_CLOSE])),
   ])
 );
@@ -751,7 +733,7 @@ const primary = $def(() =>
   $or([
     // jsxExpression,
     paren,
-    // newExpression,
+    newExpression,
     objectLiteral,
     arrayLiteral,
     stringLiteral,
@@ -759,8 +741,8 @@ const primary = $def(() =>
     templateLiteral,
     identifier,
     // should be after identifier
-    ThisKeyword,
-    ImportKeyword,
+    thisKeyword,
+    importKeyword,
   ])
 );
 
@@ -814,19 +796,24 @@ const accessible = $def(() =>
 //   ])
 // );
 
+const whitespace = $def(() => $any(0, () => " "));
+const plusPlus = $seq(["+", "+"]);
+const minusMinus = $seq(["-", "-"]);
+
 const unary = $def(() =>
   $or([
     // with unary prefix
     $seq([
       $or([
-        "++",
-        "--",
-        $seq([$or([K_VOID, K_AWAIT, K_TYPEOF, K_DELETE])]),
+        $seq([$or([K_VOID, K_AWAIT, K_TYPEOF, K_DELETE]), whitespace]),
+        plusPlus,
+        minusMinus,
         "~",
         "!",
       ]),
       unary,
     ]),
+    // tagged template
     $seq([$or([accessible, paren]), templateLiteral]),
     $seq([
       $or([
@@ -836,46 +823,81 @@ const unary = $def(() =>
         accessible,
         paren,
       ]),
-      $opt($or(["++", "--"])),
+      $opt($or([plusPlus, minusMinus])),
       // ts bang operator
       $skip_opt("!"),
     ]),
   ])
 );
 
-const binaryExpression = $def(() =>
+const binaryOperator = $or([
+  // 3 chars
+  // ">"
+  $seq([">", ">", ">"]),
+  $seq(["=", "=", "="]),
+  $seq(["!", "=", "="]),
+  // 2 chars
+  $seq(["=", "="]),
+  $seq(["|", "|"]),
+  $seq(["|", "|"]),
+  $seq(["&", "&"]),
+  $seq(["*", "*"]),
+  $seq([">", "="]),
+  $seq(["<", "="]),
+  $seq(["=", "="]),
+  $seq(["!", "="]),
+  $seq(["<", "<"]),
+  $seq([">", ">"]),
+  $seq(["+", "="]),
+  $seq(["-", "="]),
+  $seq(["*", "="]),
+  $seq(["|", "="]),
+  $seq(["/", "="]),
+  $seq(["?", "?"]),
+  "-",
+  "|",
+  "&",
+  "*",
+  "/",
+  ">",
+  "<",
+  "^",
+  "%",
+  $seq(["+", $not(["+"])]),
+  $seq(["-", $not(["-"])]),
+  $seq(["=", $not([">"])]),
+]);
+
+const binary = $def(() =>
   $seq([
     unary,
     $repeat_seq([
       $or([
-        ...SPACE_REQUIRED_OPERATORS.map((op) => $seq([op])),
-        ...OPERATORS.map((op) => $seq([op])),
+        binaryOperator,
+        $seq([whitespace, $or(["in", "instanceof"]), whitespace]),
       ]),
-      unary,
+      anyExpression,
     ]),
   ])
 );
 
-/* TypeExpression */
-
 const asExpression = $def(() =>
   $seq([
-    // foo as Type
-    binaryExpression,
-    $skip_opt($seq([K_AS, typeExpression])),
+    binary,
+    // WIP
+    // $skip_opt($seq([K_AS, typeExpression])),
   ])
 );
 
 // a ? b: c
-const ternaryExpression = $def(() =>
-  $seq([asExpression, K_QUESTION, anyExpression, ":", anyExpression])
+const ternary = $def(() =>
+  $or([
+    $seq([asExpression, K_QUESTION, anyExpression, ":", anyExpression]),
+    binary,
+  ])
 );
 
-// export const anyExpression = $def(() => $or([ternaryExpression, asExpression]));
-export const anyExpression = $def(
-  // () => primary
-  () => $or([primary, numberLiteral, stringLiteral, identifier])
-);
+const anyExpression = ternary;
 
 const _typeAnnotation = $seq([":", typeExpression]);
 // const emptyStatement = $def(() => $seq([$r`(\\s)*`]));
@@ -983,15 +1005,10 @@ const ifStatement = $def(() =>
 const switchStatement = $def(() =>
   $seq([
     K_SWITCH,
-
     K_PAREN_OPEN,
-
     anyExpression,
-
     K_PAREN_CLOSE,
-
     K_BLACE_OPEN,
-
     $repeat_seq([
       $repeat_seq([K_CASE, anyExpression, ":"], [1, Infinity]),
       $opt(
@@ -999,16 +1016,13 @@ const switchStatement = $def(() =>
           $seq([
             // xxx
             $or([block, caseClause]),
-
             $opt(";"),
           ]),
           lines,
         ])
       ),
     ]),
-
     $opt($seq([K_DEFAULT, ":", $or([block, caseClause])])),
-
     K_BLACE_CLOSE,
   ])
 );
@@ -1064,10 +1078,8 @@ const interfaceStatement = $def(() =>
       $seq([
         $opt($seq([K_EXPORT])),
         K_INTERFACE,
-
         identifier,
         $opt($seq([K_EXTENDS, typeExpression])),
-
         typeObjectLiteral,
       ])
     ),
@@ -1104,19 +1116,12 @@ const declareType = $or([K_VAR, K_CONST, K_LET]);
 const forItemStatement = $def(() =>
   $seq([
     K_FOR,
-
     K_PAREN_OPEN,
-
     $seq([$or([K_VAR, K_LET, K_CONST])]),
-
     destructive,
-
     $or(["of", "in"]),
-
     anyExpression,
-
     K_PAREN_CLOSE,
-
     blockOrStatement,
   ])
 );
@@ -1130,13 +1135,9 @@ const doWhileStatement = $def(() =>
     $seq([
       K_DO,
       $or([$seq([block]), $seq([anyStatement])]),
-
       K_WHILE,
-
       K_PAREN_OPEN,
-
       anyExpression,
-
       K_PAREN_CLOSE,
     ]),
   ])
@@ -1461,19 +1462,19 @@ const isMain = require.main === module;
 
 import { compile as compileRaw } from "./ctx";
 if (process.env.NODE_ENV === "test") {
-  const ts = require("typescript");
-  const prettier = require("prettier");
-  function compileTsc(input: string) {
-    return ts.transpile(input, {
-      module: ts.ModuleKind.ESNext,
-      target: ts.ScriptTarget.Latest,
-    });
-  }
+  // const ts = require("typescript");
+  // const prettier = require("prettier");
+  // function compileTsc(input: string) {
+  //   return ts.transpile(input, {
+  //     module: ts.ModuleKind.ESNext,
+  //     target: ts.ScriptTarget.Latest,
+  //   });
+  // }
 
-  const _format = (input: string, format: boolean, stripTypes: boolean) => {
-    input = stripTypes ? compileTsc(input) : input;
-    return format ? prettier.format(input, { parser: "typescript" }) : input;
-  };
+  // const _format = (input: string, format: boolean, stripTypes: boolean) => {
+  //   input = stripTypes ? compileTsc(input) : input;
+  //   return format ? prettier.format(input, { parser: "typescript" }) : input;
+  // };
 
   // const expectSame = (
   //   parse: any,
@@ -1536,6 +1537,12 @@ if (process.env.NODE_ENV === "test") {
     is(parse(input), expect);
   };
 
+  const expectSuccessList = (parse: any, input: string[]) => {
+    for (const i of input) {
+      expectSuccess(parse, i);
+    }
+  };
+
   const expectFail = (parse: any, input: string, expect: string = input) => {
     const parsed = parse(input);
     if (!parsed.error) {
@@ -1575,7 +1582,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("this", () => {
-    const parse = compile(ThisKeyword);
+    const parse = compile(thisKeyword);
     expectSuccess(parse, "this");
     expectFail(parse, "thisx");
   });
@@ -1666,10 +1673,6 @@ if (process.env.NODE_ENV === "test") {
     // expectSuccess(parse, "{a(){}}");
   });
 
-  // test("newExpression", () => {
-  //   const parse = compile(newExpression);
-  //   expectSuccess(parse, ["new X()", "new X[1]()", "new X.Y()"]);
-  // });
   test("paren", () => {
     const parse = compile(paren);
     expectSuccess(parse, "(a)");
@@ -1677,16 +1680,33 @@ if (process.env.NODE_ENV === "test") {
     // expectSuccess(parse, "{}");
   });
 
+  test("newExpression", () => {
+    const parse = compile(newExpression);
+    expectSuccess(parse, "new A");
+    expectSuccess(parse, "new A()");
+    expectSuccess(parse, "new {}");
+    expectSuccess(parse, "new A.B");
+    expectSuccess(parse, "new A[a]");
+    expectSuccess(parse, "new A.Y()");
+  });
+
   test("primary", () => {
     const parse = compile(primary);
     expectSuccess(parse, "a");
     expectSuccess(parse, "{}");
+    expectSuccess(parse, "new A()");
   });
 
   test("accessible", () => {
     const parse = compile(accessible);
     expectSuccess(parse, "1");
     expectSuccess(parse, "a");
+    expectSuccess(parse, "this");
+    expectSuccess(parse, "this.a");
+    expectSuccess(parse, "this.#a");
+
+    expectSuccess(parse, "import");
+    expectSuccess(parse, "import.meta");
     expectSuccess(parse, "a.b");
     expectSuccess(parse, "a[1]");
     expectSuccess(parse, "a?.b");
@@ -1696,26 +1716,131 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "a?.()");
     expectSuccess(parse, "a(1)");
     expectSuccess(parse, "a()()");
+    expectSuccess(parse, "new A().x");
     expectSuccess(parse, "a[1]()().x.y");
+    expectSuccess(parse, "'a'.toString()");
+    expectSuccess(parse, "{}.hasOwnProperty('a')");
+    expectFail(parse, "a..b");
+    expectFail(parse, "a.()");
+    expectFail(parse, "a.this");
+    expectFail(parse, "a.import");
+    expectFail(parse, "1.a");
   });
 
-  //   test("unaryExpression", () => {
-  //     const parse = compile(unary);
-  //     expectSame(parse, [
-  //       "typeof x",
-  //       "await x",
-  //       "void x",
-  //       "++x",
-  //       "--x",
-  //       "~x",
-  //       "!x",
-  //       "~~x",
-  //       "!!x",
-  //       "importS",
-  //       // "++x++",
-  //     ]);
-  //     // expectError(parse, ["a.new X()", "a.this"]);
-  //   });
+  test("unaryExpression", () => {
+    const parse = compile(unary);
+    expectSuccess(parse, "a");
+    expectSuccess(parse, "!a");
+    expectSuccess(parse, "!!a");
+    expectSuccess(parse, "++a");
+    expectSuccess(parse, "--a");
+    expectSuccess(parse, "++++a");
+    expectSuccess(parse, "~a");
+    expectSuccess(parse, "~~a");
+    expectSuccess(parse, "typeof a");
+    expectSuccess(parse, "await a");
+    expectSuccess(parse, "void a");
+    expectSuccess(parse, "typeof typeof a");
+    expectSuccess(parse, "a++");
+    expectSuccess(parse, "a--");
+    expectSuccess(parse, "a!", "a");
+    expectFail(parse, "a----");
+  });
+
+  test("destructivePattern", () => {
+    const parse = compile(destructive);
+    expectSuccessList(parse, [
+      "a",
+      "a=1",
+      `{}`,
+      `{a}`,
+      `{a:b}`,
+      `{a:{b,c}}`,
+      `{a:[a]}`,
+      "{a=1}",
+      "{a:b=1}",
+      "{a,...b}",
+      "[]",
+      "[]",
+      "[,,,]",
+      "[a]",
+      "[,a]",
+      "[a,...b]",
+      "[a=1,...b]",
+      "[,...b]",
+      "[[]]",
+      "[{}]",
+      "[{}={}]",
+      "[[a]]",
+      "[[a],...x]",
+      "[[a,b,[c,d,e],[,g]],,[{x,y}],...x]",
+    ]);
+    expectFail(parse, "a.b");
+    expectFail(parse, "a[1]");
+    expectFail(parse, "[1]");
+  });
+  test("binary", () => {
+    const parse = compile(binary);
+    expectSuccessList(parse, [
+      "a",
+      "a+a",
+      "1=1",
+      "1+1",
+      "1*2",
+      "((1))",
+      "(1)",
+      "1*2",
+      "1**2",
+      "1+(1)",
+      "(1)+1",
+      "(1+1)+1",
+      "(1+1)*1+2/(3/4)",
+      "a in []",
+      "a instanceof Array",
+      "this.#a",
+      "a?.[x]",
+      "import.meta",
+      "a=1",
+      "a??b",
+      "1+1",
+      "(1)",
+      // "(1+1)",
+      // "1+1+1",
+      // "(1+(1*2))",
+      // "((1+1)+(1*2))",
+      // "await 1",
+      // "await foo()",
+      // "(a).x",
+      // "(a+b).x",
+      // "(await x).foo",
+      // "typeof x",
+      // "await x",
+      // "await x++",
+      // "await await x",
+      // "aaa`bbb`",
+      // "f()`bbb`",
+      // "(x)`bbb`",
+      // "a.b().c``",
+      // "a?b:c",
+      // "(a?b:c).d",
+      // "(a?b:c?d:e).d",
+      // "a().a()",
+      // "import('aaa')",
+      // "(()=>{})()",
+      // "(async ()=>{})()",
+      // "a\n.b",
+      // "importS",
+    ]);
+    // is(parse("a!"), { result: "a" });
+    // is(parse("(a.b)!"), { result: "(a.b)" });
+  });
+
+  test("ternary", () => {
+    const parse = compile(ternary);
+    expectSuccessList(parse, []);
+    // is(parse("a!"), { result: "a" });
+    // is(parse("(a.b)!"), { result: "(a.b)" });
+  });
 
   //   test("functionExpression", () => {
   //     const parse = compile(functionExpression);
@@ -1910,40 +2035,6 @@ if (process.env.NODE_ENV === "test") {
   //     const parse = compile(identifier, { end: true });
   //     expectSame(parse, ["a", "$1", "abc", "a_e", "importS"]);
   //     expectError(parse, ["1_", "const", "typeof", "a-e"]);
-  //   });
-
-  //   test("destructivePattern", () => {
-  //     const parse = compile(destructive, { end: true });
-  //     expectSame(
-  //       parse,
-  //       [
-  //         "a",
-  //         "a=1",
-  //         `{a}`,
-  //         `{a:b}`,
-  //         `{a:{b,c}}`,
-  //         `{a:[a]}`,
-  //         "{a=1}",
-  //         "{a:b=1}",
-  //         "{a,...b}",
-  //         "[]",
-  //         "[]",
-  //         "[,,,]",
-  //         "[a]",
-  //         "[,a]",
-  //         "[a,...b]",
-  //         "[a=1,...b]",
-  //         "[,...b]",
-  //         "[[]]",
-  //         "[{}]",
-  //         "[{}={}]",
-  //         "[[a]]",
-  //         "[[a],...x]",
-  //         "[[a,b,[c,d,e],[,g]],,[{x,y}],...x]",
-  //       ],
-  //       { format: false, stripTypes: false }
-  //     );
-  //     expectError(parse, ["a.b", "[a.b]"]);
   //   });
 
   //   /* type annotations */

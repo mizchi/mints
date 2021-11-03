@@ -34,6 +34,7 @@ export const CONTROL_TOKENS = [
   ":",
   ".",
   "*",
+  "#",
   "[",
   "]",
   "\n",
