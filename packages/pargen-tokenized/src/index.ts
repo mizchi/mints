@@ -245,6 +245,9 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const parseNull = compile($any(0));
     is(parseNull([]), { results: [] });
 
+    const parseNull2 = compile($seq([$any(1), $any(0, () => "x")]));
+    is(parseNull2(["a"]), { results: [0, "x"] });
+
     const parseWhitespace = compile($any(0, () => " "));
     is(parseWhitespace([]), { results: [" "] });
 

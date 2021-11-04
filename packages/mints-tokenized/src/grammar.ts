@@ -854,7 +854,7 @@ const asExpression = $def(() =>
   $seq([
     binary,
     // WIP
-    // $skip_opt($seq([K_AS, typeExpression])),
+    $skip_opt($seq([whitespace, K_AS, whitespace, typeExpression])),
   ])
 );
 
@@ -886,11 +886,16 @@ const _typeAnnotation = $seq([":", typeExpression]);
 const breakStatement = $def(() => K_BREAK);
 const debuggerStatement = $def(() => K_DEBUGGER);
 
-const returnStatement = $def(() =>
-  $seq([$or([K_RETURN, K_YIELD]), $opt($seq([anyExpression]))])
+// it includes yield and throw
+const returnLikeStatement = $def(() =>
+  $seq([$or([K_RETURN, K_YIELD]), $opt(whitespace), $opt(anyExpression)])
 );
 
-const throwStatement = $def(() => $seq([K_THROW, anyExpression]));
+// const returnLikeStatement = $def(() =>
+//   $or([$seq([K_RETURN, whitespace, anyExpression]), K_RETURN])
+// );
+
+const throwStatement = $def(() => $seq([K_THROW, whitespace, anyExpression]));
 
 const blockOrStatement = $def(() => $or([block, anyStatement]));
 
@@ -1017,15 +1022,11 @@ const variableStatement = $def(() =>
     // x, y=1,
     $repeat_seq([
       destructive,
-
       $skip_opt(_typeAnnotation),
       $opt($seq([assign])),
-
       ",",
     ]),
-
     destructive,
-
     $skip_opt(_typeAnnotation),
     $opt($seq([assign])),
   ])
@@ -1041,12 +1042,9 @@ const typeStatement = $def(() =>
       $seq([
         $opt($seq([K_EXPORT])),
         K_TYPE,
-
         identifier,
-
         "=",
         $not([">"]),
-
         typeExpression,
       ])
     ),
@@ -1302,7 +1300,6 @@ const jsxExpression = $def(() =>
         ["ident", $or([accessible])],
         $skip_opt(typeDeclareParameters),
         ["attributes", jsxAttributes],
-
         "/>",
       ],
       (input: {
@@ -1373,9 +1370,9 @@ const anyStatement = $def(() =>
     // break ...
     breakStatement,
     // return ...
-    returnStatement,
+    returnLikeStatement,
     // throw ...
-    throwStatement,
+    // throwStatement,
     // try
     tryCatchStatement,
     // declare ...
@@ -1889,6 +1886,42 @@ if (process.env.NODE_ENV === "test") {
     ]);
   });
 
+  // it depends expression and as
+  test("asExpression", () => {
+    const parse = compile(asExpression);
+    is(parse("1"), "1");
+    is(parse("1 as number"), "1");
+    is(parse("1 + 1 as number"), "1+1");
+    is(parse("(a) as number"), "(a)");
+    is(parse("(a as number)"), "(a)");
+  });
+
+  // simple statement
+  test("debugger", () => {
+    const parse = compile(debuggerStatement);
+    is(parse("debugger"), "debugger");
+  });
+
+  test("return", () => {
+    const parse = compile(returnLikeStatement);
+    console.log("tokens", [...parseTokens("return ret")]);
+    // expectSuccess(parse, "return");
+    expectSuccess(parse, "return ret");
+    expectSuccess(parse, "yield 1");
+    expectSuccess(parse, "yield ret");
+  });
+  test("throw", () => {
+    const parse = compile(throwStatement);
+    expectSuccess(parse, "throw 1");
+    expectFail(parse, "throw");
+  });
+  // test("block", () => {
+  //   const parse = compile($seq([block, $eof()]));
+  //   expectSame(parse, [`{return 1;}`, `{debugger;return;}`, "{}"]);
+  // });
+
+  // oneline statement
+
   //   test("functionExpression", () => {
   //     const parse = compile(functionExpression);
   //     // expectResult(parse, "function () {}", "function(){}");
@@ -2066,41 +2099,9 @@ if (process.env.NODE_ENV === "test") {
   //     is(parse("(a.b)!"), { result: "(a.b)" });
   //   });
 
-  //   test("identifier", () => {
-  //     const parse = compile(identifier, { end: true });
-  //     expectSame(parse, ["a", "$1", "abc", "a_e", "importS"]);
-  //     expectError(parse, ["1_", "const", "typeof", "a-e"]);
-  //   });
-
   //   /* type annotations */
-  //   test("asExpression", () => {
-  //     const parse = compile(asExpression, { end: true });
-  //     is(parse("1"), { result: "1" });
-  //     is(parse("1 as number"), { result: "1" });
-  //     is(parse("1 + 1 as number"), { result: "1+1" });
-  //     is(parse("(a) as number"), { result: "(a)" });
-  //     is(parse("(a as number)"), { result: "(a)" });
-  //   });
-
   //   // statements
 
-  //   test("debugger", () => {
-  //     const parse = compile(debuggerStatement);
-  //     is(parse("debugger"), { result: "debugger" });
-  //   });
-  //   test("return", () => {
-  //     const parse = compile(returnStatement);
-  //     expectSame(parse, ["return", "return 1"]);
-  //   });
-  //   test("throw", () => {
-  //     const parse = compile(throwStatement);
-  //     expectSame(parse, ["throw 1"]);
-  //     expectError(parse, ["throw"]);
-  //   });
-  //   test("block", () => {
-  //     const parse = compile($seq([block, $eof()]));
-  //     expectSame(parse, [`{return 1;}`, `{debugger;return;}`, "{}"]);
-  //   });
   //   test("for", () => {
   //     const parse = compile(forStatement, { end: true });
   //     expectSame(parse, [
