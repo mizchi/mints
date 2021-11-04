@@ -29,8 +29,12 @@ export function isRegExp(str: string) {
 }
 
 export function createRegexMatcher(expr: string): StringMatcher {
-  const regex = new RegExp(`^(${expr})`, "ms");
-  return (input: string, pos: number) => findPatternAt(input, regex, pos);
+  const regex = new RegExp(`${expr}`, "musy");
+  return (input: string, pos: number) => {
+    regex.lastIndex = pos;
+    const match = input.match(regex);
+    return match?.[0] ?? null;
+  };
 }
 
 export function createStringMatcher(expr: string): StringMatcher {
@@ -55,30 +59,13 @@ export function createMatcher(expr: string): StringMatcher {
   }
 }
 
-const findPatternAt = (
-  input: string,
-  regex: RegExp,
-  pos: number
-): string | null => {
-  const sliced = input.slice(pos);
-  const match = sliced.match(regex);
-  if (match && match[0].length > 0) {
-    // const regexSummary =
-    //   regex.toString().length > 10
-    //     ? regex.toString().slice(0, 10) + "..."
-    //     : regex;
-    // console.log(`[eat:reg${regexSummary}]`, `"${match[0]}"`);
-  }
-  return match?.[0] ?? null;
-};
-
 const startStringAt = (input: string, str: string, pos: number): boolean => {
   const match = input.startsWith(str, pos);
-  if (match && input.length > 0) {
-    // console.log("[eat:str]", `"${str.slice(0, 10)}"`);
-  } else {
-    // console.log("[eat:str_fail]", str);
-  }
+  // if (match && input.length > 0) {
+  //   // console.log("[eat:str]", `"${str.slice(0, 10)}"`);
+  // } else {
+  //   // console.log("[eat:str_fail]", str);
+  // }
   return match;
 };
 
@@ -311,6 +298,7 @@ if (process.env.NODE_ENV === "test") {
     eq(createMatcher("\\a")("a", 0), "a");
     eq(createMatcher("\n")("\n", 0), "\n");
     eq(createMatcher("\\[\\]")("[]", 0), "[]");
+    // throw "pass";
   });
 
   test("findPatternAt2", () => {
