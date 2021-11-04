@@ -28,8 +28,8 @@ import {
   K_AS,
   K_ASYNC,
   K_AWAIT,
-  K_BLACE_CLOSE,
-  K_BLACE_OPEN,
+  K_BLACE_CLOSE as K_BRACE_CLOSE,
+  K_BLACE_OPEN as K_BRACE_OPEN,
   K_BREAK,
   K_CASE,
   K_CATCH,
@@ -81,7 +81,7 @@ import {
   K_YIELD,
   OPERATORS,
   RESERVED_WORDS,
-  REST_SPREAD,
+  // REST_SPREAD,
   SPACE_REQUIRED_OPERATORS,
 } from "./constants";
 
@@ -111,7 +111,7 @@ const typeDeclareParameter = $def(() =>
   $seq([
     typeExpression,
     // extends T
-    $opt($seq([K_EXTENDS, typeExpression])),
+    $opt($seq([whitespace, K_EXTENDS, whitespace, typeExpression])),
     $opt($seq(["=", $not([">"]), typeExpression])),
   ])
 );
@@ -142,7 +142,7 @@ const typeParen = $def(() =>
 
 const typeIdentifier = $def(() =>
   $seq([
-    $not([$seq([K_READONLY])]),
+    $not([$seq([K_READONLY, whitespace])]),
     $or([
       // "readonly",
       K_VOID,
@@ -186,22 +186,18 @@ const typeArrayLiteral = $def(() =>
     "[",
     // repeat
     $repeat_seq([_typeNameableItem, ","]),
-
-    // optional last
-    $or([
-      $seq([
-        // ...args: any
-        REST_SPREAD,
-
-        identifier,
-
-        ":",
-
-        typeExpression,
-      ]),
-      _typeNameableItem,
-    ]),
-
+    $opt(
+      $or([
+        $seq([
+          // ...args: any
+          dotDotDot,
+          identifier,
+          ":",
+          typeExpression,
+        ]),
+        _typeNameableItem,
+      ])
+    ),
     "]",
   ])
 );
@@ -211,19 +207,18 @@ const typeFunctionArgs = $def(() =>
     $repeat_seq([
       // args
       identifier,
-
       $opt(K_QUESTION),
       ":",
-
       typeExpression,
-
       ",",
     ]),
-    $or([
-      // last
-      $seq([REST_SPREAD, identifier, ":", typeExpression]),
-      $seq([identifier, $opt(K_QUESTION), ":", typeExpression, $opt(",")]),
-    ]),
+    $opt(
+      $or([
+        // last
+        $seq([dotDotDot, identifier, ":", typeExpression]),
+        $seq([identifier, $opt(K_QUESTION), ":", typeExpression, $opt(",")]),
+      ])
+    ),
   ])
 );
 
@@ -231,7 +226,7 @@ const typeObjectItem = $def(() =>
   $or([
     $seq([
       // async foo<T>(arg: any): void;
-      $opt($seq([K_ASYNC])),
+      $opt($seq([K_ASYNC, whitespace])),
       identifier,
 
       $opt(typeDeclareParameters),
@@ -249,7 +244,7 @@ const typeObjectItem = $def(() =>
     ]),
     // member
     $seq([
-      $opt($seq([K_READONLY])),
+      $opt($seq([K_READONLY, whitespace])),
       identifier,
 
       $opt(K_QUESTION),
@@ -264,15 +259,11 @@ const typeObjectItem = $def(() =>
 const typeObjectLiteral = $def(() =>
   $seq([
     // object
-    K_BLACE_OPEN,
-
+    K_BRACE_OPEN,
     $repeat_seq([typeObjectItem, $or([",", ";"])]),
     $opt(typeObjectItem),
-
-    // $r`(,|;)?`,
-    $or([",", ";"]),
-
-    K_BLACE_CLOSE,
+    $opt($or([",", ";"])),
+    K_BRACE_CLOSE,
   ])
 );
 
@@ -291,38 +282,29 @@ const typeLiteral = $def(() =>
 
 const typeFunctionExpression = $def(() =>
   $seq([
-    // function
     $opt(typeDeclareParameters),
-
     K_PAREN_OPEN,
-
     typeFunctionArgs,
-
     K_PAREN_CLOSE,
-
-    "=>",
-
-    // return type
+    "=",
+    ">",
     typeExpression,
   ])
 );
 
 const typeUnaryExpression = $def(() =>
   $seq([
-    $opt($seq([$or(["keyof", K_TYPEOF, "infer"])])),
+    $opt($seq([$or(["keyof", K_TYPEOF, "infer"]), whitespace])),
     $or([typeFunctionExpression, typeParen, typeReference, typeLiteral]),
-    // generics parameter
   ])
 );
 
-// const typeSep = ;
 const typeBinaryExpression = $def(() =>
   $seq([
     $opt($or(["|", "&"])),
-
     $repeat_seq([
       typeUnaryExpression,
-      $or([$seq(["|"]), $seq(["&"]), $seq(["is"])]),
+      $or([$seq(["|"]), $seq(["&"]), $seq([whitespace, "is", whitespace])]),
     ]),
     typeUnaryExpression,
   ])
@@ -361,10 +343,10 @@ const destructiveObjectItem = $def(() =>
 
 const destructiveObjectPattern = $def(() =>
   $seq([
-    K_BLACE_OPEN,
+    K_BRACE_OPEN,
     $repeat_seq([destructiveObjectItem, ","]),
     $opt($or([$seq([dotDotDot, identifier]), destructiveObjectItem])),
-    K_BLACE_CLOSE,
+    K_BRACE_CLOSE,
   ])
 );
 
@@ -398,7 +380,7 @@ const functionArguments = $def(() =>
 
       $or([
         // rest spread
-        $seq([REST_SPREAD, functionArgWithAssign]),
+        $seq([dotDotDot, functionArgWithAssign]),
         functionArgWithAssign,
       ]),
 
@@ -406,7 +388,7 @@ const functionArguments = $def(() =>
     ]),
     // one item
     $seq([
-      $or([$seq([REST_SPREAD, functionArgWithAssign]), functionArgWithAssign]),
+      $or([$seq([dotDotDot, functionArgWithAssign]), functionArgWithAssign]),
 
       $opt(","),
     ]),
@@ -449,7 +431,7 @@ const templateLiteral = $def(() =>
       $opt($seq([$not([templateExpressionStart]), templateLiteralString])),
       templateExpressionStart,
       anyExpression,
-      K_BLACE_CLOSE,
+      K_BRACE_CLOSE,
     ]),
     $opt(templateLiteralString),
     "`",
@@ -523,10 +505,10 @@ const objectItem = $def(() =>
 // ref by key
 const objectLiteral = $def(() =>
   $seq([
-    K_BLACE_OPEN,
+    K_BRACE_OPEN,
     $repeat($seq([objectItem, ","])),
     $opt($seq([objectItem, $opt(",")])),
-    K_BLACE_CLOSE,
+    K_BRACE_CLOSE,
   ])
 );
 
@@ -582,11 +564,11 @@ const classConstructor = $def(() =>
       [{ key: "last", opt: true }, $seq([classConstructorArg, $skip_opt(",")])],
       K_PAREN_CLOSE,
 
-      K_BLACE_OPEN,
+      K_BRACE_OPEN,
 
       ["body", lines],
 
-      K_BLACE_CLOSE,
+      K_BRACE_CLOSE,
     ],
     (input: { args: string[]; last: string; body: string }) => {
       // const inits: string[] = [];
@@ -661,12 +643,12 @@ const classExpression = $def(() =>
     $opt($seq([K_EXTENDS, anyExpression])),
     $skip_opt($seq([K_IMPLEMENTS, typeExpression])),
 
-    K_BLACE_OPEN,
+    K_BRACE_OPEN,
 
     $repeat_seq([classField]),
 
     // TODO: class field
-    K_BLACE_CLOSE,
+    K_BRACE_CLOSE,
   ])
 );
 
@@ -868,6 +850,14 @@ const binaryOperator = $or([
   $seq(["=", $not([">"])]),
 ]);
 
+const asExpression = $def(() =>
+  $seq([
+    binary,
+    // WIP
+    // $skip_opt($seq([K_AS, typeExpression])),
+  ])
+);
+
 const binary = $def(() =>
   $seq([
     unary,
@@ -881,19 +871,11 @@ const binary = $def(() =>
   ])
 );
 
-const asExpression = $def(() =>
-  $seq([
-    binary,
-    // WIP
-    // $skip_opt($seq([K_AS, typeExpression])),
-  ])
-);
-
 // a ? b: c
 const ternary = $def(() =>
   $or([
     $seq([asExpression, K_QUESTION, anyExpression, ":", anyExpression]),
-    binary,
+    asExpression,
   ])
 );
 
@@ -924,11 +906,11 @@ const _importRightSide = $def(() =>
       $seq(["*", K_AS, identifier]),
       // TODO: * as b
       $seq([
-        K_BLACE_OPEN,
+        K_BRACE_OPEN,
         $repeat_seq([identifier, $opt($seq([K_AS, identifier])), ","]),
         // last item
         $opt($seq([identifier, $opt($seq([K_AS, identifier, $r`,?`]))])),
-        K_BLACE_CLOSE,
+        K_BRACE_CLOSE,
       ]),
     ]),
     K_FROM,
@@ -955,7 +937,7 @@ const exportStatement = $def(() =>
     // export clause
     $seq([
       K_EXPORT,
-      K_BLACE_OPEN,
+      K_BRACE_OPEN,
       $repeat_seq([
         defaultOrIdentifer,
         $opt($seq([K_AS, defaultOrIdentifer])),
@@ -969,7 +951,7 @@ const exportStatement = $def(() =>
           $opt(","),
         ])
       ),
-      K_BLACE_CLOSE,
+      K_BRACE_CLOSE,
       $opt($seq([K_FROM, stringLiteral])),
     ]),
     // export named expression
@@ -1008,7 +990,7 @@ const switchStatement = $def(() =>
     K_PAREN_OPEN,
     anyExpression,
     K_PAREN_CLOSE,
-    K_BLACE_OPEN,
+    K_BRACE_OPEN,
     $repeat_seq([
       $repeat_seq([K_CASE, anyExpression, ":"], [1, Infinity]),
       $opt(
@@ -1023,7 +1005,7 @@ const switchStatement = $def(() =>
       ),
     ]),
     $opt($seq([K_DEFAULT, ":", $or([block, caseClause])])),
-    K_BLACE_CLOSE,
+    K_BRACE_CLOSE,
   ])
 );
 
@@ -1079,7 +1061,7 @@ const interfaceStatement = $def(() =>
         $opt($seq([K_EXPORT])),
         K_INTERFACE,
         identifier,
-        $opt($seq([K_EXTENDS, typeExpression])),
+        $opt($seq([K_EXTENDS, whitespace, typeExpression])),
         typeObjectLiteral,
       ])
     ),
@@ -1178,7 +1160,7 @@ const enumStatement = $def(() =>
 
       ["enumName", identifier],
 
-      K_BLACE_OPEN,
+      K_BRACE_OPEN,
 
       // first define enum base
       [
@@ -1200,7 +1182,7 @@ const enumStatement = $def(() =>
         ]),
       ],
 
-      K_BLACE_CLOSE,
+      K_BRACE_CLOSE,
     ],
     (input: {
       enumName: string;
@@ -1449,7 +1431,7 @@ const lines = $def(() =>
   $seq([$repeat_seq([line]), $opt(anyStatement), $skip_opt(";")])
 );
 
-const block = $def(() => $seq([K_BLACE_OPEN, lines, K_BLACE_CLOSE]));
+const block = $def(() => $seq([K_BRACE_OPEN, lines, K_BRACE_CLOSE]));
 
 export const program = $def(() => $seq([lines, $eof()]));
 
@@ -1725,6 +1707,12 @@ if (process.env.NODE_ENV === "test") {
     expectFail(parse, "a.this");
     expectFail(parse, "a.import");
     expectFail(parse, "1.a");
+    // function
+    expectSuccess(parse, "f()");
+    expectSuccess(parse, "f(1)");
+    expectSuccess(parse, "f(1,)");
+    expectSuccess(parse, "f(1,1,)");
+    expectSuccess(parse, "f(1,[])");
   });
 
   test("unaryExpression", () => {
@@ -1734,7 +1722,7 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "!!a");
     expectSuccess(parse, "++a");
     expectSuccess(parse, "--a");
-    expectSuccess(parse, "++++a");
+    // expectFail(parse, "++++a");
     expectSuccess(parse, "~a");
     expectSuccess(parse, "~~a");
     expectSuccess(parse, "typeof a");
@@ -1804,42 +1792,101 @@ if (process.env.NODE_ENV === "test") {
       "a??b",
       "1+1",
       "(1)",
-      // "(1+1)",
-      // "1+1+1",
-      // "(1+(1*2))",
-      // "((1+1)+(1*2))",
-      // "await 1",
-      // "await foo()",
-      // "(a).x",
-      // "(a+b).x",
-      // "(await x).foo",
-      // "typeof x",
-      // "await x",
-      // "await x++",
-      // "await await x",
-      // "aaa`bbb`",
-      // "f()`bbb`",
-      // "(x)`bbb`",
-      // "a.b().c``",
-      // "a?b:c",
-      // "(a?b:c).d",
-      // "(a?b:c?d:e).d",
-      // "a().a()",
-      // "import('aaa')",
-      // "(()=>{})()",
-      // "(async ()=>{})()",
-      // "a\n.b",
-      // "importS",
     ]);
-    // is(parse("a!"), { result: "a" });
-    // is(parse("(a.b)!"), { result: "(a.b)" });
   });
 
   test("ternary", () => {
     const parse = compile(ternary);
-    expectSuccessList(parse, []);
-    // is(parse("a!"), { result: "a" });
-    // is(parse("(a.b)!"), { result: "(a.b)" });
+    expectSuccess(parse, "1?1:1");
+    expectSuccess(parse, "1?1+1:1");
+    expectSuccess(parse, "1?1+1:1+1");
+    expectSuccess(parse, "1?1+1:1?1:1");
+    expectSuccess(parse, "1+1?1+1:1?1:1");
+    expectSuccess(parse, "(1?1:1)?1+1:1?1:1");
+    expectSuccess(parse, "(1?1:1)?1?1:1:1?1:1");
+    expectFail(parse, "1?1");
+    expectFail(parse, "1??1:1");
+    expectFail(parse, "1?:1");
+    expectFail(parse, "?:1");
+  });
+
+  test("typeExpression", () => {
+    const parse = compile(typeExpression);
+    expectSuccessList(parse, [
+      "number",
+      "number[]",
+      "number[]|c",
+      "number[][]",
+      "1",
+      "'x'",
+      "true",
+      "null",
+      "`${number}`",
+      "Array<T>",
+      "Map<string,number>",
+      "Array<Array<T[]>>",
+      "X<Y>[]",
+      "React.ReactNode",
+      "React.ChangeEvent<T>",
+      "X.Y.Z",
+      "()=>1",
+      "keyof T",
+      "T['K']",
+      "T['K']['X']",
+      "T['K']['X'].val",
+      "string",
+      "|a",
+      "|a|a",
+      "x is number",
+      "a|b",
+      "a|b|c",
+      "a&b",
+      "a&b&c",
+      "(a)",
+      "(a)|(b)",
+      "(a&b)&c",
+      "{}",
+      "[]",
+      "typeof A",
+      "{a:number;}",
+      "{a:number,}",
+      "{a:number,b:number}",
+      "{a:number,b?:number}",
+      "{a?:number}",
+      "{a:number,b:{x:1;}}",
+      "{a:number;}['a']",
+      "{a:()=>void;}",
+      "{f():void;}",
+      "{async f():void;}",
+      "{f(arg:any):void;}",
+      "{f(arg:any,):void;}",
+      "{f(a1:any,a2:any):void;}",
+      "{f(a1:any,a2:any,...args:any):void;}",
+      "{f(...args:any):void;}",
+      "{f(...args:any):void;b:1;}",
+      "{readonly b:number;}",
+      `{readonly b:number,a:number}`,
+      "[]&{}",
+      "[number]",
+      "[number,number]",
+      "[number,...args:any]",
+      "[a:number]",
+      "[y:number,...args:any]",
+      "()=>void",
+      "<T>()=>void",
+      "<T=U>()=>void",
+      "<T extends X>()=>void",
+      "<T extends X=any>()=>void",
+      "(a:number)=>void",
+      "(a?:number)=>void",
+      "(a:A)=>void",
+      "(a:A,b:B)=>void",
+      "(...args:any[])=>void",
+      "(...args:any[])=>A|B",
+      "((...args:any[])=>A|B)|()=>void",
+      "infer U",
+      "{readonly x:number;}",
+    ]);
   });
 
   //   test("functionExpression", () => {
@@ -1957,18 +2004,6 @@ if (process.env.NODE_ENV === "test") {
   //     });
   //   });
 
-  //   test("callExpression", () => {
-  //     const parse = compile(accessible);
-  //     is(parse("func()"), { result: "func()" });
-  //     is(parse("func([])"), { result: "func([])" });
-  //     is(parse("func(1,2)"), { result: "func(1,2)" });
-  //     is(parse("func(1,2,)"), { result: "func(1,2,)" });
-  //     is(parse("f<T>()"), { result: "f()" });
-  //     is(parse("f?.()"), { result: "f?.()" });
-  //     is(parse("x.f()"), { result: "x.f()" });
-  //     is(parse("x.f<T>()"), { result: "x.f()" });
-  //   });
-
   //   test("anyExpression", () => {
   //     const parse = compile(anyExpression, { end: true });
   //     expectSame(parse, [
@@ -2045,97 +2080,6 @@ if (process.env.NODE_ENV === "test") {
   //     is(parse("1 + 1 as number"), { result: "1+1" });
   //     is(parse("(a) as number"), { result: "(a)" });
   //     is(parse("(a as number)"), { result: "(a)" });
-  //   });
-
-  //   test("typeExpression", () => {
-  //     const parse = compile(typeExpression, { end: true });
-  //     expectSame(
-  //       parse,
-  //       [
-  //         "number",
-  //         "number[]",
-  //         "number[] | c",
-  //         "number[][]",
-  //         "1",
-  //         "'x'",
-  //         "true",
-  //         "null",
-  //         "`${number}`",
-  //         "Array<T>",
-  //         "Map<string, number>",
-  //         "Array<Array<T[]>>",
-  //         "X<Y>[]",
-  //         "React.ReactNode",
-  //         "React.ChangeEvent<T>",
-  //         "X.Y.Z",
-  //         "keyof T",
-  //         "T['K']",
-  //         "T['K']['X']",
-  //         "T['K']['X'].val",
-  //         "string",
-  //         "|a",
-  //         "|a|a",
-  //         "x is number",
-  //         "a | b",
-  //         "a | b | c",
-  //         "a & b",
-  //         "a & b & c",
-  //         "(a)",
-  //         "(a) | (b)",
-  //         "(a & b) & c",
-  //         "{}",
-  //         "typeof A",
-  //         "{ a: number; }",
-  //         "{ a: number, }",
-  //         "{ a: number, b: number }",
-  //         "{ a: number, b?: number }",
-  //         "{ a?: number }",
-  //         "{ a: number, b: { x: 1; } }",
-  //         "{ a: number; }['a']",
-  //         "{ a: () => void; }",
-  //         "{ f(): void; }",
-  //         "{ async f(): void; }",
-  //         "{ f(arg: any): void; }",
-  //         "{ f(arg: any,): void; }",
-  //         "{ f(a1: any, a2: any): void; }",
-  //         "{ f(a1: any, a2: any, ...args: any): void; }",
-  //         "{ f(...args: any): void; }",
-  //         "{ f(...args: any): void; b: 1; }",
-  //         "{ readonly b: number; }",
-  //         `{
-  //           readonly b: number,
-  //           a: number
-  //         }`,
-  //         // `{ readonly b, number, a: number }`,
-  //         "[] & {}",
-  //         "[number]",
-  //         "[number,number]",
-  //         "[number, ...args: any]",
-  //         "[a:number]",
-  //         "[y:number,...args: any]",
-  //         "() => void",
-  //         "<T>() => void",
-  //         "<T = U>() => void",
-  //         "<T extends X>() => void",
-  //         "<T extends X = any>() => void",
-  //         "(a: number) => void",
-  //         "(a?: number) => void",
-  //         "(a: A) => void",
-  //         "(a: A, b: B) => void",
-  //         "(...args: any[]) => void",
-  //         "(...args: any[]) => A | B",
-  //         "((...args: any[]) => A | B) | () => void",
-  //         "infer U",
-  //         "{ readonly x: number; }",
-  //       ],
-  //       { stripTypes: false, format: false }
-  //     );
-  //     // is(
-  //     //   parse(`{
-
-  //     // }`),
-  //     //   { result: "{\n }" }
-  //     // );
   //   });
 
   //   // statements
