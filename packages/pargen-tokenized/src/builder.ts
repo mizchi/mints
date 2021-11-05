@@ -175,6 +175,14 @@ export function $repeat_seq(
   return $repeat($seq(input), minmax, reshape);
 }
 
+export function $opt_seq(
+  input: Array<
+    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
+  >
+): Seq {
+  return $opt($seq(input)) as Seq;
+}
+
 // seq child builder
 export function $param(key: string, node: InputNodeExpr): SeqChildParams {
   return { ...toNode(node), key } as SeqChildParams;

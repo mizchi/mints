@@ -9,6 +9,7 @@ import {
   $eof,
   $not,
   $opt,
+  $opt_seq,
   $or,
   // $pairClose,
   // $pairOpen,
@@ -357,7 +358,7 @@ const destructive = $def(() =>
   ])
 );
 
-const functionArgWithAssign = $def(() =>
+const funcArgWithAssign = $def(() =>
   $seq([
     $or([
       // pattern(:T)?
@@ -365,36 +366,16 @@ const functionArgWithAssign = $def(() =>
       destructiveArrayPattern,
       identifier,
     ]),
-    $skip_opt(
-      $seq([$skip_opt(K_QUESTION), $skip_opt(K_QUESTION), ":", typeExpression])
-    ),
+    $skip_opt($seq([$skip_opt(K_QUESTION), ":", typeExpression])),
     $opt($seq([$skip_opt(K_QUESTION), "=", $not([">"]), anyExpression])),
   ])
 );
 
-const functionArguments = $def(() =>
-  $or([
-    // a,b,c
-    $seq([
-      $repeat_seq([functionArgWithAssign, ","]),
-
-      $or([
-        // rest spread
-        $seq([dotDotDot, functionArgWithAssign]),
-        functionArgWithAssign,
-      ]),
-
-      $opt(","),
-    ]),
-    // one item
-    $seq([
-      $or([$seq([dotDotDot, functionArgWithAssign]), functionArgWithAssign]),
-
-      $opt(","),
-    ]),
-
-    // x,\n
-    $seq([identifier, $opt(",")]),
+const funcArgs = $def(() =>
+  $seq([
+    $repeat_seq([funcArgWithAssign, ","]),
+    $opt($or([$seq([dotDotDot, funcArgWithAssign]), funcArgWithAssign])),
+    $skip_opt(","),
   ])
 );
 
@@ -526,13 +507,14 @@ const anyLiteral = $def(() =>
 );
 
 /* Class */
-const accessModifier = $regex(`(${K_PRIVATE}|${K_PUBLIC}|${K_PROTECTED}) `);
+// const accessModifier = $regex(`(${K_PRIVATE}|${K_PUBLIC}|${K_PROTECTED}) `);
+const accessModifier = $or([K_PRIVATE, K_PUBLIC, K_PROTECTED]);
 // const accessModifier = $or([K_PRIVATE,K_PUBLIC,K_PROTECTED]);
 
 // const staticModifier = $token(`static `);
 // const readonlyModifier = $token(`readonly `);
-const staticModifier = $seq([K_STATIC]);
-const asyncModifier = $seq([K_ASYNC]);
+// const staticModifier = $seq([K_STATIC]);
+// const asyncModifier = $seq([K_ASYNC]);
 const getOrSetModifier = $seq([$or([K_GET, K_SET])]);
 
 const classConstructorArg = $def(() =>
@@ -592,108 +574,75 @@ const classField = $def(() =>
     classConstructor,
     // class member
     $seq([
-      $skip_opt(accessModifier),
-      $opt(staticModifier),
-      $opt($seq([K_ASYNC])),
-      $opt(getOrSetModifier),
+      $skip_opt($seq([accessModifier, whitespace])),
+      $opt_seq([K_STATIC, whitespace]),
+      $opt_seq([K_ASYNC, whitespace]),
+      $opt_seq([getOrSetModifier, whitespace]),
       $opt("*"),
       $opt("#"),
       identifier,
-      // <T>
       $skip_opt($seq([typeDeclareParameters])),
-
-      // class member
-      $seq([
-        // foo(): void {}
-        K_PAREN_OPEN,
-
-        functionArguments,
-
-        K_PAREN_CLOSE,
-        $skip_opt($seq([_typeAnnotation])),
-
-        block,
-      ]),
+      K_PAREN_OPEN,
+      funcArgs,
+      K_PAREN_CLOSE,
+      $skip_opt($seq([typeAnnotation])),
+      block,
     ]),
     // field
     $seq([
-      // private|static|readonly
       $skip_opt(accessModifier),
-      // static
-      $opt(staticModifier),
-      $skip_opt($seq([K_READONLY])),
-      $opt($seq(["#"])),
+      $opt_seq([K_STATIC, whitespace]),
+      $skip_opt($seq([K_READONLY, whitespace])),
+      $opt_seq(["#"]),
       identifier,
-      // :xxx
-      $skip_opt($seq([_typeAnnotation])),
-
-      $opt($seq(["=", $not([">"]), anyExpression])),
+      $skip_opt($seq([typeAnnotation])),
+      $opt_seq(["=", $not([">"]), anyExpression]),
       ";",
     ]),
   ])
 );
 
-const classExpression = $def(() =>
+const classExpr = $def(() =>
   $seq([
     $skip_opt($seq([K_ABSTRACT])),
     K_CLASS,
-    $opt($seq([identifier])),
-    // <T>
+    $opt($seq([whitespace, identifier])),
     $skip_opt(typeDeclareParameters),
-    $opt($seq([K_EXTENDS, anyExpression])),
+    $opt($seq([whitespace, K_EXTENDS, whitespace, anyExpression])),
     $skip_opt($seq([K_IMPLEMENTS, typeExpression])),
-
     K_BRACE_OPEN,
-
     $repeat_seq([classField]),
-
-    // TODO: class field
     K_BRACE_CLOSE,
   ])
 );
 
-const functionExpression = $def(() =>
+const func = $def(() =>
   $seq([
-    $opt(asyncModifier),
+    $opt($seq([K_ASYNC, whitespace])),
     K_FUNCTION,
     $opt($seq(["*"])),
-    $opt($seq([identifier])),
-
+    $opt($seq([whitespace, identifier])),
     $skip_opt(typeDeclareParameters),
-
     K_PAREN_OPEN,
-
-    functionArguments,
-
+    funcArgs,
     K_PAREN_CLOSE,
-
-    $skip_opt(_typeAnnotation),
-
+    $skip_opt(typeAnnotation),
     $or([block, anyStatement]),
   ])
 );
 
-const arrowFunctionExpression = $def(() =>
+const arrowFunc = $def(() =>
   $seq([
-    $opt(asyncModifier),
+    // $opt($seq([K_ASYNC, whitespace])),
+    $opt($seq([K_ASYNC, whitespace])),
     $skip_opt(typeDeclareParameters),
-
     $opt("*"),
-
     $or([
-      $seq([
-        K_PAREN_OPEN,
-
-        functionArguments,
-
-        K_PAREN_CLOSE,
-        $skip_opt($seq([_typeAnnotation])),
-      ]),
+      $seq([K_PAREN_OPEN, funcArgs, K_PAREN_CLOSE, $skip_opt(typeAnnotation)]),
       identifier,
     ]),
-
-    "=>",
-
+    "=",
+    ">",
     $or([block, anyStatement]),
   ])
 );
@@ -703,7 +652,7 @@ const newExpression = $def(() =>
     K_NEW,
     whitespace,
     accessible,
-    $opt($seq([K_PAREN_OPEN, functionArguments, K_PAREN_CLOSE])),
+    $opt($seq([K_PAREN_OPEN, funcArgs, K_PAREN_CLOSE])),
   ])
 );
 
@@ -728,24 +677,24 @@ const primary = $def(() =>
   ])
 );
 
-const _call = $def(() =>
-  $or([
-    $seq([
-      "?",
-      ".",
-      // $skip_opt($seq([typeParameters])),
-      K_PAREN_OPEN,
-      callArguments,
-      K_PAREN_CLOSE,
-    ]),
-    $seq([
-      // $skip_opt($seq([typeParameters])),
-      K_PAREN_OPEN,
-      callArguments,
-      K_PAREN_CLOSE,
-    ]),
-  ])
-);
+// const _call = $def(() =>
+//   $or([
+//     $seq([
+//       "?",
+//       ".",
+//       // $skip_opt($seq([typeParameters])),
+//       K_PAREN_OPEN,
+//       callArguments,
+//       K_PAREN_CLOSE,
+//     ]),
+//     $seq([
+//       // $skip_opt($seq([typeParameters])),
+//       K_PAREN_OPEN,
+//       callArguments,
+//       K_PAREN_CLOSE,
+//     ]),
+//   ])
+// );
 
 const questionDot = $seq(["?", "."]);
 const _access = $def(() =>
@@ -798,13 +747,7 @@ const unary = $def(() =>
     // tagged template
     $seq([$or([accessible, paren]), templateLiteral]),
     $seq([
-      $or([
-        classExpression,
-        functionExpression,
-        arrowFunctionExpression,
-        accessible,
-        paren,
-      ]),
+      $or([classExpr, func, arrowFunc, accessible, paren]),
       $opt($or([plusPlus, minusMinus])),
       // ts bang operator
       $skip_opt("!"),
@@ -881,7 +824,7 @@ const ternary = $def(() =>
 
 const anyExpression = ternary;
 
-const _typeAnnotation = $seq([":", typeExpression]);
+const typeAnnotation = $seq([":", typeExpression]);
 // const emptyStatement = $def(() => $seq([$r`(\\s)*`]));
 const breakStatement = $def(() => K_BREAK);
 const debuggerStatement = $def(() => K_DEBUGGER);
@@ -907,14 +850,25 @@ const _importRightSide = $def(() =>
   $seq([
     $or([
       // default only
-      $seq([identifier]),
-      $seq(["*", K_AS, identifier]),
+      $seq([whitespace, identifier, whitespace]),
+      $seq(["*", K_AS, whitespace, identifier, whitespace]),
       // TODO: * as b
       $seq([
         K_BRACE_OPEN,
-        $repeat_seq([identifier, $opt($seq([K_AS, identifier])), ","]),
+        $repeat_seq([
+          identifier,
+          $opt($seq([whitespace, K_AS, whitespace, identifier])),
+          ",",
+        ]),
         // last item
-        $opt($seq([identifier, $opt($seq([K_AS, identifier, $r`,?`]))])),
+        $opt(
+          $seq([
+            identifier,
+            $opt(
+              $seq([whitespace, K_AS, whitespace, identifier, $skip_opt(",")])
+            ),
+          ])
+        ),
         K_BRACE_CLOSE,
       ]),
     ]),
@@ -945,14 +899,14 @@ const exportStatement = $def(() =>
       K_BRACE_OPEN,
       $repeat_seq([
         defaultOrIdentifer,
-        $opt($seq([K_AS, defaultOrIdentifer])),
+        $opt($seq([whitespace, K_AS, whitespace, defaultOrIdentifer])),
         ",",
       ]),
       // last item
       $opt(
         $seq([
           defaultOrIdentifer,
-          $opt($seq([K_AS, defaultOrIdentifer])),
+          $opt($seq([whitespace, K_AS, whitespace, defaultOrIdentifer])),
           $opt(","),
         ])
       ),
@@ -960,10 +914,7 @@ const exportStatement = $def(() =>
       $opt($seq([K_FROM, stringLiteral])),
     ]),
     // export named expression
-    $seq([
-      K_EXPORT,
-      $or([variableStatement, functionExpression, classExpression]),
-    ]),
+    $seq([K_EXPORT, whitespace, $or([variableStatement, func, classExpr])]),
   ])
 );
 
@@ -976,9 +927,12 @@ const ifStatement = $def(() =>
     anyExpression,
     K_PAREN_CLOSE,
     blockOrStatement,
+    // $or([block, $seq([anyStatement])]),
     $opt(
       $seq([
+        whitespace,
         K_ELSE,
+        whitespace,
         $or([
           // xx
           $seq([block]),
@@ -997,7 +951,7 @@ const switchStatement = $def(() =>
     K_PAREN_CLOSE,
     K_BRACE_OPEN,
     $repeat_seq([
-      $repeat_seq([K_CASE, anyExpression, ":"], [1, Infinity]),
+      $repeat_seq([K_CASE, whitespace, anyExpression, ":"], [1, Infinity]),
       $opt(
         $or([
           $seq([
@@ -1018,16 +972,17 @@ const assign = $def(() => $seq(["=", $not([">"]), anyExpression]));
 const variableStatement = $def(() =>
   $seq([
     // single
-    $seq([declareType]),
+    declareType,
+    whitespace,
     // x, y=1,
     $repeat_seq([
       destructive,
-      $skip_opt(_typeAnnotation),
+      $skip_opt(typeAnnotation),
       $opt($seq([assign])),
       ",",
     ]),
     destructive,
-    $skip_opt(_typeAnnotation),
+    $skip_opt(typeAnnotation),
     $opt($seq([assign])),
   ])
 );
@@ -1069,22 +1024,13 @@ const interfaceStatement = $def(() =>
 const forStatement = $def(() =>
   $seq([
     K_FOR,
-
     K_PAREN_OPEN,
-
-    // start
-    $or([variableStatement, anyExpression]),
-
+    $opt($or([variableStatement, anyExpression])),
     ";",
-    // condition
-
     $opt(anyExpression),
-
     ";",
-    // step end
     $opt(anyExpression),
     K_PAREN_CLOSE,
-
     blockOrStatement,
   ])
 );
@@ -1097,9 +1043,11 @@ const forItemStatement = $def(() =>
   $seq([
     K_FOR,
     K_PAREN_OPEN,
-    $seq([$or([K_VAR, K_LET, K_CONST])]),
+    $seq([declareType, whitespace]),
     destructive,
+    whitespace,
     $or(["of", "in"]),
+    whitespace,
     anyExpression,
     K_PAREN_CLOSE,
     blockOrStatement,
@@ -1320,11 +1268,10 @@ const semicolonlessStatement = $def(() =>
   $seq([
     $or([
       // export function/class
-      $seq([K_EXPORT, $or([functionExpression, classExpression])]),
-
-      classExpression,
+      $seq([K_EXPORT, whitespace, $or([func, classExpr])]),
+      classExpr,
       enumStatement,
-      functionExpression,
+      func,
       exportStatement,
       tryCatchStatement,
       ifStatement,
@@ -1336,17 +1283,17 @@ const semicolonlessStatement = $def(() =>
       forItemStatement,
       blockStatement,
     ]),
-    $seq([$opt(";")]),
+    // $seq([$opt(";")]),
   ])
 );
 
 const semicolonRequiredStatement = $def(() =>
   $seq([
-    $not([
-      $regex(
-        `(${K_CLASS}|${K_EXPORT}|${K_IF}|${K_WHILE}|${K_DO}|${K_SWITCH}|${K_FOR}|${K_INTERFACE}|${K_TRY})[ {\\(]`
-      ),
-    ]),
+    // $not([
+    //   $regex(
+    //     `(${K_CLASS}|${K_EXPORT}|${K_IF}|${K_WHILE}|${K_DO}|${K_SWITCH}|${K_FOR}|${K_INTERFACE}|${K_TRY})[ {\\(]`
+    //   ),
+    // ]),
     anyStatement,
     // $or([
     //   debuggerStatement,
@@ -1363,7 +1310,7 @@ const semicolonRequiredStatement = $def(() =>
   ])
 );
 
-const anyStatement = $def(() =>
+export const anyStatement = $def(() =>
   $or([
     // "debbuger"
     debuggerStatement,
@@ -1411,8 +1358,8 @@ const anyStatement = $def(() =>
 
 const line = $def(() =>
   $or([
-    $seq([semicolonlessStatement, $skip($or(["\n", ";"]))]),
-    $seq([$opt(semicolonRequiredStatement), $or([$seq(["\n"]), $seq([";"])])]),
+    $seq([semicolonlessStatement, $skip_opt(";")]),
+    $seq([$opt(semicolonRequiredStatement), ";"]),
   ])
 );
 
@@ -1511,11 +1458,9 @@ if (process.env.NODE_ENV === "test") {
     };
     return wrappedParser;
   };
-
   const expectSuccess = (parse: any, input: string, expect: string = input) => {
     is(parse(input), expect);
   };
-
   const expectSuccessList = (parse: any, input: string[]) => {
     for (const i of input) {
       expectSuccess(parse, i);
@@ -1904,8 +1849,6 @@ if (process.env.NODE_ENV === "test") {
 
   test("return", () => {
     const parse = compile(returnLikeStatement);
-    console.log("tokens", [...parseTokens("return ret")]);
-    // expectSuccess(parse, "return");
     expectSuccess(parse, "return ret");
     expectSuccess(parse, "yield 1");
     expectSuccess(parse, "yield ret");
@@ -1915,331 +1858,249 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "throw 1");
     expectFail(parse, "throw");
   });
-  // test("block", () => {
-  //   const parse = compile($seq([block, $eof()]));
-  //   expectSame(parse, [`{return 1;}`, `{debugger;return;}`, "{}"]);
+
+  test("block", () => {
+    const parse = compile(block);
+    expectSuccess(parse, `{}`);
+    expectSuccess(parse, `{;}`);
+    expectSuccess(parse, `{;;;;;;;;;}`);
+    expectSuccess(parse, `{debugger;}`);
+    expectSuccess(parse, `{1;;}`);
+    expectSuccess(parse, `{1}`);
+    expectSuccess(parse, `{new X();}`);
+    expectSuccess(parse, `{\n}`, "{}");
+    expectSuccess(parse, `{\n \n}`, "{}");
+    expectFail(parse, ``);
+    expectFail(parse, `{}}`);
+  });
+
+  test("functionExpression", () => {
+    const parse = compile(func);
+    expectSuccessList(parse, [
+      "function f(){}",
+      "function* f(){}",
+      "async function f({a})1",
+      "function f(a){}",
+      "function f(a,){}",
+      "function f(a,b){}",
+      "function f(a,b,c){}",
+      "function f(a,b,c,){}",
+      "function f(a,b,c,d){}",
+      "function f(a,b,c,...args){}",
+      "function f({a,b}){}",
+      "function f({a,b})return 1",
+      "function f({a})1",
+      "function f()1",
+    ]);
+    // drop types
+    is(parse("function f() {}"), "function f(){}");
+    is(parse("function f<T extends U>() {}"), "function f(){}");
+    is(parse("function f(arg: T){}"), "function f(arg){}");
+    is(
+      parse("function f(arg: T, ...args: any[]){}"),
+      "function f(arg,...args){}"
+    );
+    is(parse("function f(): void {}"), "function f(){}");
+    // // // TODO: fix space eating by types
+    is(parse("function f(): T {}"), "function f(){}");
+    is(parse("function f(): T | U {}"), "function f(){}");
+  });
+  test("arrowFunctionExpression", () => {
+    const parse = compile(arrowFunc);
+    // expectSuccess(parse, "a=>1");
+    expectSuccessList(parse, [
+      "()=>{}",
+      "*()=>{}",
+      "(a)=>1",
+      "(a,b)=>1",
+      "(a,b,)=>1",
+      "(a,b,c)=>1",
+      "(a,b,c,)=>1",
+      "({})=>1",
+      "async ()=>{}",
+      "async ()=>await p",
+      "async ()=>await new Promise(r=>setTimeout(r))",
+      "a=>1",
+      `()=>g`,
+    ]);
+    expectSuccess(parse, "(a:number)=>1", "(a)=>1");
+    expectSuccess(parse, "(a:number):number =>1", "(a)=>1");
+    expectSuccess(parse, "(a:number,b:number):number =>1", "(a,b)=>1");
+    expectSuccess(parse, "<T>(a:T)=>1", "(a)=>1");
+  });
+
+  test("classExpression", () => {
+    const parse = compile(classExpr);
+    // expectSuccessList(parse, []);
+    expectSuccessList(parse, [
+      "class X{}",
+      "class{}",
+      "class X extends Y{}",
+      "class{x;}",
+      "class{x=1;}",
+      "class{x=1;#y=2;}",
+      "class{foo(){}}",
+      "class{get foo(){}}",
+      "class{set foo(){}}",
+      "class{async foo(){}}",
+      "class{async foo(){}}",
+      "class{static async foo(){}}",
+    ]);
+    is(
+      parse("class{readonly onDidChange = Event.None;}"),
+      "class{onDidChange=Event.None;}"
+    );
+    is(parse("class<T>{}"), "class{}");
+    is(parse("class{readonly x;}"), "class{x;}");
+    is(parse("class X implements A {}"), "class X{}");
+    is(parse("abstract class{}"), "class{}");
+    is(parse("class { private x; }"), "class{x;}");
+    is(parse("class { public x; }"), "class{x;}");
+    is(parse("class<T>{}"), "class{}");
+    is(parse("class<T> implements X{}"), "class{}");
+    is(parse("class<T> extends C implements X{}"), "class extends C{}");
+    is(parse("class{foo(): void {} }"), "class{foo(){}}");
+    is(parse("class{foo(arg:T): void {} }"), "class{foo(arg){}}");
+    is(parse("class{foo<T>(arg:T): void {} }"), "class{foo(arg){}}");
+    is(parse("class{x:number;y=1;}"), "class{x;y=1;}");
+    // "class{constructor(){}}",
+    // "class{constructor(){this.val=1;}}",
+  });
+
+  test("for", () => {
+    const parse = compile(forStatement);
+    expectSuccessList(parse, [
+      // "for(x=0;x<1;x++)x",
+      // "for(x=0;x<1;x++){}",
+      // "for(;;)x",
+      // "for(let x=1;x<6;x++)x",
+      // "for(let x=1;x<6;x++){}",
+      // "for(;;){}",
+      // "for(;x;x){}",
+    ]);
+    // expectSuccessList(parse, ["for(;;)"]);
+  });
+
+  test("for-item", () => {
+    const parse = compile(forItemStatement);
+    expectSuccessList(parse, [
+      "for(const i of array)x",
+      "for(const k in array)x",
+      "for(let {} in array)x",
+      "for(let {} in [])x",
+      "for(let [] in xs){}",
+    ]);
+    expectFail(parse, "for(const i of t)");
+  });
+  test("while", () => {
+    const parse = compile(whileStatement);
+    expectSuccessList(parse, ["while(1)1", "while(1){break;}"]);
+    expectFail(parse, "while(1)");
+  });
+
+  test("if", () => {
+    const parse = compile(ifStatement);
+    expectSuccessList(parse, [
+      "if(1)1",
+      `if(1){return 1;}`,
+      `if(1){} else 2`,
+      `if(1){} else {}`,
+      `if(1){} else if(1){}`,
+      `if(1){} else if(1){} else 1`,
+      `if(1){if(2)return 1}`,
+    ]);
+  });
+
+  test("switch", () => {
+    const parse = compile(switchStatement);
+    expectSuccessList(parse, [
+      `switch(x){}`,
+      `switch(true){default:1}`,
+      `switch(true){default:{1}}`,
+      `switch(x){case 1:1;}`,
+      `switch(x){case 1:1;case 2:2}`,
+      `switch(x){case 1:1;case 2:{}}`,
+      `switch(x){case 1:case 2:{}}`,
+      `switch(x){case 1:{}case 2:{}}`,
+      `switch(x){case 1:{}default:{}}`,
+    ]);
+  });
+
+  test("variableStatement", () => {
+    const parse = compile(variableStatement);
+    expectSuccessList(parse, [
+      "let x",
+      "let x,y",
+      "let x,y,z",
+      "let x,y=1,z",
+      "let x=1",
+      "const []=[]",
+      "const {}={},[]=a",
+    ]);
+    // expectSuccess(parse, "let x: number = 1, y: number = 2", "");
+    expectSuccess(parse, "let x: number = 1, y: number = 2", "let x=1,y=2");
+  });
+
+  test("importStatement", () => {
+    const parse = compile(importStatement);
+    expectSuccessList(parse, [
+      "import'foo'",
+      "import'foo'",
+      "import*as b from'xx'",
+      "import*as b from'xx'",
+      "import a from'b'",
+      'import{}from"b"',
+      'import{a}from"x"',
+      // 'import{a,b}from"x"',
+      'import{a as b}from"x"',
+      // 'import{a as b,d as c,}from"x"',
+    ]);
+    // drop import type
+    is(parse("import type a from'xxx'"), "");
+    is(parse("import type *as b from'xxx'"), "");
+    is(parse("import type{a as b}from'xxx'"), "");
+  });
+  test("exportStatement", () => {
+    const parse = compile(exportStatement);
+    expectSuccessList(parse, [
+      "export{}",
+      "export{a}",
+      "export{a,b}",
+      "export{a as b}",
+      "export{a as default}",
+      "export{default as default}",
+      "export{}from'a'",
+      "export{default as x}from'a'",
+      "export const x=1",
+      "export function f(){}",
+      "export class C{}",
+    ]);
+  });
+
+  test("expressionStatement", () => {
+    const parse = compile(expressionStatement);
+    expectSuccessList(parse, [
+      "1",
+      "func()",
+      "a=1",
+      "a.b=1",
+      "1,1",
+      "a=1",
+      "impor",
+      "importS",
+      "thisX",
+    ]);
+  });
+
+  test("anyStatement", () => {
+    const parse = compile(anyStatement);
+    expectSuccessList(parse, ["debugger", "{a=1;}", "foo:{}", "foo:1"]);
+  });
+
+  // test("program:with type", () => {
+  //   const parse = compile(program);
+  //   is(parse("1 as number"), "1");
   // });
-
-  // oneline statement
-
-  //   test("functionExpression", () => {
-  //     const parse = compile(functionExpression);
-  //     // expectResult(parse, "function () {}", "function(){}");
-  //     // expectResult(parse, "function * () {}", "function*(){}");
-
-  //     expectSame(parse, [
-  //       "function f(){}",
-  //       // "function*f(){}",
-  //       "async function f({a})1",
-  //       "function f(a){}",
-  //       "function f(a,){}",
-  //       "function f(a,b){}",
-  //       "function f(a,b,c){}",
-  //       "function f(a,b,c,){}",
-  //       "function f(a,b,c,d){}",
-  //       "function f(a,b,c,...args){}",
-
-  //       "function f({a, b}){}",
-  //       "function f({a, b})return 1",
-  //       "function f({a})1",
-  //       "function f()1",
-  //     ]);
-  //     // drop types
-  //     is(parse("function f() {}"), { result: "function f(){}" });
-  //     is(parse("function f() {}"), { result: "function f(){}" });
-  //     is(parse("function f<T extends U>() {}"), { result: "function f(){}" });
-  //     is(parse("function f(arg: T){}"), { result: "function f(arg){}" });
-  //     is(parse("function f(arg: T, ...args: any[]){}"), {
-  //       result: "function f(arg,...args){}",
-  //     });
-  //     is(parse("function f(): void {}"), { result: "function f(){}" });
-  //     // // TODO: fix space eating by types
-  //     is(parse("function f(): T {}"), { result: "function f(){}" });
-  //     is(parse("function f(): T | U {}"), { result: "function f(){}" });
-  //   });
-  //   test("arrowFunctionExpression", () => {
-  //     const parse = compile(arrowFunctionExpression);
-  //     expectSame(parse, ["a=>1"]);
-  //     expectSame(parse, [
-  //       "()=>{}",
-  //       // "*()=>{}",
-  //       "(a)=>1",
-  //       "(a,b)=>1",
-  //       "(a,b,)=>1",
-  //       "(a,b,c)=>1",
-  //       "(a,b,c,)=>1",
-  //       "(a:number)=>1",
-  //       "<T>(a:number)=>1",
-  //       "<T>(a:number,b:number)=>1",
-
-  //       "({})=>1",
-  //       "async ()=>{}",
-  //       "async ()=>await p",
-  //       "async ()=>await new Promise(r=>setTimeout(r))",
-
-  //       "a=>1",
-  //       `()=>g`,
-  //       `()=> g`,
-  //       `()=>\ng`,
-  //     ]);
-  //     is(parse("() => {}"), { result: "()=>{}" });
-  //     is(parse("<T>() => {}"), { result: "()=>{}" });
-  //     // TODO: fix space eating by types
-  //     is(parse("(): T => {}"), { result: "()=>{}" });
-  //     is(parse("(a:T) => {}"), { result: "(a)=>{}" });
-  //   });
-
-  //   test("classExpression", () => {
-  //     const parse = compile(classExpression);
-  //     expectSame(parse, ["class X{}", "class{}", "class X extends Y{}"]);
-  //     expectSame(parse, [
-  //       "class{}",
-  //       "class{readonly onDidChange = Event.None;}",
-  //       // "class extends A{}",
-  //       "class{x;}",
-  //       "class{readonly x;}",
-  //       "class{readonly x: number;}",
-
-  //       "class{readonly x = 1;}",
-
-  //       "class{x=1;}",
-  //       // "class{x=1;#y=2;}",
-  //       `class{readonly x: number = 1;}`,
-  //       "class{static readonly x = 1;}",
-  //       "class{constructor(){}}",
-  //       "class{constructor(){this.val = 1;}}",
-  //       "class{foo(){}}",
-  //       "class{get foo(){}}",
-  //       "class{set foo(){}}",
-  //       "class{async foo(){}}",
-  //       "class{async foo(){}}",
-  //       "class{static async foo(){}}",
-  //     ]);
-  //     is(parse("abstract class{}"), { result: "class{}" });
-  //     is(parse("class { private x; }"), { result: "class{x;}" });
-  //     is(parse("class { public x; }"), { result: "class{x;}" });
-  //     is(parse("class<T>{}"), { result: "class{}" });
-  //     is(parse("class<T> implements X{}"), { result: "class{}" });
-  //     is(parse("class<T> extends C implements X{}"), {
-  //       result: "class extends C{}",
-  //     });
-  //     is(parse("class{foo(): void {} }"), {
-  //       result: "class{foo(){}}",
-  //     });
-  //     is(parse("class{foo(arg:T): void {} }"), {
-  //       result: "class{foo(arg){}}",
-  //     });
-  //     is(parse("class{foo<T>(arg:T): void {} }"), {
-  //       result: "class{foo(arg){}}",
-  //     });
-  //     is(parse("class{x:number;y=1;}"), {
-  //       result: "class{x;y=1;}",
-  //     });
-  //   });
-
-  //   test("anyExpression", () => {
-  //     const parse = compile(anyExpression, { end: true });
-  //     expectSame(parse, [
-  //       "a+a",
-  //       "1=1",
-  //       "1+1",
-  //       "1*2",
-  //       "((1))",
-  //       "(1)",
-  //       "1*2",
-  //       "1**2",
-  //       "1+(1)",
-  //       "(1)+1",
-  //       "(1+1)+1",
-  //       "(1+1)*1+2/(3/4)",
-  //       "1",
-  //       "i in []",
-  //       "a.b",
-  //       "a",
-  //       "a.b.c",
-  //       "a[1]",
-  //       "new X().b",
-  //       "a?.b",
-  //       "this.#a",
-  //       "a?.[x]",
-  //       "import.meta",
-  //       "a=1",
-  //       "a??b",
-  //       "1+1",
-  //       "(1)",
-  //       "1",
-  //       "(1+1)",
-  //       "1+1+1",
-  //       "(1+(1*2))",
-  //       "((1+1)+(1*2))",
-  //       "await 1",
-  //       "await foo()",
-  //       "(a).x",
-  //       "(a+b).x",
-  //       "(await x).foo",
-  //       "typeof x",
-  //       "await x",
-  //       "await x++",
-  //       "await await x",
-  //       "aaa`bbb`",
-  //       "f()`bbb`",
-  //       "(x)`bbb`",
-  //       "a.b().c``",
-  //       "a?b:c",
-  //       "(a?b:c).d",
-  //       "(a?b:c?d:e).d",
-  //       "a().a()",
-  //       "import('aaa')",
-  //       "(()=>{})()",
-  //       "(async ()=>{})()",
-  //       "a\n.b",
-  //       "importS",
-  //     ]);
-  //     is(parse("a!"), { result: "a" });
-  //     is(parse("(a.b)!"), { result: "(a.b)" });
-  //   });
-
-  //   /* type annotations */
-  //   // statements
-
-  //   test("for", () => {
-  //     const parse = compile(forStatement, { end: true });
-  //     expectSame(parse, [
-  //       "for(x=0;x<1;x++)x",
-  //       "for(x=0;x<1;x++){}",
-  //       "for(;;)x",
-  //       "for(let x=1;x<6;x++)x",
-  //       "for(let x=1;x<6;x++){}",
-  //       "for(;;){}",
-  //       "for(;x;x){}",
-  //     ]);
-  //     expectError(parse, ["for(;;)"]);
-  //   });
-
-  //   test("for-item", () => {
-  //     const parse = compile(forItemStatement, { end: true });
-  //     expectSame(parse, [
-  //       "for(const i of array)x",
-  //       "for(const k in array)x",
-  //       "for(let {} in array)x",
-  //       "for(let {} in [])x",
-  //       "for(let [] in xs){}",
-  //     ]);
-  //     expectError(parse, ["for(const i of t)"]);
-  //   });
-  //   test("while", () => {
-  //     const parse = compile($seq([whileStatement, $eof()]));
-  //     expectSame(parse, ["while(1)1", "while(1){break;}"]);
-  //     expectError(parse, ["while(1)"]);
-  //   });
-
-  //   test("if", () => {
-  //     const parse = compile($seq([ifStatement, $eof()]));
-  //     expectSame(parse, [
-  //       "if(1)1",
-  //       `if(1){return 1;}`,
-  //       `if(1){}else 2`,
-  //       `if(1){}else{}`,
-  //       `if(1){} else if(1) {}`,
-  //       `if(1){} else if(1) {} else 1`,
-  //       `if(1){if(2)return;}`,
-  //     ]);
-  //   });
-
-  //   test("switch", () => {
-  //     const parse = compile($seq([switchStatement, $eof()]));
-  //     expectSame(parse, [
-  //       `switch(x){}`,
-  //       `switch(true){default:1}`,
-  //       `switch(x){case 1:1;case 2:2}`,
-  //       `switch(x){case 1:1;case 2:{}}`,
-  //       `switch(x){case 1: case 2:{}}`,
-  //       `switch(x){case 1:{}case 2:{}}`,
-  //       `switch(x){case 1:{}default:{}}`,
-  //     ]);
-  //   });
-
-  //   test("variableStatement", () => {
-  //     const parse = compile(variableStatement);
-  //     expectSame(parse, [
-  //       "let x",
-  //       "let x,y",
-  //       "let x,y,z",
-  //       "let x,y=1,z",
-  //       "let x=1",
-  //       "const []=[]",
-  //       "const {}={},[]=a",
-  //       // "let x: number = 1",
-  //       "let x:number = 1",
-  //       `let x: any`,
-  //       "let x: number = 1, y: number = 2",
-  //     ]);
-  //   });
-
-  //   test("importStatement", () => {
-  //     const parse = compile(importStatement, { end: true });
-  //     expectSame(parse, [
-  //       "import 'foo'",
-  //       "import'foo'",
-  //       "import * as b from 'xx'",
-  //       "import*as b from'xx'",
-  //       "import a from 'b'",
-  //       'import {} from "b"',
-  //       'import{}from"b"',
-  //       'import {a} from "x"',
-  //       'import {a, b} from "x"',
-  //       'import {a as b} from "x"',
-  //       'import {a as b, d as c,} from "x"',
-  //     ]);
-  //     // drop import type
-  //     is(parse("import type a from 'xxx'"), { result: "" });
-  //     is(parse("import type *as b from 'xxx'"), { result: "" });
-  //     is(parse("import type{a as b} from 'xxx'"), { result: "" });
-  //   });
-  //   test("exportStatement", () => {
-  //     const parse = compile(exportStatement, { end: true });
-  //     expectSame(parse, [
-  //       "export{}",
-  //       "export {a}",
-  //       "export {a,b}",
-  //       "export {a as b}",
-  //       "export {a as default}",
-  //       "export {default as default}",
-  //       "export{} from 'a'",
-  //       "export {default as x} from 'a'",
-  //       "export const x = 1",
-  //       "export function f(){}",
-  //       "export class C {}",
-  //     ]);
-  //   });
-
-  //   test("expressionStatement", () => {
-  //     const parse = compile(expressionStatement, { end: true });
-  //     expectSame(parse, [
-  //       "1",
-  //       "func()",
-  //       "a = 1",
-  //       "a.b = 1",
-  //       "1, 1",
-  //       "a=1",
-  //       "impor",
-  //       "importS",
-  //       "thisX",
-  //     ]);
-  //     expectSame(parse, ["1", "func()"]);
-  //   });
-
-  //   test("anyStatement", () => {
-  //     const parse = compile(anyStatement);
-  //     expectSame(parse, ["debugger", "{ a=1; }", "foo: {}", "foo: 1"]);
-  //   });
-
-  //   test("program:with type", () => {
-  //     const parse = compile(program);
-  //     is(parse("1 as number;"), {
-  //       result: "1;",
-  //     });
-  //   });
 
   //   test("program", () => {
   //     const parse = compile(program, { end: true });

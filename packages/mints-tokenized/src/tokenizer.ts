@@ -7,14 +7,16 @@ const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE] as const;
 
 const L_BRACE = "{";
 const R_BRACE = "}";
+const L_PAREN = "(";
+const R_PAREN = ")";
 
 export const CONTROL_TOKENS = [
   ";",
   ",",
   L_BRACE,
   R_BRACE,
-  "(",
-  ")",
+  L_PAREN,
+  R_PAREN,
   "+",
   "-",
   "/",
@@ -58,6 +60,7 @@ function* parseStream(
   let _buf = "";
   let wrapStringContext: "'" | '"' | "`" | null = null;
   let openBraceStack = 0;
+  let openParenStack = 0;
   let isLineComment = false;
   let isInlineComment = false;
   let i: number;
@@ -118,6 +121,7 @@ function* parseStream(
     }
     if (CONTROL_TOKENS.includes(char)) {
       const nextChar = chars[i + 1];
+      let isEOL = false;
       if (char === SLASH) {
         if (nextChar === "*") {
           if (_buf.length > 0) {
@@ -139,18 +143,17 @@ function* parseStream(
       }
 
       // Handle negative stack to go out parent
+      if (char === L_PAREN) openParenStack++;
+      if (char === R_PAREN) openParenStack--;
       if (char === L_BRACE) openBraceStack++;
-      else if (char === R_BRACE) {
+      if (char === R_BRACE) {
         openBraceStack--;
         if (!root && openBraceStack < 0) {
-          // exit by negative stack
           i--; // back to prev char
           break;
         }
-        if (openBraceStack === 0 && nextChar === "\n") {
-          // push separator
-          yield "\n";
-        }
+        // TODO: Regex
+        if (openBraceStack === 0 && nextChar === "\n") isEOL = true;
       }
       // switch to string context
       if (STRING_PAIR.includes(char as any)) {
@@ -165,11 +168,13 @@ function* parseStream(
         if (
           char === ";" &&
           openBraceStack === 0 &&
+          openParenStack === 0 &&
           wrapStringContext === null
         ) {
-          yield "\n";
+          isEOL = true;
         }
       }
+      if (isEOL) yield "\n";
     } else {
       _buf += char;
     }
@@ -181,9 +186,6 @@ function* parseStream(
   }
 
   if (!root) yield i;
-  // if (isInlineComment || wrapStringContext) {
-  //   throw new Error(`unclosed ${i}`);
-  // }
 }
 
 function createCharSlice(input: string) {
@@ -283,6 +285,58 @@ if (process.env.NODE_ENV === "test") {
     expectParseResult("あ/*え*/あ", ["あ", "あ"]);
     expectParseResult("𠮷/*𠮷*/𠮷", ["𠮷", "𠮷"]);
   });
+
+  test("; in For", () => {
+    let lineEndCount = 0;
+    for (const token of parseStream("for(;;)1;")) {
+      if (token === "\n") {
+        lineEndCount += 1;
+      }
+    }
+    eq(lineEndCount, 1);
+  });
+
+  test("Multiline", () => {
+    let lineEndCount = 0;
+    for (const token of parseStream("{}\n{};;1")) {
+      if (token === "\n") {
+        lineEndCount += 1;
+      }
+    }
+    eq(lineEndCount, 3);
+  });
+
+  test("Multiline with Func", () => {
+    let lineEndCount = 0;
+    let before = [];
+    let afterFirstLine = false;
+    let after = [];
+    for (const token of parseTokens("function f(){}\n1")) {
+      // console.log("token", token);
+      if (token === "\n") {
+        lineEndCount += 1;
+        afterFirstLine = true;
+      } else {
+        if (afterFirstLine) {
+          after.push(token);
+        } else {
+          before.push(token);
+        }
+      }
+    }
+    eq(before, ["function", "f", "(", ")", "{", "}"]);
+    eq(lineEndCount, 1);
+    eq(after, ["1"]);
+  });
+  // test("Multiline", () => {
+  //   let lineEndCount = 0;
+  //   for (const token of parseStream("{}\n{};1")) {
+  //     if (token === "\n") {
+  //       lineEndCount += 1;
+  //     }
+  //   }
+  //   eq(lineEndCount, 2);
+  // });
 
   run({ stopOnFail: true, stub: true, isMain });
 }
