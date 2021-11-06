@@ -409,6 +409,32 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
   });
 
+  test("repeat_reshape", () => {
+    const { compile } = createContext();
+    const parse = compile(
+      $repeat<string, string, string[]>(
+        $token("a"),
+        undefined,
+        ([a]) => a + "x"
+      )
+    );
+    expectSuccess(parse, [], "");
+    expectSuccess(parse, ["a"], "ax");
+    expectSuccess(parse, ["a", "a"], "axax");
+
+    const parseWithTransResult = compile(
+      $repeat<string, string, any>(
+        $token("a"),
+        undefined,
+        ([a]) => a + "x",
+        (results) => {
+          return results.join("") + "-end";
+        }
+      )
+    );
+    expectSuccess(parseWithTransResult, ["a", "a"], "axax-end");
+  });
+
   test("repeat_seq", () => {
     const { compile } = createContext();
     const parse = compile($repeat_seq(["xy"]));

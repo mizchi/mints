@@ -151,11 +151,11 @@ export function $seq<T = string, U = string>(
   } as Seq;
 }
 
-export function $seqo<T = string, U = any>(
+export function $seqo<T = any, U = any>(
   children: Array<
     SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
   >,
-  reshape?: (results: T[], ctx: ParseContext) => U
+  reshape?: (obj: T, ctx: ParseContext) => U
 ): SeqObject<T, U> {
   return {
     id: genId(),
@@ -274,12 +274,12 @@ export function $or(
   } as Or;
 }
 
-export function $repeat(
+export function $repeat<T = any, U = T, R = T[]>(
   pattern: InputNodeExpr,
   minmax?: [min: number | void, max?: number | void],
-  reshapeEach?: Reshape<any, any>,
-  reshape?: Reshape<any, any>
-): Repeat {
+  reshapeEach?: (results: T[], ctx: ParseContext) => U,
+  reshape?: (results: U[], ctx: ParseContext) => R
+): Repeat<T, U, R> {
   const [min = 0, max = undefined] = minmax ?? [];
   return {
     id: genId(),

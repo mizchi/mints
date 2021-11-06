@@ -19,6 +19,7 @@ import {
   $repeat_seq,
   // $repeat_seq1,
   $seq,
+  $seqo,
   $skip,
   $skip_opt,
   $token,
@@ -510,61 +511,112 @@ const anyLiteral = $def(() =>
 // const accessModifier = $regex(`(${K_PRIVATE}|${K_PUBLIC}|${K_PROTECTED}) `);
 const accessModifier = $or([K_PRIVATE, K_PUBLIC, K_PROTECTED]);
 // const accessModifier = $or([K_PRIVATE,K_PUBLIC,K_PROTECTED]);
-
 // const staticModifier = $token(`static `);
 // const readonlyModifier = $token(`readonly `);
 // const staticModifier = $seq([K_STATIC]);
 // const asyncModifier = $seq([K_ASYNC]);
 const getOrSetModifier = $seq([$or([K_GET, K_SET])]);
 
+type ParsedCostructorArg = {
+  init: string | null;
+  code: string;
+};
+
 const classConstructorArg = $def(() =>
-  $seq([
-    $or([
-      // private
-      $seq([$or([K_PRIVATE, K_PUBLIC, K_PROTECTED]), identifier]),
-      // normal initializer
-      $seq([
-        $or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
-      ]),
-    ]),
-    $seq([
-      $skip_opt(
-        $seq([$opt(K_QUESTION), $opt(K_QUESTION), ":", typeExpression])
-      ),
-      $opt($seq([$skip_opt(K_QUESTION), "=", $not([">"]), anyExpression])),
-    ]),
-  ])
+  $seqo(
+    [
+      [
+        { key: "ident" },
+        $or([
+          // private
+          $seqo([
+            ["access", $or([K_PRIVATE, K_PUBLIC, K_PROTECTED])],
+            ["ident", identifier],
+          ]),
+          destructiveObjectPattern,
+          destructiveArrayPattern,
+          identifier,
+        ]),
+      ],
+      [
+        { key: "init", opt: true },
+        $seq([
+          $skip_opt($seq([K_QUESTION, ":", typeExpression])),
+          "=",
+          $not([">"]),
+          anyExpression,
+        ]),
+      ],
+    ],
+    (input: {
+      ident: (string | { access: string; ident: string })[] | [{}];
+      init: string[];
+    }): ParsedCostructorArg => {
+      // console.log("constructor-arg", input);
+      if (typeof input.ident[0] === "object") {
+        // console.log("is private", input.init?.join(""));
+        // @ts-ignore
+        const ident = input.ident[0].ident.join("");
+        return {
+          init: ident,
+          code: ident + (input.init?.join("") ?? ""),
+        };
+      }
+      return {
+        init: null,
+        code: input.ident.join("") + (input.init?.join("") ?? ""),
+      };
+    }
+  )
 );
+
+// type ConstructorArg = {
+//   key: string[];
+//   init?: string[];
+// };
 const classConstructor = $def(() =>
-  $seq(
+  $seqo<any, any>(
     [
       $skip_opt(accessModifier),
-      $token(K_CONSTRUCTOR),
-
+      K_CONSTRUCTOR,
       K_PAREN_OPEN,
       ["args", $repeat($seq([classConstructorArg, $skip(",")]))],
       [{ key: "last", opt: true }, $seq([classConstructorArg, $skip_opt(",")])],
       K_PAREN_CLOSE,
-
       K_BRACE_OPEN,
-
       ["body", lines],
-
       K_BRACE_CLOSE,
     ],
-    (input: { args: string[]; last: string; body: string }) => {
-      // const inits: string[] = [];
+    (input: {
+      args: Array<ParsedCostructorArg>;
+      last: Array<ParsedCostructorArg>;
+      body: number[];
+    }) => {
+      const argList = [...(input.args ?? []), ...(input.last ?? [])];
       let bodyIntro = "";
-      let args = [];
-      for (const arg of [...input.args, ...(input.last ? [input.last] : [])]) {
-        const [, initOnBody, ident, assign] =
-          arg.match(/(private |public |protected )?([^=,]+)(=.+)?$/msu)! ?? [];
-        args.push(`${ident}${assign ?? ""}`);
-        if (initOnBody) {
-          bodyIntro += `${K_THIS}.${ident}=${ident};`;
-        }
+      let args: string[] = [];
+      for (const arg of argList) {
+        console.log("arg", JSON.stringify(arg));
+        if (arg.init) bodyIntro += `this.${arg.init}=${arg.init};`;
+        args.push(arg.code);
+        // console.log("arg", arg.key, "init", arg.init);
+        // const keyCode = arg.key
+        // const initCode = arg.init?.join("");
+        // ?.map((i) => _resolveToken(i, ctx.tokens))
+        // .join("");
+        // console.log("keyCode", keyCode, "initCode", initCode);
+        // args.push(`${keyCode}${initCode ?? ""}`);
+        // const [, initOnBody, ident, assign] =
+        // arg.match(/(private |public |protected )?([^=,]+)(=.+)?$/msu)! ?? [];
+        // args.push(`${ident}${assign ?? ""}`);
+        // if (initOnBody) {
+        //   bodyIntro += `${K_THIS}.${ident}=${ident};`;
+        // }
       }
-      return `${K_CONSTRUCTOR}(${args.join(",")}){${bodyIntro}${input.body}}`;
+      const bodyCode = input.body.join("");
+      // console.log("bodyCode", bodyCode);
+      // throw new Error("stop");
+      return `${K_CONSTRUCTOR}(${args.join(",")}){${bodyIntro}${bodyCode}}`;
     }
   )
 );
@@ -1100,64 +1152,61 @@ const enumAssign = $def(() =>
 );
 
 const enumStatement = $def(() =>
-  $seq(
+  $seqo(
     [
       K_ENUM,
-
+      whitespace,
       ["enumName", identifier],
-
       K_BRACE_OPEN,
-
-      // first define enum base
       [
         "items",
-        $repeat_seq([
-          //
-          ["ident", identifier],
-          [{ key: "assign", opt: true }, enumAssign],
-
-          $skip(","),
-        ]),
+        $repeat(
+          $seqo([
+            ["ident", identifier],
+            [{ key: "assign", opt: true }, enumAssign],
+            $skip(","),
+          ])
+        ),
       ],
       [
         { key: "last", opt: true },
-        $seq([
+        $seqo([
           ["ident", identifier],
           [{ key: "assign", opt: true }, enumAssign],
           $skip_opt(","),
         ]),
       ],
-
       K_BRACE_CLOSE,
     ],
     (input: {
       enumName: string;
-      items: Array<{ ident: string; assign?: string }>;
-      last?: { ident: string; assign?: string };
+      items: Array<{ ident: string[]; assign?: string[] }>;
+      last?: Array<{ ident: string[]; assign?: string[] }>;
     }) => {
       let baseValue = 0;
       let out = `const ${input.enumName}={`;
-      for (const item of [
-        ...input.items,
-        ...(input.last ? [input.last] : []),
-      ]) {
-        let nextValue: string | number;
+      console.log("input", input);
+      for (const item of [...(input.items ?? []), ...(input.last ?? [])]) {
+        let val: string | number;
         if (item.assign) {
           const num = Number(item.assign);
           if (isNaN(num)) {
-            nextValue = item.assign as string;
+            val = item.assign.join("") as string;
           } else {
             // reset base value
-            nextValue = num;
+            val = num;
             baseValue = num + 1;
           }
         } else {
-          nextValue = baseValue;
+          val = baseValue;
           baseValue++;
         }
-        const nextValueKey =
-          typeof nextValue === "number" ? `"${nextValue}"` : nextValue;
-        out += `${item.ident}:${nextValue},${nextValueKey}:"${item.ident}",`;
+        const key = item.ident.join("");
+        if (typeof val === "number") {
+          out += `${key}:${val},"${val}":"${key}",`;
+        } else {
+          out += `${key}:${val},`;
+        }
       }
       return out + "};";
     }
@@ -1963,8 +2012,8 @@ if (process.env.NODE_ENV === "test") {
     is(parse("class{foo(arg:T): void {} }"), "class{foo(arg){}}");
     is(parse("class{foo<T>(arg:T): void {} }"), "class{foo(arg){}}");
     is(parse("class{x:number;y=1;}"), "class{x;y=1;}");
-    // "class{constructor(){}}",
-    // "class{constructor(){this.val=1;}}",
+    is(parse("class{constructor(){}}"), "class{constructor(){}}");
+    is(parse("class{constructor(x){}}"), "class{constructor(x){}}");
   });
 
   test("for", () => {
@@ -2051,9 +2100,9 @@ if (process.env.NODE_ENV === "test") {
       "import a from'b'",
       'import{}from"b"',
       'import{a}from"x"',
-      // 'import{a,b}from"x"',
+      'import{a,b}from"x"',
       'import{a as b}from"x"',
-      // 'import{a as b,d as c,}from"x"',
+      'import{a as b,d as c,}from"x"',
     ]);
     // drop import type
     is(parse("import type a from'xxx'"), "");
@@ -2097,11 +2146,6 @@ if (process.env.NODE_ENV === "test") {
     expectSuccessList(parse, ["debugger", "{a=1;}", "foo:{}", "foo:1"]);
   });
 
-  // test("program:with type", () => {
-  //   const parse = compile(program);
-  //   is(parse("1 as number"), "1");
-  // });
-
   //   test("program", () => {
   //     const parse = compile(program, { end: true });
   //     expectSame(parse, [
@@ -2125,6 +2169,7 @@ if (process.env.NODE_ENV === "test") {
   //     is(parse("interface I extends T { a: number; };"), { result: ";" });
   //     is(parse("export interface I {};"), { result: ";" });
   //   });
+
   //   test("multiline program control", () => {
   //     const parse = compile(program, { end: true });
   //     expectSame(parse, [
@@ -2252,87 +2297,56 @@ if (process.env.NODE_ENV === "test") {
   //     is(parse(`f(''+\n'b');`), { result: "f(''+'b');" });
   //   });
 
-  //   test("transform: class constructor", () => {
-  //     const parse = compile(program, { end: true });
-  //     is(parse("class{ constructor(private x:number) {} }"), {
-  //       result: "class{constructor(x){this.x=x;}}",
-  //     });
-  //     is(parse("class{ constructor(private x:number) {foo;} }"), {
-  //       result: "class{constructor(x){this.x=x;foo;}}",
-  //     });
+  test("transform: class constructor", () => {
+    const parse = compile(classExpr);
+    is(parse("class{constructor(){}}"), "class{constructor(){}}");
+    is(parse("class{constructor(){foo}}"), "class{constructor(){foo}}");
+    is(parse("class{constructor(x){}}"), "class{constructor(x){}}");
+    is(parse("class{constructor(x=1){}}"), "class{constructor(x=1){}}");
+    is(
+      parse("class{constructor(private x){}}"),
+      "class{constructor(x){this.x=x;}}"
+    );
+    is(parse("class{constructor(x,y){}}"), "class{constructor(x,y){}}");
+    is(parse("class{constructor(x,y,){}}"), "class{constructor(x,y){}}");
+    is(
+      parse("class{constructor(x=1,y=2,){}}"),
+      "class{constructor(x=1,y=2){}}"
+    );
+    is(
+      parse("class{constructor(private x=1){}}"),
+      "class{constructor(x=1){this.x=x;}}"
+    );
+    is(
+      parse("class{constructor(x=1,private y,public z=2){}}"),
+      "class{constructor(x=1,y,z=2){this.y=y;this.z=z;}}"
+    );
+    is(
+      parse("class{constructor(x=1,private y,public z=2,){}}"),
+      "class{constructor(x=1,y,z=2){this.y=y;this.z=z;}}"
+    );
+    is(
+      parse("class{constructor(private x=1){foo;}}"),
+      "class{constructor(x=1){this.x=x;foo;}}"
+    );
+  });
 
-  //     is(parse("class{constructor(private x:number,y:number){foo;}}"), {
-  //       result: "class{constructor(x,y){this.x=x;foo;}}",
-  //     });
-  //     is(parse("class{constructor(private x:number,public y:number){foo;}}"), {
-  //       result: "class{constructor(x,y){this.x=x;this.y=y;foo;}}",
-  //     });
-  //     is(parse("class{constructor(x,y:number){foo;}}"), {
-  //       result: "class{constructor(x,y){foo;}}",
-  //     });
-  //     is(parse("class{constructor(x,y:number,private z){foo;}}"), {
-  //       result: "class{constructor(x,y,z){this.z=z;foo;}}",
-  //     });
-  //     is(parse("class{constructor(x,y,z,){}}"), {
-  //       result: "class{constructor(x,y,z){}}",
-  //     });
-  //     is(parse("class{constructor(x,y,private z,){}}"), {
-  //       result: "class{constructor(x,y,z){this.z=z;}}",
-  //     });
-  //     is(parse("class{constructor(private x,){}}"), {
-  //       result: "class{constructor(x){this.x=x;}}",
-  //     });
-  //     is(parse("class{constructor(x,y,private z,){}}"), {
-  //       result: "class{constructor(x,y,z){this.z=z;}}",
-  //     });
-  //     is(parse("class{ constructor(private x:number, y: number) {} }"), {
-  //       result: "class{constructor(x,y){this.x=x;}}",
-  //     });
-  //     is(parse("class{ constructor(private x:number,y:number) {} }"), {
-  //       result: "class{constructor(x,y){this.x=x;}}",
-  //     });
-  //   });
+  test("transform: enum", () => {
+    const parse = compile(enumStatement);
+    is(parse("enum X {}"), "const X={};");
+    is(parse("enum X { a }"), `const X={a:0,"0":"a",};`);
+    is(parse("enum X { aa }"), `const X={aa:0,"0":"aa",};`);
 
-  //   test("transform: enum", () => {
-  //     const parse = compile(enumStatement, { end: true });
-  //     is(parse("enum X {}"), {
-  //       error: false,
-  //       result: "const X={};",
-  //     });
-  //     is(parse("enum X { a }"), {
-  //       error: false,
-  //       result: `const X={a:0,"0":"a",};`,
-  //     });
-  //     is(parse("enum X { a,b }"), {
-  //       error: false,
-  //       result: `const X={a:0,"0":"a",b:1,"1":"b",};`,
-  //     });
-  //     is(parse("enum X { a,b, }"), {
-  //       error: false,
-  //       result: `const X={a:0,"0":"a",b:1,"1":"b",};`,
-  //     });
-
-  //     is(parse("enum X { a = 42, }"), {
-  //       error: false,
-  //       result: `const X={a:42,"42":"a",};`,
-  //     });
-  //     is(parse("enum X { a = 42, b }"), {
-  //       error: false,
-  //       result: `const X={a:42,"42":"a",b:43,"43":"b",};`,
-  //     });
-  //     is(parse("enum X { a, b = 42 }"), {
-  //       error: false,
-  //       result: `const X={a:0,"0":"a",b:42,"42":"b",};`,
-  //     });
-  //     is(parse(`enum X { a = "foo" }`), {
-  //       error: false,
-  //       result: `const X={a:"foo","foo":"a",};`,
-  //     });
-  //     is(parse(`enum X { a = "foo", b = "bar" }`), {
-  //       error: false,
-  //       result: `const X={a:"foo","foo":"a",b:"bar","bar":"b",};`,
-  //     });
-  //   });
+    is(parse("enum X { a,b }"), `const X={a:0,"0":"a",b:1,"1":"b",};`);
+    is(parse("enum X { a = 42, }"), `const X={a:42,"42":"a",};`);
+    is(
+      parse("enum X { a = 42, b }"),
+      `const X={a:42,"42":"a",b:43,"43":"b",};`
+    );
+    is(parse("enum X { a, b = 42 }"), `const X={a:0,"0":"a",b:42,"42":"b",};`);
+    is(parse(`enum X { a = "foo" }`), `const X={a:"foo",};`);
+    is(parse(`enum X { a = "foo", b = "bar" }`), `const X={a:"foo",b:"bar",};`);
+  });
 
   //   test("transform: jsx", () => {
   //     const parse = compile(jsxExpression, { end: true });

@@ -33,6 +33,9 @@ const resolveToken = (tokens: string[], result: any) => {
   if (typeof result === "number") {
     return tokens[result];
   }
+  if (typeof result === "string") {
+    return result;
+  }
   return result;
 };
 const resolveTokens = (tokens: string[], results: any[]) =>
@@ -206,28 +209,27 @@ function compileFragmentInternal(
               childError: parsed,
               index: i,
             });
-          } else {
-            if (parser.push) {
-              capturedStack.push(parsed);
+          }
+          if (parser.push) {
+            capturedStack.push(parsed);
+          }
+          if (parser.pop) {
+            const top = capturedStack.pop();
+            if (top == null) {
+              return fail(cursor, rootId, {
+                errorType: ERROR_Seq_NoStackOnPop,
+                index: i,
+              });
             }
-            if (parser.pop) {
-              const top = capturedStack.pop();
-              if (top == null) {
-                return fail(cursor, rootId, {
-                  errorType: ERROR_Seq_NoStackOnPop,
-                  index: parsers.indexOf(parser),
-                });
-              }
-              if (!parser.pop(top.results, parsed.results, ctx)) {
-                return fail(cursor, rootId, {
-                  errorType: ERROR_Seq_UnmatchStack,
-                  index: parsers.indexOf(parser),
-                });
-              }
+            if (!parser.pop(top.results, parsed.results, ctx)) {
+              return fail(cursor, rootId, {
+                errorType: ERROR_Seq_UnmatchStack,
+                index: parsers.indexOf(parser),
+              });
             }
-            if (parser.key) {
-              result[parser.key] = parsed.results;
-            }
+          }
+          if (parser.key) {
+            result[parser.key] = resolveTokens(ctx.tokens, parsed.results);
           }
           cursor += parsed.len;
         }
@@ -318,7 +320,12 @@ function compileFragmentInternal(
           const parseResult = parser(ctx, cursor);
           if (parseResult.error === true) break;
           if (parseResult.len === 0) throw new Error(`ZeroRepeat`);
-          results.push(...parseResult.results);
+          if (rule.reshapeEach) {
+            const tokens = resolveTokens(ctx.tokens, parseResult.results);
+            results.push([rule.reshapeEach(tokens, ctx)]);
+          } else {
+            results.push(...parseResult.results);
+          }
           cursor += parseResult.len;
         }
         // size check
@@ -330,6 +337,11 @@ function compileFragmentInternal(
           return fail(pos, rootId, {
             errorType: ERROR_Repeat_RangeError,
           });
+        }
+        if (rule.reshape) {
+          return success(pos, cursor - pos, [
+            rule.reshape(resolveTokens(ctx.tokens, results), ctx),
+          ]);
         }
         return success(pos, cursor - pos, results);
       };
