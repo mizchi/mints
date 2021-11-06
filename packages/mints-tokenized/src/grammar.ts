@@ -145,11 +145,7 @@ const typeParen = $def(() =>
 const typeIdentifier = $def(() =>
   $seq([
     $not([$seq([K_READONLY, whitespace])]),
-    $or([
-      // "readonly",
-      K_VOID,
-      $seq([identifier, $opt(typeParameters)]),
-    ]),
+    $or([K_VOID, $seq([identifier, $opt(typeParameters)])]),
   ])
 );
 
@@ -1213,15 +1209,18 @@ const enumStatement = $def(() =>
   )
 );
 
-const jsxElement = $seq(["{", ["o", anyExpression], "}"], (input) => input.o);
+const jsxElement = $seq([$skip("{"), anyExpression, $skip("}")]);
 
-const jsxText = $seq([$regex("[^<>{]+")], (input) => {
-  return `"${input.replace(/[\s\n]+/gmu, " ").replace(/[\n ]*$/, "")}"`;
+const jsxText = $seq([$regex("^[^<>{]+$")], (input) => {
+  return `"${input
+    .join("")
+    .replace(/[\s\n]+/gmu, " ")
+    .replace(/[\n ]*$/, "")}"`;
 });
 
 const jsxAttributes = $repeat(
   // $or([
-  $seq([
+  $seqo([
     ["name", identifier],
     ["value", $seq([$skip_opt("="), $or([stringLiteral, jsxElement])])],
   ])
@@ -1259,16 +1258,16 @@ const buildJsxCode = (
 const jsxExpression = $def(() =>
   $or([
     // paired tag
-    $seq(
+    $seqo(
       [
         "<",
         [{ key: "ident", push: true }, $or([accessible, ""])],
         $skip_opt(typeDeclareParameters),
         ["attributes", jsxAttributes],
-
         ">",
         ["children", $repeat_seq([$or([jsxExpression, jsxText, jsxElement])])],
-        "</",
+        "<",
+        "/",
         [
           {
             key: "close",
@@ -1291,19 +1290,27 @@ const jsxExpression = $def(() =>
     ),
 
     // self closing
-    $seq(
+    $seqo(
       [
         "<",
         ["ident", $or([accessible])],
         $skip_opt(typeDeclareParameters),
         ["attributes", jsxAttributes],
-        "/>",
+        "/",
+        ">",
       ],
       (input: {
-        ident: string;
-        attributes: Array<{ name: string; value: string }>;
+        ident: string[];
+        attributes: Array<{ name: string[]; value?: string[] }>;
       }) => {
-        return buildJsxCode(input.ident, input.attributes);
+        console.log("self closing input", input);
+        return buildJsxCode(
+          input.ident.join(""),
+          input.attributes.map((a) => ({
+            name: a.name.join(""),
+            value: a.value?.join("") ?? "",
+          }))
+        );
       }
     ),
   ])
@@ -2348,84 +2355,76 @@ if (process.env.NODE_ENV === "test") {
     is(parse(`enum X { a = "foo", b = "bar" }`), `const X={a:"foo",b:"bar",};`);
   });
 
-  //   test("transform: jsx", () => {
-  //     const parse = compile(jsxExpression, { end: true });
-  //     is(parse("<div />"), {
-  //       error: false,
-  //       result: `React.createElement("div",{})`,
-  //     });
-  //     is(parse(`<div x="a" y="b" />`), {
-  //       error: false,
-  //       result: `React.createElement("div",{x:"a",y:"b",})`,
-  //     });
-  //     is(parse(`<div x={1} />`), {
-  //       error: false,
-  //       result: `React.createElement("div",{x:1,})`,
-  //     });
-  //     is(parse(`<div x={foo+1} />`), {
-  //       error: false,
-  //       result: `React.createElement("div",{x:foo+1,})`,
-  //     });
-  //     // paired
-  //     is(parse("<div><hr /><hr /></div>"), {
-  //       error: false,
-  //       result: `React.createElement("div",{},React.createElement("hr",{}),React.createElement("hr",{}))`,
-  //     });
-  //     is(parse("<div>aaa</div>"), {
-  //       error: false,
-  //       result: `React.createElement("div",{},"aaa")`,
-  //     });
-  //     is(parse(`<a href="/">aaa</a>`), {
-  //       error: false,
-  //       result: `React.createElement("a",{href:"/",},"aaa")`,
-  //     });
+  test("transform: jsx", () => {
+    const parse = compile(jsxExpression);
+    is(parse("<div />"), `React.createElement("div",{})`);
+    is(parse(`<div x="a" y={1} />`), `React.createElement("div",{x:"a",y:1,})`);
+    is(
+      parse(`<div x="a" y="b" />`),
+      `React.createElement("div",{x:"a",y:"b",})`
+    );
+    is(parse(`<div x={1} />`), `React.createElement("div",{x:1,})`);
+    is(parse(`<div x={foo+1} />`), `React.createElement("div",{x:foo+1,})`);
+    //     // paired
+    //     is(parse("<div><hr /><hr /></div>"), {
+    //       error: false,
+    //       result: `React.createElement("div",{},React.createElement("hr",{}),React.createElement("hr",{}))`,
+    //     });
+    //     is(parse("<div>aaa</div>"), {
+    //       error: false,
+    //       result: `React.createElement("div",{},"aaa")`,
+    //     });
+    //     is(parse(`<a href="/">aaa</a>`), {
+    //       error: false,
+    //       result: `React.createElement("a",{href:"/",},"aaa")`,
+    //     });
 
-  //     is(parse("<div>aaa\n   bbb</div>"), {
-  //       error: false,
-  //       result: `React.createElement("div",{},"aaa bbb")`,
-  //     });
-  //     is(parse("<div>{1}</div>"), {
-  //       error: false,
-  //       result: `React.createElement("div",{},1)`,
-  //     });
-  //     is(parse("<div>a{1}b<hr/></div>"), {
-  //       error: false,
-  //       result: `React.createElement("div",{},"a",1,"b",React.createElement("hr",{}))`,
-  //     });
+    //     is(parse("<div>aaa\n   bbb</div>"), {
+    //       error: false,
+    //       result: `React.createElement("div",{},"aaa bbb")`,
+    //     });
+    //     is(parse("<div>{1}</div>"), {
+    //       error: false,
+    //       result: `React.createElement("div",{},1)`,
+    //     });
+    //     is(parse("<div>a{1}b<hr/></div>"), {
+    //       error: false,
+    //       result: `React.createElement("div",{},"a",1,"b",React.createElement("hr",{}))`,
+    //     });
 
-  //     is(parse("<></>"), {
-  //       error: false,
-  //       result: `React.createElement(React.Fragment,{})`,
-  //     });
-  //     is(
-  //       parse(`<div>
-  //   <a href="/">
-  //     xxx
-  //   </a>
-  // </div>`),
-  //       {
-  //         error: false,
-  //         result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
-  //       }
-  //     );
+    //     is(parse("<></>"), {
+    //       error: false,
+    //       result: `React.createElement(React.Fragment,{})`,
+    //     });
+    //     is(
+    //       parse(`<div>
+    //   <a href="/">
+    //     xxx
+    //   </a>
+    // </div>`),
+    //       {
+    //         error: false,
+    //         result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
+    //       }
+    //     );
 
-  //     is(
-  //       parse(`<div>
-  //   <a href="/">
-  //     xxx
-  //   </a>
-  // </div>`),
-  //       {
-  //         error: false,
-  //         result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
-  //       }
-  //     );
+    //     is(
+    //       parse(`<div>
+    //   <a href="/">
+    //     xxx
+    //   </a>
+    // </div>`),
+    //       {
+    //         error: false,
+    //         result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
+    //       }
+    //     );
 
-  //     is(parse("<div><></></div>", { jsx: "h", jsxFragment: "Fragment" }), {
-  //       error: false,
-  //       result: `h("div",{},h(Fragment,{}))`,
-  //     });
-  //   });
+    //     is(parse("<div><></></div>", { jsx: "h", jsxFragment: "Fragment" }), {
+    //       error: false,
+    //       result: `h("div",{},h(Fragment,{}))`,
+    //     });
+  });
 
   run({ stopOnFail: true, stub: true, isMain });
 }
