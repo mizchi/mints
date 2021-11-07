@@ -7,22 +7,22 @@ import {
   TOKEN,
 } from "./types";
 
-const NULL_FUNCTION_PTR = 0;
+// const NULL_FUNCTION_PTR = 0;
 const NULL_STRING_PTR = 0;
 
 // WIP
 export function createSerializer() {
-  let funcPtr = 1;
-  const funcMap = new Map<Function, number>();
-  function addFunc(s: Function | null | void) {
-    if (s == null) return NULL_FUNCTION_PTR;
-    if (funcMap.has(s)) {
-      return funcMap.get(s)!;
-    }
-    const id = funcPtr++;
-    funcMap.set(s, id);
-    return id;
-  }
+  // let funcPtr = 1;
+  // const funcMap = new Map<Function, number>();
+  // function addFunc(s: Function | null | void) {
+  //   if (s == null) return NULL_FUNCTION_PTR;
+  //   if (funcMap.has(s)) {
+  //     return funcMap.get(s)!;
+  //   }
+  //   const id = funcPtr++;
+  //   funcMap.set(s, id);
+  //   return id;
+  // }
 
   let stringPtr = 1;
   const stringMap = new Map<string, number>();

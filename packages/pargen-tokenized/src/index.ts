@@ -111,14 +111,14 @@ function createPackratCache(): PackratCache {
 const perfTimes = new Map<string, { sum: number; count: number }>();
 let cacheHitCount = 0;
 let cacheMissCount = 0;
-const addPerfTime = (id: string, time: number) => {
-  const prev = perfTimes.get(id);
-  if (prev) {
-    perfTimes.set(id, { sum: prev.sum + time, count: prev.count + 1 });
-  } else {
-    perfTimes.set(id, { sum: time, count: 1 });
-  }
-};
+// const addPerfTime = (id: string, time: number) => {
+//   const prev = perfTimes.get(id);
+//   if (prev) {
+//     perfTimes.set(id, { sum: prev.sum + time, count: prev.count + 1 });
+//   } else {
+//     perfTimes.set(id, { sum: time, count: 1 });
+//   }
+// };
 
 // const measurePerf = <Fn extends (...args: any[]) => any>(
 //   id: string,

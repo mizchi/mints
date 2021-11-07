@@ -91,7 +91,7 @@ export function compileFragment(
           ERROR_Not_IncorrectMatch,
         ].includes(parsed.errorType)
       ) {
-        ctx.currentError ??= parsed;
+        if (ctx.currentError == null) ctx.currentError = parsed;
         if (ctx.currentError.pos < parsed.pos) ctx.currentError = parsed;
       }
     }

@@ -21,16 +21,26 @@ export function createTransformer() {
       let i = 0;
       let tokens: string[] = [];
       const promises: Promise<string>[] = [];
+
+      // const usedList = new Array(MAX_CPUS).fill(false);
+      // let usedCount = 0;
+      const _enque = (tokens: string[]) => {
+        // if (usedCount === MAX_CPUS)
+        // // const api =
+        // usedCount++;
+        // usedList[i] = true;
+        promises.push(apis[i++ % apis.length].exec("transform", tokens));
+        // i++;
+      };
       for (const t of parseTokens(input)) {
         if (t === "\n") {
-          promises.push(apis[i++ % apis.length].exec("transform", tokens));
+          _enque(tokens);
           tokens = [];
         } else {
           tokens.push(t);
         }
       }
-      if (tokens.length)
-        promises.push(apis[i++ % apis.length].exec("transform", tokens));
+      if (tokens.length) _enque(tokens);
       const results = await Promise.all(promises);
       return results.join("");
     },
