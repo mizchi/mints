@@ -2,6 +2,7 @@ import { transform } from "../src/index";
 import ts from "typescript";
 import fs from "fs";
 import path from "path";
+import esbuild from "esbuild";
 // import { printPerfResult } from "@mizchi/pargen/src";
 // import { formatError } from "../src/_testHelpers";
 // import prettier from "prettier";
@@ -39,7 +40,7 @@ const code4 = fs.readFileSync(
 //   "utf-8"
 // );
 
-function compileTsc(input: string) {
+function tsc(input: string) {
   return ts.transpileModule(input, {
     compilerOptions: {
       module: ts.ModuleKind.ESNext,
@@ -48,7 +49,13 @@ function compileTsc(input: string) {
   }).outputText;
 }
 
-function compileMints(input: string) {
+function esbuild_(input: string) {
+  return esbuild.transformSync(input, {
+    loader: "ts",
+  }).code;
+}
+
+function mints(input: string) {
   const out = transform(input);
   if (typeof out === "object") {
     throw out;
@@ -57,7 +64,10 @@ function compileMints(input: string) {
 }
 
 export function main() {
-  const compilers = [compileTsc, compileMints];
+  const compilers = [tsc, mints, esbuild_];
+
+  // warmup
+  esbuild_("const x:number = 1");
 
   // const targets = [code1, code2, code3];
   const targets = [
@@ -71,20 +81,24 @@ export function main() {
   ];
 
   for (const code of targets) {
+    const caseName = "example" + targets.indexOf(code);
     for (const compiler of compilers) {
       // console.log("[pre]", preprocessLight(code));
+      console.log("---------");
       const N = 3;
+      const results: number[] = [];
       for (let i = 0; i < N; i++) {
         const now = Date.now();
         const out = compiler(code);
-        console.log(compiler.name, `[${i}]`, Date.now() - now);
-        if (i === N - 1) {
-          // console.log("[out]", out);
-        }
-        // console.log("raw:", out);
-        // console.log("----");
-        // console.log(prettier.format(out, { parser: "typescript" }));
+        // console.log(`[${i}]`, Date.now() - now);
+        results.push(Date.now() - now);
       }
+      console.log(
+        `[${compiler.name}-${caseName}-${compiler.name}]`,
+        "\nave:" + results.reduce((s, n) => s + n, 0) / results.length,
+        results
+      );
+
       // if (process.env.NODE_ENV === "perf" && compiler === compileMints) {
       //   printPerfResult();
       // }
