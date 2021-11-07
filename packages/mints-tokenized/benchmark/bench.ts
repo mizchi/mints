@@ -1,8 +1,11 @@
+// import { transform } from '@mizchi/mints';
 import { transform } from "../src/index";
 import ts from "typescript";
 import fs from "fs";
 import path from "path";
 import esbuild from "esbuild";
+import { parseTokens } from "../src/tokenizer";
+import { createTransformer } from "../node/node_main";
 // import { printPerfResult } from "@mizchi/pargen/src";
 // import { formatError } from "../src/_testHelpers";
 // import prettier from "prettier";
@@ -63,8 +66,27 @@ function mints(input: string) {
   return out as string;
 }
 
-export function main() {
-  const compilers = [tsc, mints, esbuild_];
+const transformer = createTransformer();
+async function mints_para(input: string) {
+  const out = await transformer.transform(input);
+  if (typeof out === "object") {
+    throw out;
+  }
+  return out as string;
+}
+
+// function mintsMultithread(input: string) {
+//   for (const i of parseTokens(input)) {
+//   }
+//   // const out = transform(input);
+//   // if (typeof out === "object") {
+//   //   throw out;
+//   // }
+//   // return out as string;
+// }
+
+export async function main() {
+  const compilers = [tsc, mints, mints_para, esbuild_];
 
   // warmup
   esbuild_("const x:number = 1");
@@ -82,21 +104,21 @@ export function main() {
 
   for (const code of targets) {
     const caseName = "example" + targets.indexOf(code);
+    console.log("---------", caseName);
     for (const compiler of compilers) {
       // console.log("[pre]", preprocessLight(code));
-      console.log("---------");
       const N = 3;
       const results: number[] = [];
       for (let i = 0; i < N; i++) {
         const now = Date.now();
-        const out = compiler(code);
+        const out = await compiler(code);
         // console.log(`[${i}]`, Date.now() - now);
         results.push(Date.now() - now);
       }
       console.log(
-        `[${compiler.name}-${caseName}-${compiler.name}]`,
-        "\nave:" + results.reduce((s, n) => s + n, 0) / results.length,
-        results
+        `[${compiler.name}]`,
+        "ave:" + Math.floor(results.reduce((s, n) => s + n, 0) / results.length)
+        // results
       );
 
       // if (process.env.NODE_ENV === "perf" && compiler === compileMints) {
@@ -104,5 +126,6 @@ export function main() {
       // }
     }
   }
+  transformer.terminate();
 }
-main();
+main().catch(console.error);

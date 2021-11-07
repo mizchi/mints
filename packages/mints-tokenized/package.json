@@ -31,5 +31,8 @@
     "test262-harness": "^9.0.0",
     "typescript": "^4.4.4",
     "vite": "^2.6.10"
+  },
+  "dependencies": {
+    "minlink": "^2.0.1"
   }
 }

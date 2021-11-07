@@ -1,12 +1,10 @@
-// import { transform } from "@mizchi/mints";
-import { anyStatement, line } from "./grammar";
+import { line } from "./grammar";
 import { compile } from "./ctx";
 import { parseTokens } from "./tokenizer";
 
-// const parse = compile(anyStatement);
 const parse = compile(line);
 
-function processLine(tokens: string[]): string {
+export function processLine(tokens: string[]): string {
   const parsed = parse(tokens.slice());
   if (parsed.error) {
     throw new Error(JSON.stringify(parsed));
@@ -15,7 +13,6 @@ function processLine(tokens: string[]): string {
       .map((r) => (typeof r === "string" ? r : tokens[r]))
       .join("");
     return s;
-    // return s.endsWith("}") ? s : s + ";";
   }
 }
 
@@ -33,7 +30,6 @@ export function transform(input: string) {
   if (tokens.length > 0) {
     results.push(processLine(tokens));
   }
-  // return results.join(";");
   return results.join("");
 }
 
