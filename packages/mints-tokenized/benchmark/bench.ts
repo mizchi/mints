@@ -2,7 +2,7 @@ import { transform } from "../src/index";
 import ts from "typescript";
 import fs from "fs";
 import path from "path";
-import { printPerfResult } from "@mizchi/pargen/src";
+// import { printPerfResult } from "@mizchi/pargen/src";
 // import { formatError } from "../src/_testHelpers";
 // import prettier from "prettier";
 
@@ -34,10 +34,10 @@ const code4 = fs.readFileSync(
 );
 
 // pargen
-const code5 = fs.readFileSync(
-  path.join(__dirname, "cases/example5.ts"),
-  "utf-8"
-);
+// const code5 = fs.readFileSync(
+//   path.join(__dirname, "cases/example5.ts"),
+//   "utf-8"
+// );
 
 function compileTsc(input: string) {
   return ts.transpileModule(input, {
@@ -50,11 +50,10 @@ function compileTsc(input: string) {
 
 function compileMints(input: string) {
   const out = transform(input);
-  if (out.error) {
-    // out.reportErrorDetail();
+  if (typeof out === "object") {
     throw out;
   }
-  return out.result as string;
+  return out as string;
 }
 
 export function main() {
@@ -67,14 +66,14 @@ export function main() {
     code1,
     code2,
     code3,
-    // code4,
+    code4,
     // code5,
   ];
 
   for (const code of targets) {
     for (const compiler of compilers) {
       // console.log("[pre]", preprocessLight(code));
-      const N = 2;
+      const N = 3;
       for (let i = 0; i < N; i++) {
         const now = Date.now();
         const out = compiler(code);
@@ -86,9 +85,9 @@ export function main() {
         // console.log("----");
         // console.log(prettier.format(out, { parser: "typescript" }));
       }
-      if (process.env.NODE_ENV === "perf" && compiler === compileMints) {
-        printPerfResult();
-      }
+      // if (process.env.NODE_ENV === "perf" && compiler === compileMints) {
+      //   printPerfResult();
+      // }
     }
   }
 }

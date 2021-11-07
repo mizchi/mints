@@ -38,6 +38,7 @@ import {
   K_CLASS,
   K_CONST,
   K_CONSTRUCTOR,
+  K_CONTINUE,
   K_DEBUGGER,
   K_DECLARE,
   K_DEFAULT,
@@ -80,6 +81,7 @@ import {
   K_VAR,
   K_VOID,
   K_WHILE,
+  K_WITH,
   K_YIELD,
   OPERATORS,
   RESERVED_WORDS,
@@ -271,7 +273,6 @@ const typeLiteral = $def(() =>
     typeArrayLiteral,
     stringLiteral,
     numberLiteral,
-    // TODO: rewrite template literal for typeExpression
     templateLiteral,
     booleanLiteral,
     nullLiteral,
@@ -364,7 +365,7 @@ const funcArgWithAssign = $def(() =>
       identifier,
     ]),
     $skip_opt($seq([$skip_opt(K_QUESTION), ":", typeExpression])),
-    $opt($seq([$skip_opt(K_QUESTION), "=", $not([">"]), anyExpression])),
+    $opt_seq([$skip_opt(K_QUESTION), "=", $not([">"]), anyExpression]),
   ])
 );
 
@@ -429,8 +430,9 @@ const numberLiteral = $def(() =>
     $regex(/^0[bB][0-1]+$/),
     $regex(/^0[oO][0-8]+$/),
     $regex(/^0[xX][0-9a-f]+$/),
-    $seq([digit, ".", digitWithSuffix]),
+    $seq([$or([digit, "0"]), ".", digitWithSuffix]),
     digitWithSuffix,
+    "0",
   ])
 );
 
@@ -695,12 +697,13 @@ const arrowFunc = $def(() =>
   ])
 );
 
-const newExpression = $def(() =>
+const newExpr = $def(() =>
   $seq([
     K_NEW,
     whitespace,
     accessible,
-    $opt($seq([K_PAREN_OPEN, funcArgs, K_PAREN_CLOSE])),
+    // unary,
+    // $opt($seq([K_PAREN_OPEN, funcArgs, K_PAREN_CLOSE])),
   ])
 );
 
@@ -712,7 +715,7 @@ const primary = $def(() =>
   $or([
     // jsxExpression,
     paren,
-    newExpression,
+    newExpr,
     objectLiteral,
     arrayLiteral,
     stringLiteral,
@@ -744,25 +747,53 @@ const primary = $def(() =>
 //   ])
 // );
 
-const questionDot = $seq(["?", "."]);
-const _access = $def(() =>
+// const questionDot = $seq(["?", "."]);
+const access = $def(() =>
   $or([
-    // ?. | !. | .
-    $seq([$opt($or(["!", "?"])), ".", $opt("#"), identifier]),
-    $seq([$opt(questionDot), "[", anyExpression, "]"]),
+    $seq(["[", anyExpression, "]"]),
     $seq([
-      $opt(questionDot),
-      // TODO: Activate
-      // $skip_opt($seq([typeParameters])),
+      $opt_seq(["?", "."]),
+      $skip_opt(typeParameters),
       K_PAREN_OPEN,
       callArguments,
       K_PAREN_CLOSE,
     ]),
+    $seq([
+      $opt($or(["!", "?"])),
+      ".",
+      $opt("#"),
+      $or([identifier, K_DELETE, K_WITH]),
+    ]),
+    $seq([$opt($seq(["?", "."])), "[", anyExpression, "]"]),
   ])
 );
 
+// const access = $def(() =>
+//   $seq([
+//     // ?. | !. | .
+//     // $opt($seq([ opt("?") ])),
+//     $opt("?"),
+//     $or([
+//       $seq([".", $opt("#"), identifier]),
+//       $seq([$opt("."), $opt("#"), identifier]),
+
+//       $seq(["[", anyExpression, "]"])
+//     ]),
+//     // $seq(["[", anyExpression, "]"]),
+//     // $seq([$opt($or(["!", "?"])), ".", $opt("#"), identifier]),
+//     // $seq([$opt(questionDot), "[", anyExpression, "]"]),
+//     $seq([
+//       $opt(questionDot),
+//       $skip_opt(typeParameters),
+//       K_PAREN_OPEN,
+//       callArguments,
+//       K_PAREN_CLOSE,
+//     ]),
+//   ])
+// );
+
 const accessible = $def(() =>
-  $or([$seq([primary, $repeat(_access)]), anyLiteral])
+  $or([$seq([primary, $repeat(access)]), anyLiteral])
 );
 
 // call chain access and member access
@@ -841,7 +872,7 @@ const binaryOperator = $or([
   $seq(["=", $not([">"])]),
 ]);
 
-const asExpression = $def(() =>
+const asExpr = $def(() =>
   $seq([
     binary,
     // WIP
@@ -864,10 +895,7 @@ const binary = $def(() =>
 
 // a ? b: c
 const ternary = $def(() =>
-  $or([
-    $seq([asExpression, K_QUESTION, anyExpression, ":", anyExpression]),
-    asExpression,
-  ])
+  $or([$seq([asExpr, K_QUESTION, anyExpression, ":", anyExpression]), asExpr])
 );
 
 const anyExpression = ternary;
@@ -875,18 +903,35 @@ const anyExpression = ternary;
 const typeAnnotation = $seq([":", typeExpression]);
 // const emptyStatement = $def(() => $seq([$r`(\\s)*`]));
 const breakStatement = $def(() => K_BREAK);
+const continueStatement = $def(() => K_CONTINUE);
 const debuggerStatement = $def(() => K_DEBUGGER);
 
 // it includes yield and throw
-const returnLikeStatement = $def(() =>
-  $seq([$or([K_RETURN, K_YIELD]), $opt(whitespace), $opt(anyExpression)])
+const returnLikeStmt = $def(() =>
+  $seq([$or([K_RETURN, K_YIELD]), $opt_seq([whitespace, anyExpression])])
 );
+
+//   $or([
+//     // $seq([$or([K_RETURN, K_YIELD]), $opt_seq([anyStatement])]),
+//     $seq([$or([K_RETURN, K_YIELD]), whitespace, anyStatement]),
+//     K_RETURN,
+//     K_YIELD,
+//     // $seq([K_RETURN]),
+//   ])
+// );
 
 // const returnLikeStatement = $def(() =>
 //   $or([$seq([K_RETURN, whitespace, anyExpression]), K_RETURN])
 // );
 
-const throwStatement = $def(() => $seq([K_THROW, whitespace, anyExpression]));
+// const throwStatement = $def(() =>
+//   // $seq([$token(K_THROW, () => "throw "), anyExpression])
+//   $seq([$token(K_THROW, () => "throw "), anyExpression])
+// );
+// const throwStatement = $def(() => $seq([K_THROW, whitespace, anyExpression]));
+const throwStmt = $def(() =>
+  $seq([K_THROW, whitespace, $or([newExpr, anyExpression])])
+);
 
 const blockOrStatement = $def(() => $or([block, anyStatement]));
 
@@ -1281,11 +1326,21 @@ const jsxExpression = $def(() =>
         ">",
       ],
       (input: {
-        ident: string;
-        attributes: Array<{ name: string; value: string }>;
+        ident: string[];
+        attributes: Array<{ name: string[]; value: string[] }>;
         children: Array<string>;
       }) => {
-        return buildJsxCode(input.ident, input.attributes, input.children);
+        return buildJsxCode(
+          input.ident.join(""),
+          // input.attributes,
+          input.attributes.map((a) => {
+            return {
+              name: a.name.join(""),
+              value: a.value.join(""),
+            };
+          }),
+          input.children
+        );
       }
     ),
 
@@ -1372,10 +1427,12 @@ export const anyStatement = $def(() =>
     debuggerStatement,
     // break ...
     breakStatement,
+    // continue ...
+    continueStatement,
     // return ...
-    returnLikeStatement,
+    returnLikeStmt,
     // throw ...
-    // throwStatement,
+    throwStmt,
     // try
     tryCatchStatement,
     // declare ...
@@ -1412,7 +1469,7 @@ export const anyStatement = $def(() =>
   ])
 );
 
-const line = $def(() =>
+export const line = $def(() =>
   $or([
     $seq([semicolonlessStatement, $skip_opt(";")]),
     $seq([$opt(semicolonRequiredStatement), ";"]),
@@ -1444,20 +1501,6 @@ const isMain = require.main === module;
 
 import { compile as compileRaw } from "./ctx";
 if (process.env.NODE_ENV === "test") {
-  // const ts = require("typescript");
-  // const prettier = require("prettier");
-  // function compileTsc(input: string) {
-  //   return ts.transpile(input, {
-  //     module: ts.ModuleKind.ESNext,
-  //     target: ts.ScriptTarget.Latest,
-  //   });
-  // }
-
-  // const _format = (input: string, format: boolean, stripTypes: boolean) => {
-  //   input = stripTypes ? compileTsc(input) : input;
-  //   return format ? prettier.format(input, { parser: "typescript" }) : input;
-  // };
-
   // const expectSame = (
   //   parse: any,
   //   inputs: string[],
@@ -1495,12 +1538,16 @@ if (process.env.NODE_ENV === "test") {
   // };
 
   const compile = (
-    inputRule: Rule | number
+    inputRule: Rule | number,
+    end: boolean = true
   ): ((input: string) => string | ParseError) => {
-    const parser = compileRaw($seq([inputRule, $eof()]));
+    const parser = end
+      ? compileRaw($seq([inputRule, $eof()]))
+      : compileRaw(inputRule);
     const wrappedParser = (input: string) => {
       let tokens: string[] = [];
       for (const next of parseTokens(input)) {
+        if (next === "\n") continue;
         tokens.push(next);
       }
       const out = parser(tokens, 0);
@@ -1584,6 +1631,8 @@ if (process.env.NODE_ENV === "test") {
 
   test("number", () => {
     const parse = compile(numberLiteral);
+    expectSuccess(parse, "0");
+    expectSuccess(parse, "0.1");
     expectSuccess(parse, "1");
     expectSuccess(parse, "11");
     expectSuccess(parse, "111.222");
@@ -1660,14 +1709,15 @@ if (process.env.NODE_ENV === "test") {
     // expectSuccess(parse, "{}");
   });
 
-  test("newExpression", () => {
-    const parse = compile(newExpression);
+  test("newExpr", () => {
+    const parse = compile(newExpr);
     expectSuccess(parse, "new A");
     expectSuccess(parse, "new A()");
     expectSuccess(parse, "new {}");
     expectSuccess(parse, "new A.B");
     expectSuccess(parse, "new A[a]");
     expectSuccess(parse, "new A.Y()");
+    expectSuccess(parse, "new Error('xxx')");
   });
 
   test("primary", () => {
@@ -1711,6 +1761,9 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "f(1,)");
     expectSuccess(parse, "f(1,1,)");
     expectSuccess(parse, "f(1,[])");
+    expectSuccess(parse, `f()[0]`);
+    expectSuccess(parse, `f[1]`);
+    expectSuccess(parse, `input.substr(error.pos).split(" ")[0]`);
   });
 
   test("unaryExpression", () => {
@@ -1888,8 +1941,8 @@ if (process.env.NODE_ENV === "test") {
   });
 
   // it depends expression and as
-  test("asExpression", () => {
-    const parse = compile(asExpression);
+  test("asExpr", () => {
+    const parse = compile(asExpr);
     is(parse("1"), "1");
     is(parse("1 as number"), "1");
     is(parse("1 + 1 as number"), "1+1");
@@ -1904,14 +1957,17 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("return", () => {
-    const parse = compile(returnLikeStatement);
+    const parse = compile(returnLikeStmt, false);
+    expectSuccess(parse, "return", "return ");
     expectSuccess(parse, "return ret");
     expectSuccess(parse, "yield 1");
     expectSuccess(parse, "yield ret");
   });
   test("throw", () => {
-    const parse = compile(throwStatement);
+    const parse = compile(throwStmt, true);
     expectSuccess(parse, "throw 1");
+    expectSuccess(parse, "throw new Error()");
+    expectSuccess(parse, "throw new Error('xxx')");
     expectFail(parse, "throw");
   });
 
@@ -1957,7 +2013,6 @@ if (process.env.NODE_ENV === "test") {
       "function f(arg,...args){}"
     );
     is(parse("function f(): void {}"), "function f(){}");
-    // // // TODO: fix space eating by types
     is(parse("function f(): T {}"), "function f(){}");
     is(parse("function f(): T | U {}"), "function f(){}");
   });
@@ -2145,6 +2200,7 @@ if (process.env.NODE_ENV === "test") {
       "impor",
       "importS",
       "thisX",
+      "new Error('xxx')",
     ]);
   });
 
@@ -2152,157 +2208,6 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(anyStatement);
     expectSuccessList(parse, ["debugger", "{a=1;}", "foo:{}", "foo:1"]);
   });
-
-  //   test("program", () => {
-  //     const parse = compile(program, { end: true });
-  //     expectSame(parse, [
-  //       "const x = 1;",
-  //       "const x = 'xxxx';",
-  //       "debugger;",
-  //       "debugger; debugger;   debugger   ;",
-  //       ";;;",
-  //       "",
-  //       "import a from 'b';",
-  //       "import{} from 'b';",
-  //       // "export {};",
-  //     ]);
-  //     is(parse("declare const x: number;"), { result: ";" });
-  //     is(parse("declare const x: number = 1;"), { result: ";" });
-  //     is(parse("type x = number;"), { result: ";" });
-  //     is(parse("type x = {};"), { result: ";" });
-  //     is(parse("export type x = number;"), { result: "" });
-  //     is(parse("interface I {}"), { result: "" });
-  //     is(parse("interface I extends T {};"), { result: ";" });
-  //     is(parse("interface I extends T { a: number; };"), { result: ";" });
-  //     is(parse("export interface I {};"), { result: ";" });
-  //   });
-
-  //   test("multiline program control", () => {
-  //     const parse = compile(program, { end: true });
-  //     expectSame(parse, [
-  //       // xxx,
-  //       `a`,
-  //       `a\n`,
-  //       `if(1){}`,
-  //       `if(1){}a`,
-  //       `1;class{}`,
-  //       `1;class{}class{}if(1){}`,
-  //       `a;b`,
-  //       `class {};a;b`,
-  //       `a\n\n`,
-  //       `;;;;;`,
-  //       `    a`,
-  //       ` \n \n a`,
-  //       ` \n \n a; \n b;`,
-  //       ` \n \n a; \n b`,
-  //       ` \n \n a; \n class{}\na`,
-  //       `class{}\na;class{}\n\nb`,
-  //       `class{};a;`,
-  //       `class{}a`,
-  //       `class{}\n`,
-  //       `class{}\n;`,
-  //       `class{};\n;`,
-  //       `class{}\na;`,
-  //       `class{}\n\na;`,
-  //       `class{};\na;`,
-  //       `class{}\n;\na`,
-  //       `if(1){}a`,
-  //       `if(1){};a`,
-  //       `if(1){}\n;a`,
-  //       `if(1){}\n;\na`,
-  //       `if(1){}\n\na`,
-  //       `if(1){} else {}\n\na`,
-  //       `if(1){} else {}\na;`,
-  //       `type X = { xxx: number }`,
-  //       `type X = { xxx?: number }`,
-
-  //       "f(() => 1);",
-  //       "f(1, () => {});",
-  //       "f(1, (a) => {});",
-  //       "f(1, (a,b) => {});",
-  //       "f(1, (a,b,c) => {});",
-  //       `function f(){
-  //         return input.replace(/@(W|L|N)(\d+)\}/, (full, x, y) => {});
-  //       }`,
-  //       `function _formatError(depth: number) {}`,
-  //       `function _formatError(depth: number = 0) {}`,
-  //       `"".foo`,
-  //       `/x/.exec`,
-  //       `f(1, 2, 3)`,
-  //       `new Error()`,
-  //       `new A.b()`,
-  //       `throw new Error();`,
-  //       `function a(a){}`,
-  //       `class{
-  //         public foo(x, {}: {} = {}){}
-  //       }`,
-  //       // `class{
-  //       //   foo(x,){}
-  //       // }`,
-  //       `class{
-  //         public async foobar(x, {}: {} = {}){}
-  //       }`,
-  //       `({...a, ...b})`,
-  //       // `f({\n })`,
-  //       `function f(a={\n }){}`,
-  //       `class{f(a={\n}){}}`,
-  //       `class{f(a={\n}){\n}}`,
-
-  //       `class{f(a={\n\n}){}}`,
-  //       `class{f(a={a:1}){}}`,
-  //       `class{f(a={a:1,b:\n1}){}}`,
-  //       `class{f(a={a:1\n,b:\n1}){}}`,
-  //       `class{f(a={a:1\n,b:\n1,\n}){}}`,
-  //       `class{f(a={\na:1\n,b:\n1,\n}){}}`,
-  //       `class{f(a={\n a:1\n,b:\n1,\n}){}}`,
-  //       `class{f(a={\n a:1\n,b:\n1,\n}){}}`,
-  //       `class{f(a={\n a,}){}}`,
-  //       `class{f(a={\n a}){}}`,
-  //       `class{f(a={\n a: 1}){}}`,
-  //       `class{f(a={\n a(){}}){}}`,
-  //       `class{f(a={\n}){}}`,
-
-  //       `class{f(x,){}}`,
-  //       `class{f(x,\n){}}`,
-  //       `class{f(x, ){}}`,
-  //       `class{f(x, \n){}}`,
-  //       `function foo(x,\n ){}`,
-  //       `class{f(x, \n){}}`,
-  //       `class{f(x,\n ){}}`,
-  //       `f(()=>g);`,
-  //       `f(a=>g);`,
-  //       `f(()=>\ng);`,
-  //       `if (process.env.NODE_ENV === "test") {
-  // // xxx
-  // }
-  // `,
-  //       `importS`,
-  //       `[...XS,...YS,]`,
-  //       `(x: number, y?: number) => {}`,
-  //       `class{f(x?:T){}}`,
-  //       `try{}catch(e){}`,
-  //       `try{}catch{}`,
-  //       `try{}catch(e){}finally{}`,
-  //       `try{}finally{}`,
-  //       `switch(1){case a:1;1;case b:2;2;default: 1}`,
-  //       `switch(1){case a:{};case 1:break;default: 1;break;}`,
-  //       `switch (1 as number) {
-  //   case 1:
-  //     try {} catch (error) {}
-  //   case 2:
-  // }`,
-  //     ]);
-  //     is(parse(`enum X { a = "foo", b = "bar" }`), {
-  //       result: `const X={a:"foo","foo":"a",b:"bar","bar":"b",};`,
-  //     });
-
-  //     expectError(parse, [`class{f(a={a = 1}){}}`]);
-  //   });
-
-  //   test("f(''+\\n'b');", () => {
-  //     const parse = compile(program, { end: true });
-  //     is(parse(`f(''+\n'b');`), { result: "f(''+'b');" });
-  //   });
 
   test("transform: class constructor", () => {
     const parse = compile(classExpr);

@@ -58,6 +58,7 @@ export const K_INSTANCEOF = "instanceof";
 export const K_CATCH = "catch";
 export const K_IN = "in";
 export const K_ENUM = "enum";
+export const K_WITH = "with";
 
 export const K_PAREN_OPEN = "(";
 export const K_PAREN_CLOSE = ")";

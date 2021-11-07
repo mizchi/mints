@@ -1,5 +1,5 @@
 {
-  "name": "@mizchi/mints",
+  "name": "@mizchi/mints-tokenized",
   "version": "0.0.2",
   "license": "MIT",
   "types": "types/mints/src/index.d.ts",
@@ -21,6 +21,7 @@
     "@rollup/plugin-replace": "^3.0.0",
     "@sosukesuzuki/rollup-plugin-bundle-size": "^0.1.0",
     "@types/prettier": "^2.4.1",
+    "esbuild": "^0.13.12",
     "prettier": "^2.4.1",
     "rollup-plugin-analyzer": "^4.0.0",
     "rollup-plugin-define": "^1.0.1",
