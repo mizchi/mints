@@ -3,8 +3,7 @@ const SINGLE_QUOTE = "'";
 const BACK_QUOTE = "`";
 const SLASH = "/";
 
-const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE] as const;
-
+const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE, SLASH] as const;
 const L_BRACE = "{";
 const R_BRACE = "}";
 const L_PAREN = "(";
@@ -45,6 +44,8 @@ export const CONTROL_TOKENS = [
   " ",
 ];
 const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
+
+const regexRegex = /\/[^\n]*?\//uy;
 
 export function parseTokens(input: string): Generator<string> {
   const chars = createCharSlice(input);
@@ -157,8 +158,17 @@ function* parseStream(
       }
       // switch to string context
       if (STRING_PAIR.includes(char as any)) {
-        wrapStringContext = char as any;
+        if (char === SLASH) {
+          regexRegex.lastIndex = i;
+          const isRegex = regexRegex.test(
+            chars instanceof Array ? chars.join("") : chars
+          );
+          if (isRegex && nextChar !== " ") {
+            wrapStringContext = char as any;
+          }
+        } else wrapStringContext = char as any;
       }
+
       if (_buf.length > 0) {
         yield _buf;
         _buf = "";
@@ -212,6 +222,15 @@ if (process.env.NODE_ENV === "test") {
     const input = "'x y '";
     let expected = ["'", "x y ", "'"];
     expectParseResult(input, expected);
+  });
+  test("parse regex", () => {
+    const input = "/x y/";
+    let expected = ["/", "x y", "/"];
+    expectParseResult(input, expected);
+
+    expectParseResult("1 / 2", ["1", "/", "2"]);
+    expectParseResult("1 / 2 / 3", ["1", "/", "2", "/", "3"]);
+    expectParseResult("2/1\n1/1", ["2", "/", "1", "1", "/", "1"]);
   });
 
   // TODO: Handle escape
@@ -269,7 +288,6 @@ if (process.env.NODE_ENV === "test") {
     expectParseResult("/**/", []);
     expectParseResult("a/**/", ["a"]);
     expectParseResult("a/* */", ["a"]);
-
     expectParseResult("a/* */a", ["a", "a"]);
     expectParseResult("a/* */a/**/a", ["a", "a", "a"]);
   });

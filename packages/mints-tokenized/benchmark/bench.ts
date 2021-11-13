@@ -52,10 +52,11 @@ function tsc(input: string) {
   }).outputText;
 }
 
-function esbuild_(input: string) {
-  return esbuild.transformSync(input, {
+async function esbuild_(input: string) {
+  const x = await esbuild.transform(input, {
     loader: "ts",
-  }).code;
+  });
+  return x.code;
 }
 
 function mints(input: string) {
@@ -67,6 +68,8 @@ function mints(input: string) {
 }
 
 const transformer = createTransformer();
+process.on("exit", () => transformer.terminate());
+
 async function mints_para(input: string) {
   const out = await transformer.transform(input);
   if (typeof out === "object") {
@@ -75,21 +78,11 @@ async function mints_para(input: string) {
   return out as string;
 }
 
-// function mintsMultithread(input: string) {
-//   for (const i of parseTokens(input)) {
-//   }
-//   // const out = transform(input);
-//   // if (typeof out === "object") {
-//   //   throw out;
-//   // }
-//   // return out as string;
-// }
-
 export async function main() {
   const compilers = [tsc, mints, mints_para, esbuild_];
 
   // warmup
-  esbuild_("const x:number = 1");
+  // esbuild_("const x:number = 1");
 
   // const targets = [code1, code2, code3];
   const targets = [
@@ -107,11 +100,14 @@ export async function main() {
     console.log("---------", caseName);
     for (const compiler of compilers) {
       // console.log("[pre]", preprocessLight(code));
-      const N = 3;
+      const N = 6;
       const results: number[] = [];
       for (let i = 0; i < N; i++) {
         const now = Date.now();
         const out = await compiler(code);
+        // if (compiler.name === "mints_para") {
+        //   throw out;
+        // }
         // console.log(`[${i}]`, Date.now() - now);
         results.push(Date.now() - now);
       }
@@ -126,6 +122,7 @@ export async function main() {
       // }
     }
   }
-  transformer.terminate();
+  process.exit(0);
+  // transformer.terminate();
 }
 main().catch(console.error);

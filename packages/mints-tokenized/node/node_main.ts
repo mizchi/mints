@@ -19,30 +19,44 @@ export function createTransformer() {
     },
     transform: async (input: string) => {
       let i = 0;
-      let tokens: string[] = [];
       const promises: Promise<string>[] = [];
 
       // const usedList = new Array(MAX_CPUS).fill(false);
       // let usedCount = 0;
-      const _enque = (tokens: string[]) => {
-        // if (usedCount === MAX_CPUS)
-        // // const api =
-        // usedCount++;
-        // usedList[i] = true;
-        promises.push(apis[i++ % apis.length].exec("transform", tokens));
-        // i++;
+      // const _select = () => {};
+
+      let _tokens: string[] = [];
+      let _tokensList: Array<string[]> = [];
+      let _currentTokensCount = 0;
+
+      const _hydrate = () => {
+        promises.push(apis[i++ % apis.length].exec("transform", _tokensList));
+        _tokensList = [];
+        _currentTokensCount = 0;
+      };
+
+      // const MAX_TOKENS = 512;
+      const MAX_TOKENS = 256;
+
+      const _enque = (tokens: string[], end = false) => {
+        if (tokens.length + _currentTokensCount >= MAX_TOKENS) _hydrate();
+        _currentTokensCount += tokens.length;
+        // console.log("tokens!", tokens.length, _currentTokensCount);
+        _tokensList.push(tokens);
+        if (_currentTokensCount >= MAX_TOKENS) _hydrate();
+        if (end) _hydrate();
       };
       for (const t of parseTokens(input)) {
         if (t === "\n") {
-          _enque(tokens);
-          tokens = [];
+          _enque(_tokens);
+          _tokens = [];
         } else {
-          tokens.push(t);
+          _tokens.push(t);
         }
       }
-      if (tokens.length) _enque(tokens);
+      if (_tokens.length) _enque(_tokens, true);
       const results = await Promise.all(promises);
-      return results.join("");
+      return results.flat().join("");
     },
   };
 }
