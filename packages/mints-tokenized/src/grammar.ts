@@ -5,6 +5,7 @@ import {
 } from "./../../pargen-tokenized/src/types";
 import {
   $any,
+  $atom,
   $def,
   $eof,
   $not,
@@ -1233,23 +1234,42 @@ const enumStatement = $def(() =>
 
 const jsxInlineExpr = $seq([$skip("{"), anyExpression, $skip("}")]);
 
-const jsxText = $seq([$regex("^[^<>{]+$")], (input) => {
-  return `"${input
-    .join("")
-    .replace(/[\s\n]+/gmu, " ")
-    .replace(/[\n ]*$/, "")}"`;
-});
+const jsxText = $def(() =>
+  $atom((ctx, pos) => {
+    let i = 0;
+    const results: string[] = [];
+    while (i < ctx.tokens.length) {
+      const token = ctx.tokens[pos + i];
+      if ([">", "<", "{"].includes(token)) {
+        break;
+      }
+      results.push(token);
+      i++;
+    }
+    if (results.length === 0) {
+      return fail(pos, -1, {} as any);
+    }
+    return success(pos, i, ['"' + results.join(" ") + '"']);
+  })
+);
+
+// JSX transform constants
+const IDENT = "1";
+const ATTRIBUTES = "2";
+const CHILDREN = "3";
+const NAME = "4";
+const VALUE = "5";
 
 const jsxAttributes = $repeat(
   $seqo([
-    ["name", identifier],
-    ["value", $seq([$skip_opt("="), $or([stringLiteral, jsxInlineExpr])])],
+    [NAME, identifier],
+    [VALUE, $seq([$skip_opt("="), $or([stringLiteral, jsxInlineExpr])])],
   ])
 );
 
 const buildJsxCode = (
   ident: string,
-  attributes: Array<{ name: string; value: string }>,
+  attributes: Array<{ [NAME]: string; [VALUE]: string }>,
   children: Array<string> = []
 ) => {
   // TODO: Detect dom name
@@ -1257,7 +1277,7 @@ const buildJsxCode = (
   if (attributes.length > 0) {
     data = ",{";
     for (const attr of attributes) {
-      data += `${attr.name}:${attr.value},`;
+      data += `${attr[NAME]}:${attr[VALUE]},`;
     }
     data += "}";
   }
@@ -1275,10 +1295,6 @@ const buildJsxCode = (
   return `${config.jsx}(${element}${data}${childrenCode})`;
 };
 
-const IDENT = "1";
-const ATTRIBUTES = "2";
-const CHILDREN = "3";
-
 const jsxElement = $def(() =>
   $seqo(
     [
@@ -1287,7 +1303,8 @@ const jsxElement = $def(() =>
       $skip_opt(typeDeclareParameters),
       [ATTRIBUTES, jsxAttributes],
       ">",
-      [CHILDREN, $repeat_seq([$or([jsxExpression, jsxInlineExpr, jsxText])])],
+      [CHILDREN, $repeat($or([jsxElement, jsxInlineExpr, jsxText]))],
+      // [CHILDREN, $repeat_seq([$or([jsxInlineExpr, jsxText])])],
       "<",
       "/",
       [
@@ -1304,18 +1321,19 @@ const jsxElement = $def(() =>
     ],
     (input: {
       [IDENT]: string[];
-      [ATTRIBUTES]: Array<{ name: string[]; value: string[] }>;
-      [CHILDREN]: Array<string>;
+      [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]: string[] }>;
+      [CHILDREN]: Array<string[]>;
     }) => {
+      console.log("children", input[CHILDREN]);
       return buildJsxCode(
         input[IDENT].join(""),
         input[ATTRIBUTES].map((a) => {
           return {
-            name: a.name.join(""),
-            value: a.value.join(""),
+            [NAME]: a[NAME].join(""),
+            [VALUE]: a[VALUE].join(""),
           };
         }),
-        input[CHILDREN]
+        input[CHILDREN].flat()
       );
     }
   )
@@ -1333,13 +1351,13 @@ const jsxSelfCloseElement = $def(() =>
     ],
     (input: {
       [IDENT]: string[];
-      [ATTRIBUTES]: Array<{ name: string[]; value?: string[] }>;
+      [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]?: string[] }>;
     }) => {
       return buildJsxCode(
         input[IDENT].join(""),
         input[ATTRIBUTES].map((a) => ({
-          name: a.name.join(""),
-          value: a.value?.join("") ?? "",
+          [NAME]: a[NAME].join(""),
+          [VALUE]: a[VALUE]?.join("") ?? "",
         }))
       );
     }
@@ -1477,6 +1495,7 @@ import { CONTROL_TOKENS, parseTokens } from "./tokenizer";
 const isMain = require.main === module;
 
 import { compile as compileRaw } from "./ctx";
+import { fail, success } from "../../pargen-tokenized/src/runtime";
 if (process.env.NODE_ENV === "test") {
   // const expectSame = (
   //   parse: any,
@@ -2272,7 +2291,19 @@ if (process.env.NODE_ENV === "test") {
   test("transform: jsx-element", () => {
     const parse = compile(jsxExpression);
     is(parse("<div></div>"), `React.createElement("div",{})`);
-    is(parse("<div>a</div>"), `React.createElement("div",{},'a')`);
+    is(parse("<div>a</div>"), `React.createElement("div",{},"a")`);
+    is(parse("<div>a b</div>"), `React.createElement("div",{},"a b")`);
+    is(parse("<div>{a}</div>"), `React.createElement("div",{},a)`);
+    is(parse("<div>a{b}c</div>"), `React.createElement("div",{},"a",b,"c")`);
+    // is(
+    //   parse("<div></div>"),
+    //   `React.createElement("div",{},React.createElement("main"))`
+    // );
+
+    // is(
+    //   parse("<div><hr /></div>"),
+    //   `React.createElement("div",{},React.createElement("hr", {}))`
+    // );
 
     //     is(parse("<div>aaa</div>"), {
     //       error: false,

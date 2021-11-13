@@ -719,25 +719,35 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     );
   });
 
-  // test("atom", () => {
-  //   const { compile } = createContext();
-  //   const parser = compile(
-  //     $repeat(
-  //       $atom((ctx, pos) => {
-  //         if (ctx.tokens[pos] === ">") {
-  //           return fail(pos, -1, {} as any);
-  //         }
-  //         return success(pos, 1, ["a"]);
-  //       })
-  //     )
-  //   );
-  //   const ret = parser(["a", "b"]);
-  //   throw ret;
-  //   // is(ret, {
-  //   //   success: true,
-  //   //   re
-  //   // })
-  // });
+  test("atom: jsx string", () => {
+    const { compile } = createContext();
+    const parser = compile(
+      $seq([
+        "<",
+        $atom((ctx, pos) => {
+          let i = 0;
+          const results: string[] = [];
+          while (i < ctx.tokens.length) {
+            const token = ctx.tokens[pos + i];
+            if ([">", "<", "{"].includes(token)) {
+              break;
+            }
+            results.push(token);
+            i++;
+          }
+          return success(pos, i, [results.join(" ")]);
+        }),
+        ">",
+      ])
+    );
+    const ret = parser(["<", "ab", "cd", ">"]);
+    is(ret, {
+      error: false,
+      pos: 0,
+      len: 4,
+      results: [0, "ab cd", 3],
+    });
+  });
 
   run({ stopOnFail: true, stub: true });
 }
