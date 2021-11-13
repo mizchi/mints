@@ -1,12 +1,10 @@
 // export const _ = "[\\s\\n]*";
 export const _ = "([\\s\\n]+)?";
 export const __ = `[\\s\\n]+`;
-
 export const K_QUESTION = "?";
 export const K_BANG = "!";
 export const K_CASE = "case";
 export const K_TRY = "try";
-
 export const K_CONSTRUCTOR = "constructor";
 export const K_FROM = "from";
 export const K_STATIC = "static";
@@ -59,6 +57,7 @@ export const K_CATCH = "catch";
 export const K_IN = "in";
 export const K_ENUM = "enum";
 export const K_WITH = "with";
+export const K_SUPER = "super";
 
 export const K_PAREN_OPEN = "(";
 export const K_PAREN_CLOSE = ")";
@@ -147,7 +146,7 @@ const KEYWORDS = [
   K_CLASS,
   K_ENUM,
   K_EXTENDS,
-  "super",
+  K_SUPER,
   K_CONST,
   K_EXPORT,
   K_IMPORT,

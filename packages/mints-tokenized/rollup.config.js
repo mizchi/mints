@@ -25,6 +25,21 @@ export default {
     esbuild({
       target: "esnext",
     }),
-    terser({ module: true }),
+    terser({
+      module: true,
+      // compress: { drop_console: true },
+      compress: {
+        passes: 3,
+        pure_funcs: [],
+        // evaluate: false,
+        hoist_props: true,
+        unsafe_arrows: true,
+        unsafe_methods: true,
+        unsafe_undefined: true,
+        inline: 3,
+        // unsafe_math: true,
+        unsafe: true,
+      },
+    }),
   ],
 };
