@@ -1,9 +1,10 @@
+// import { createParseSuccess } from "./../../pargen/src/compiler";
 import {
   ERROR_Or_UnmatchAll,
   ERROR_Repeat_RangeError,
   ERROR_Seq_UnmatchStack,
 } from "./types";
-import { compileFragment } from "./runtime";
+import { compileFragment, fail, success } from "./runtime";
 import {
   CacheMap,
   Compiler,
@@ -158,6 +159,7 @@ export const printPerfResult = () => {
 import { is, run, test } from "@mizchi/test";
 import {
   $any,
+  $atom,
   $close,
   $def,
   $eof,
@@ -447,8 +449,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const { compile } = createContext();
     const seq = $seqo([["a", "a"]]);
     const parser = compile(seq);
-    is(parser(["a"]), { results: [{ a: [0] }], len: 1, pos: 0 });
-    expectSuccessSeqObject(parser, ["a"], { a: "a" });
+    is(parser(["a"]), { results: [{ a: ["a"] }], len: 1, pos: 0 });
+    // expectSuccessSeqObject(parser, ["a"], { a: [0] });
     is(parser(["x"]), {
       error: true,
       errorType: ERROR_Seq_Stop,
@@ -596,7 +598,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parser, "abbab".split(""), "aa");
   });
 
-  test("seq paired close", () => {
+  test("seq-o paired close", () => {
     const { compile } = createContext();
     const parser = compile(
       $seqo([
@@ -610,10 +612,10 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       ])
     );
     is(parser(["x", "x"]), {
-      results: [{ key: [0] }],
+      results: [{ key: ["x"] }],
     });
     is(parser(["y", "y"]), {
-      results: [{ key: [0] }],
+      results: [{ key: ["y"] }],
     });
     is(parser(["x", "y"]), {
       error: true,
@@ -638,7 +640,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       ])
     );
     is(parser(["<", "div", ">", "x", "<", "/", "div", ">"]), {
-      results: [{ key: [1], value: [3] }],
+      results: [{ key: ["div"], value: ["x"] }],
     });
     is(parser(["<", "div", ">", "x", "<", "/", "a", ">"]), {
       error: true,
@@ -689,7 +691,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
         ">",
       ]),
       {
-        results: [{ tag1: [1], tag2: [4] }],
+        results: [{ tag1: ["div"], tag2: ["a"] }],
       }
     );
 
@@ -716,6 +718,26 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       }
     );
   });
+
+  // test("atom", () => {
+  //   const { compile } = createContext();
+  //   const parser = compile(
+  //     $repeat(
+  //       $atom((ctx, pos) => {
+  //         if (ctx.tokens[pos] === ">") {
+  //           return fail(pos, -1, {} as any);
+  //         }
+  //         return success(pos, 1, ["a"]);
+  //       })
+  //     )
+  //   );
+  //   const ret = parser(["a", "b"]);
+  //   throw ret;
+  //   // is(ret, {
+  //   //   success: true,
+  //   //   re
+  //   // })
+  // });
 
   run({ stopOnFail: true, stub: true });
 }

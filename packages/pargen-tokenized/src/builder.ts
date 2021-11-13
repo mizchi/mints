@@ -330,11 +330,11 @@ export function $eof(): Eof {
   };
 }
 
-export function $atom(parser: InternalParser): Atom {
+export function $atom(parse: InternalParser): Atom {
   return {
     id: genId(),
     kind: ATOM,
-    parse: parser,
+    parse: parse,
   };
 }
 
