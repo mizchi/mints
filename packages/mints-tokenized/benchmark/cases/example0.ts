@@ -96,7 +96,7 @@ export { compileWithPreprocess as compile };
 interface X {}
 
 export function escapeWhistespace(input: string) {
-  return input.replace(/x/gmu, (text) => `@W${text.length}}`);
+  return input.replace(/[ ]{1,}/gmu, (text) => `@W${text.length}}`);
 
   /*
   // return input.replace(/[ ]{1,}/gmu, (text) => `@W${text.length}}`);

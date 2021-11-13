@@ -71,6 +71,7 @@ import {
   K_RETURN,
   K_SET,
   K_STATIC,
+  K_SUPER,
   K_SWITCH,
   K_THIS,
   K_THROW,
@@ -721,6 +722,7 @@ const primary = $def(() =>
     regexpLiteral,
     templateLiteral,
     identifier,
+    K_SUPER,
     // should be after identifier
     thisKeyword,
     importKeyword,
@@ -911,25 +913,6 @@ const debuggerStmt = $def(() => K_DEBUGGER);
 const returnLikeStmt = $def(() =>
   $seq([$or([K_RETURN, K_YIELD]), $opt_seq([whitespace, anyExpression])])
 );
-
-//   $or([
-//     // $seq([$or([K_RETURN, K_YIELD]), $opt_seq([anyStatement])]),
-//     $seq([$or([K_RETURN, K_YIELD]), whitespace, anyStatement]),
-//     K_RETURN,
-//     K_YIELD,
-//     // $seq([K_RETURN]),
-//   ])
-// );
-
-// const returnLikeStatement = $def(() =>
-//   $or([$seq([K_RETURN, whitespace, anyExpression]), K_RETURN])
-// );
-
-// const throwStatement = $def(() =>
-//   // $seq([$token(K_THROW, () => "throw "), anyExpression])
-//   $seq([$token(K_THROW, () => "throw "), anyExpression])
-// );
-// const throwStatement = $def(() => $seq([K_THROW, whitespace, anyExpression]));
 const throwStmt = $def(() =>
   $seq([K_THROW, whitespace, $or([newExpr, anyExpression])])
 );
@@ -1724,6 +1707,7 @@ if (process.env.NODE_ENV === "test") {
   test("primary", () => {
     const parse = compile(primary);
     expectSuccess(parse, "a");
+    expectSuccess(parse, "super");
     expectSuccess(parse, "{}");
     expectSuccess(parse, "new A()");
   });
@@ -1751,6 +1735,8 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "a[1]()().x.y");
     expectSuccess(parse, "'a'.toString()");
     expectSuccess(parse, "{}.hasOwnProperty('a')");
+    expectSuccess(parse, "super()");
+
     expectFail(parse, "a..b");
     expectFail(parse, "a.()");
     expectFail(parse, "a.this");
