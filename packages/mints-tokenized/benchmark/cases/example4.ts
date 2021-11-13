@@ -543,7 +543,7 @@ class WindowIndicator implements IWindowIndicator {
     ? configElement.getAttribute("data-settings")
     : undefined;
   if (!configElement || !configElementAttribute) {
-    // throw new Error("Missing web configuration element");
+    throw new Error("Missing web configuration element");
   }
 
   const config: IWorkbenchConstructionOptions & {

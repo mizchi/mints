@@ -45,7 +45,7 @@ export const CONTROL_TOKENS = [
 ];
 const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
 
-const regexRegex = /\/[^\n]*?\//uy;
+const regexRegex = /\/.+?(?<!\\)\//uy;
 
 export function parseTokens(input: string): Generator<string> {
   const chars = createCharSlice(input);
@@ -231,6 +231,8 @@ if (process.env.NODE_ENV === "test") {
     expectParseResult("1 / 2", ["1", "/", "2"]);
     expectParseResult("1 / 2 / 3", ["1", "/", "2", "/", "3"]);
     expectParseResult("2/1\n1/1", ["2", "/", "1", "1", "/", "1"]);
+    expectParseResult("/a\\/b/", ["/", "a\\/b", "/"]);
+    expectParseResult("/a\nb/", ["/", "a", "b", "/"]);
   });
 
   // TODO: Handle escape
@@ -295,7 +297,6 @@ if (process.env.NODE_ENV === "test") {
   test("inline comment 3", () => {
     const code = `{  /* Invalid session is passed. Ignore. */}x`;
     const result = [...parseStream(code)].map((token) => token);
-    console.log(result);
     eq(result, ["{", "}", "x"]);
   });
   test("Unicode", () => {
@@ -359,7 +360,7 @@ if (process.env.NODE_ENV === "test") {
   run({ stopOnFail: true, stub: true, isMain });
 }
 
-if (process.env.NODE_ENV === "perf") {
+if (process.env.NODE_ENV === "perf" && isMain) {
   const fs = require("fs");
   const path = require("path");
   const code = fs.readFileSync(

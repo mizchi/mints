@@ -17,8 +17,8 @@ const reserved = RESERVED_WORDS.join("|");
 export const identifier = $.def(() =>
   $.seq([
     // TODO: doc
-    // $.not($.or([...RESERVED_WORDS])),
-    // $.r`([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
+    $.not($.or([...RESERVED_WORDS])),
+    $.r`([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
     $.regex(`(?!(${reserved})$)([a-zA-Z_$][a-zA-Z_$0-9]*)`),
   ])
 );

@@ -76,8 +76,8 @@ declare const foo: any;
 import { RootCompiler, RootParser } from "@mizchi/pargen/src/types";
 import { createContext } from "@mizchi/pargen/src";
 import { preprocessLight } from "../../src/preprocess";
-const { compile, builder } = createContext<number>({
-  composeTokens: true,
+const { compile } = createContext({
+  // composeTokens: true,
   // pairs: ["{", "}"],
 });
 
@@ -91,14 +91,17 @@ const compileWithPreprocess: RootCompiler = (input, opts) => {
   return newParser;
 };
 
-export { compileWithPreprocess as compile, builder };
+export { compileWithPreprocess as compile };
 
 interface X {}
 
 export function escapeWhistespace(input: string) {
-  //   return input
-  //     .replace(/[ ]{1,}/gmu, (text) => `@W${text.length}}`)
-  //     .replace(/\n{1,}/gmu, (text) => `@N${text.length}}`);
+  return input.replace(/x/gmu, (text) => `@W${text.length}}`);
+
+  /*
+  // return input.replace(/[ ]{1,}/gmu, (text) => `@W${text.length}}`);
+  // .replace(/\n{1,}/gmu, (text) => `@N${text.length}}`)
+  */
 }
 
 export function restoreEscaped(input: string, literals: Map<string, string>) {
@@ -108,15 +111,15 @@ export function restoreEscaped(input: string, literals: Map<string, string>) {
 export function main() {
   const compilers = [compileTsc, compileMints];
   for (const compiler of compilers) {
-    // for (let i = 0; i < 3; i++) {
-    const now = Date.now();
-    const out = compiler(code);
-    console.log(compiler.name, `[${i}]`, Date.now() - now);
-    printPerfResult();
-    console.log("raw:", out);
-    console.log("----");
-    console.log(prettier.format(out, { parser: "typescript" }));
-    // }
+    for (let i = 0; i < 3; i++) {
+      const now = Date.now();
+      const out = compiler(code);
+      console.log(compiler.name, `[${i}]`, Date.now() - now);
+      printPerfResult();
+      console.log("raw:", out);
+      console.log("----");
+      console.log(prettier.format(out, { parser: "typescript" }));
+    }
   }
 }
 main();

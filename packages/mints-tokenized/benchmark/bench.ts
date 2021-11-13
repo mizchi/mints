@@ -4,11 +4,15 @@ import ts from "typescript";
 import fs from "fs";
 import path from "path";
 import esbuild from "esbuild";
-import { parseTokens } from "../src/tokenizer";
 import { createTransformer } from "../node/node_main";
-// import { printPerfResult } from "@mizchi/pargen/src";
-// import { formatError } from "../src/_testHelpers";
-// import prettier from "prettier";
+import { transform as sucraseTransform } from "sucrase";
+
+const N = 1;
+
+const code_scratch = fs.readFileSync(
+  path.join(__dirname, "cases/_scratch.ts"),
+  "utf-8"
+);
 
 const code0 = fs.readFileSync(
   path.join(__dirname, "cases/example0.ts"),
@@ -52,6 +56,10 @@ function tsc(input: string) {
   }).outputText;
 }
 
+function sucrase(input: string) {
+  return sucraseTransform(input, { transforms: ["jsx", "typescript"] }).code;
+}
+
 async function esbuild_(input: string) {
   const x = await esbuild.transform(input, {
     loader: "ts",
@@ -79,50 +87,41 @@ async function mints_para(input: string) {
 }
 
 export async function main() {
-  const compilers = [tsc, mints, mints_para, esbuild_];
-
-  // warmup
-  // esbuild_("const x:number = 1");
+  const compilers = [tsc, mints, mints_para, sucrase, esbuild_];
 
   // const targets = [code1, code2, code3];
-  const targets = [
-    // x
-    code0,
-    code1,
-    code2,
-    code3,
-    code4,
-    // code5,
-  ];
+  // const targets = [code_scratch];
+  const targets = [code0, code1, code2, code3, code4];
+
+  // check mints can parse all
+  for (const target of targets) {
+    mints(target);
+    console.log("mints pass", JSON.stringify(target.slice(0, 10)) + "...");
+  }
 
   for (const code of targets) {
-    const caseName = "example" + targets.indexOf(code);
+    const caseName = "example:" + targets.indexOf(code);
     console.log("---------", caseName);
     for (const compiler of compilers) {
+      // console.log(`[${compiler.name}] start`);
       // console.log("[pre]", preprocessLight(code));
-      const N = 6;
       const results: number[] = [];
       for (let i = 0; i < N; i++) {
         const now = Date.now();
+        // console.log("bench", code);
         const out = await compiler(code);
-        // if (compiler.name === "mints_para") {
-        //   throw out;
-        // }
-        // console.log(`[${i}]`, Date.now() - now);
         results.push(Date.now() - now);
       }
       console.log(
         `[${compiler.name}]`,
-        "ave:" + Math.floor(results.reduce((s, n) => s + n, 0) / results.length)
-        // results
+        Math.floor(results.reduce((s, n) => s + n, 0) / results.length) + "ms"
       );
-
-      // if (process.env.NODE_ENV === "perf" && compiler === compileMints) {
-      //   printPerfResult();
-      // }
     }
   }
   process.exit(0);
   // transformer.terminate();
 }
-main().catch(console.error);
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

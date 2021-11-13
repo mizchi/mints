@@ -7,7 +7,7 @@ const parse = compile(line);
 export function processLine(tokens: string[]): string {
   const parsed = parse(tokens.slice());
   if (parsed.error) {
-    throw new Error(JSON.stringify(parsed));
+    throw new Error(JSON.stringify(parsed, null, 2));
   } else {
     const s = parsed.results
       .map((r) => (typeof r === "string" ? r : tokens[r]))
@@ -19,8 +19,10 @@ export function processLine(tokens: string[]): string {
 export function transform(input: string) {
   let tokens: string[] = [];
   let results: string[] = [];
+  // console.time("preprocess");
   for (const t of parseTokens(input)) {
     if (t === "\n") {
+      // console.log("<line-tokens>", tokens.map((t) => `${t}`).join(" "));
       results.push(processLine(tokens.slice()));
       tokens = [];
     } else {
@@ -30,6 +32,7 @@ export function transform(input: string) {
   if (tokens.length > 0) {
     results.push(processLine(tokens));
   }
+  // console.timeEnd("preprocess");
   return results.join("");
 }
 
@@ -78,8 +81,8 @@ if (process.env.NODE_ENV === "test") {
   });
   test("multiline program control", () => {
     // is(transform(`1;2;3;`), "1;2;3;");
-    console.log([...parseTokens(`throw new Error('xxx');`)]);
-    is(transform(`throw new Error('xxx');`), "throw new Error('xxx');");
+    console.log([...parseTokens(`input.replace(/[ ]{1,}/gmu, '');`)]);
+    // is(transform(`throw new Error('xxx');`), "throw new Error('xxx');");
 
     // const parse = compile(program, { end: true });
     expectTransformSuccess([
@@ -193,8 +196,11 @@ if (process.env.NODE_ENV === "test") {
               case 2:
             }`,
       `f(''+\n'b');`,
-      // `throw new Error('xxx')`,
-      // `throw new Error('xxx');`,
+      `input.replace(/[ ]{1,}/gmu, '');`,
+      `throw new Error('xxx');`,
+      `function e(i) { b
+.replace(/{\\n1,}/gmu, (text) => \`@N\${text.length}}\`);
+}`,
     ]);
     is(
       transform(`enum X { a = "foo", b = "bar" }`),

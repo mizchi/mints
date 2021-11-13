@@ -30,21 +30,23 @@ export function createTransformer() {
       let _currentTokensCount = 0;
 
       const _hydrate = () => {
+        // console.log("__hydrate", _tokensList);
         promises.push(apis[i++ % apis.length].exec("transform", _tokensList));
         _tokensList = [];
         _currentTokensCount = 0;
       };
 
       // const MAX_TOKENS = 512;
-      const MAX_TOKENS = 256;
+      // const MAX_TOKENS = 256;
 
       const _enque = (tokens: string[], end = false) => {
-        if (tokens.length + _currentTokensCount >= MAX_TOKENS) _hydrate();
+        // if (tokens.length + _currentTokensCount >= MAX_TOKENS) _hydrate();
         _currentTokensCount += tokens.length;
         // console.log("tokens!", tokens.length, _currentTokensCount);
         _tokensList.push(tokens);
-        if (_currentTokensCount >= MAX_TOKENS) _hydrate();
-        if (end) _hydrate();
+        // if (_currentTokensCount >= MAX_TOKENS) _hydrate();
+        _hydrate();
+        // if (end) _hydrate();
       };
       for (const t of parseTokens(input)) {
         if (t === "\n") {
@@ -61,7 +63,7 @@ export function createTransformer() {
   };
 }
 
-if (require.main) {
+if (require.main === module) {
   async function main() {
     const input = fs.readFileSync(
       path.join(__dirname, "../benchmark/cases/example4.ts"),
@@ -72,7 +74,7 @@ if (require.main) {
     const _result = await transformer.transform(input);
     console.timeEnd("root");
     // console.log("size", result.length);
-    // console.log("result", result);
+    console.log("result:", _result);
     transformer.terminate();
   }
   main();

@@ -399,10 +399,9 @@ const stringLiteral = $def(() =>
 );
 
 const regexpLiteral = $def(() =>
-  $seq(["/", $regex(/^[^/]+$/u), "/", $opt($regex(/^[gimuy]*$/u))])
+  $seq(["/", $regex(/^[^\/]+$/u), "/", $opt($regex(/^[gimsuy]+$/))])
 );
 
-// const templateLiteralString = $def(() => $regex(/^[^`]+$/mu));
 const templateExpressionStart = $token("${");
 const templateLiteralString = $def(() => $regex(/^[^`]+$/mu));
 const templateLiteral = $def(() =>
@@ -1620,8 +1619,15 @@ if (process.env.NODE_ENV === "test") {
   });
   test("RegExp", () => {
     const parse = compile(regexpLiteral);
-    expectSuccessList(parse, ["/hello/", "/hello/i", "/hello/gui"]);
-    // expectError(parse, ["//"]);
+    expectSuccessList(parse, [
+      "/hello/",
+      "/hello/i",
+      "/hello/gui",
+      "/xy  z/",
+      "/.{1,}/g",
+      // "/a\\/b/",
+    ]);
+    expectFail(parse, "//");
   });
 
   test("number", () => {
@@ -2079,13 +2085,13 @@ if (process.env.NODE_ENV === "test") {
   test("for", () => {
     const parse = compile(forStatement);
     expectSuccessList(parse, [
-      // "for(x=0;x<1;x++)x",
-      // "for(x=0;x<1;x++){}",
-      // "for(;;)x",
-      // "for(let x=1;x<6;x++)x",
-      // "for(let x=1;x<6;x++){}",
-      // "for(;;){}",
-      // "for(;x;x){}",
+      "for(x=0;x<1;x++)x",
+      "for(x=0;x<1;x++){}",
+      "for(;;)x",
+      "for(let x=1;x<6;x++)x",
+      "for(let x=1;x<6;x++){}",
+      "for(;;){}",
+      "for(;x;x){}",
     ]);
     // expectSuccessList(parse, ["for(;;)"]);
   });
@@ -2199,12 +2205,20 @@ if (process.env.NODE_ENV === "test") {
       "importS",
       "thisX",
       "new Error('xxx')",
+      "/x y/",
+      "f(/[ ]{1,}/)",
     ]);
   });
 
   test("anyStatement", () => {
     const parse = compile(anyStatement);
-    expectSuccessList(parse, ["debugger", "{a=1;}", "foo:{}", "foo:1"]);
+    expectSuccessList(parse, [
+      "debugger",
+      "{a=1;}",
+      "foo:{}",
+      "foo:1",
+      "f(/[ ]{1,}/)",
+    ]);
   });
 
   test("transform: class constructor", () => {
@@ -2268,6 +2282,7 @@ if (process.env.NODE_ENV === "test") {
     );
     is(parse(`<div x={1} />`), `React.createElement("div",{x:1,})`);
     is(parse(`<div x={foo+1} />`), `React.createElement("div",{x:foo+1,})`);
+
     //     // paired
     //     is(parse("<div><hr /><hr /></div>"), {
     //       error: false,
