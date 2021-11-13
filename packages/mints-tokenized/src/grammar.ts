@@ -90,19 +90,21 @@ import {
   // REST_SPREAD,
   SPACE_REQUIRED_OPERATORS,
 } from "./constants";
+import { formatError } from "../../pargen-tokenized/src/format";
 
 import { config } from "./ctx";
 
+const whitespace = $def(() => $any(0, () => " "));
+const plusPlus = $seq(["+", "+"]);
+const minusMinus = $seq(["-", "-"]);
 // const _ = $regex(_w);
 // const _s = $skip($regex(_w));
 // const __ = $regex(__w);
-
 // const controlls = CONTROL_TOKENS.map((r) => "\\" + r).join("");
 const identifier = $def(() =>
   // TODO: optimize
   $seq([
     $not([...RESERVED_WORDS, ...CONTROL_TOKENS]),
-    // $regex(/^[a-zA-Z_$][a-zA-Z_$0-9]*$/),
     $regex(/^[_$a-zA-Z\xA0-\uFFFF][_$a-zA-Z0-9\xA0-\uFFFF]*$/m),
   ])
 );
@@ -110,8 +112,6 @@ const identifier = $def(() =>
 const thisKeyword = $token(K_THIS);
 const importKeyword = $token(K_IMPORT);
 const dotDotDot = $def(() => $seq([".", ".", "."]));
-
-// const BINARY_OPS = K_PAREN_OPEN + OPERATORS.join("|") + K_PAREN_CLOSE;
 
 const typeDeclareParameter = $def(() =>
   $seq([
@@ -169,7 +169,7 @@ const typeReference = $def(() =>
   ])
 );
 
-const _typeNameableItem = $def(() =>
+const typeNameableItem = $def(() =>
   $or([
     $seq([
       // start: number,
@@ -187,7 +187,7 @@ const typeArrayLiteral = $def(() =>
     // array
     "[",
     // repeat
-    $repeat_seq([_typeNameableItem, ","]),
+    $repeat_seq([typeNameableItem, ","]),
     $opt(
       $or([
         $seq([
@@ -197,7 +197,7 @@ const typeArrayLiteral = $def(() =>
           ":",
           typeExpression,
         ]),
-        _typeNameableItem,
+        typeNameableItem,
       ])
     ),
     "]",
@@ -248,11 +248,8 @@ const typeObjectItem = $def(() =>
     $seq([
       $opt($seq([K_READONLY, whitespace])),
       identifier,
-
       $opt(K_QUESTION),
       ":",
-      // ":",
-
       typeExpression,
     ]),
   ])
@@ -440,8 +437,6 @@ const numberLiteral = $def(() =>
 const booleanLiteral = $def(() => $or([K_TRUE, K_FALSE]));
 const nullLiteral = $def(() => K_NULL);
 
-// const exressionWithSpread = $def(() => $seq([".", ".", ".", anyExpression]));
-
 const arrayItem = $def(() =>
   $seq([$opt($seq([".", ".", "."])), anyExpression])
 );
@@ -529,7 +524,7 @@ const classConstructorArg = $def(() =>
         $or([
           // private
           $seqo([
-            ["access", $or([K_PRIVATE, K_PUBLIC, K_PROTECTED])],
+            ["access", accessModifier],
             ["ident", identifier],
           ]),
           destructiveObjectPattern,
@@ -569,10 +564,6 @@ const classConstructorArg = $def(() =>
   )
 );
 
-// type ConstructorArg = {
-//   key: string[];
-//   init?: string[];
-// };
 const classConstructor = $def(() =>
   $seqo<any, any>(
     [
@@ -598,23 +589,8 @@ const classConstructor = $def(() =>
         console.log("arg", JSON.stringify(arg));
         if (arg.init) bodyIntro += `this.${arg.init}=${arg.init};`;
         args.push(arg.code);
-        // console.log("arg", arg.key, "init", arg.init);
-        // const keyCode = arg.key
-        // const initCode = arg.init?.join("");
-        // ?.map((i) => _resolveToken(i, ctx.tokens))
-        // .join("");
-        // console.log("keyCode", keyCode, "initCode", initCode);
-        // args.push(`${keyCode}${initCode ?? ""}`);
-        // const [, initOnBody, ident, assign] =
-        // arg.match(/(private |public |protected )?([^=,]+)(=.+)?$/msu)! ?? [];
-        // args.push(`${ident}${assign ?? ""}`);
-        // if (initOnBody) {
-        //   bodyIntro += `${K_THIS}.${ident}=${ident};`;
-        // }
       }
       const bodyCode = input.body.join("");
-      // console.log("bodyCode", bodyCode);
-      // throw new Error("stop");
       return `${K_CONSTRUCTOR}(${args.join(",")}){${bodyIntro}${bodyCode}}`;
     }
   )
@@ -623,7 +599,6 @@ const classConstructor = $def(() =>
 const classField = $def(() =>
   $or([
     classConstructor,
-    // class member
     $seq([
       $skip_opt($seq([accessModifier, whitespace])),
       $opt_seq([K_STATIC, whitespace]),
@@ -684,7 +659,6 @@ const func = $def(() =>
 
 const arrowFunc = $def(() =>
   $seq([
-    // $opt($seq([K_ASYNC, whitespace])),
     $opt($seq([K_ASYNC, whitespace])),
     $skip_opt(typeDeclareParameters),
     $opt("*"),
@@ -698,15 +672,7 @@ const arrowFunc = $def(() =>
   ])
 );
 
-const newExpr = $def(() =>
-  $seq([
-    K_NEW,
-    whitespace,
-    accessible,
-    // unary,
-    // $opt($seq([K_PAREN_OPEN, funcArgs, K_PAREN_CLOSE])),
-  ])
-);
+const newExpr = $def(() => $seq([K_NEW, whitespace, accessible]));
 
 const paren = $def(() =>
   $seq([K_PAREN_OPEN, anyExpression, K_PAREN_CLOSE, $not([$seq(["=", ">"])])])
@@ -714,7 +680,7 @@ const paren = $def(() =>
 
 const primary = $def(() =>
   $or([
-    // jsxExpression,
+    jsxExpr,
     paren,
     newExpr,
     objectLiteral,
@@ -730,26 +696,6 @@ const primary = $def(() =>
   ])
 );
 
-// const _call = $def(() =>
-//   $or([
-//     $seq([
-//       "?",
-//       ".",
-//       // $skip_opt($seq([typeParameters])),
-//       K_PAREN_OPEN,
-//       callArguments,
-//       K_PAREN_CLOSE,
-//     ]),
-//     $seq([
-//       // $skip_opt($seq([typeParameters])),
-//       K_PAREN_OPEN,
-//       callArguments,
-//       K_PAREN_CLOSE,
-//     ]),
-//   ])
-// );
-
-// const questionDot = $seq(["?", "."]);
 const access = $def(() =>
   $or([
     $seq(["[", anyExpression, "]"]),
@@ -770,47 +716,9 @@ const access = $def(() =>
   ])
 );
 
-// const access = $def(() =>
-//   $seq([
-//     // ?. | !. | .
-//     // $opt($seq([ opt("?") ])),
-//     $opt("?"),
-//     $or([
-//       $seq([".", $opt("#"), identifier]),
-//       $seq([$opt("."), $opt("#"), identifier]),
-
-//       $seq(["[", anyExpression, "]"])
-//     ]),
-//     // $seq(["[", anyExpression, "]"]),
-//     // $seq([$opt($or(["!", "?"])), ".", $opt("#"), identifier]),
-//     // $seq([$opt(questionDot), "[", anyExpression, "]"]),
-//     $seq([
-//       $opt(questionDot),
-//       $skip_opt(typeParameters),
-//       K_PAREN_OPEN,
-//       callArguments,
-//       K_PAREN_CLOSE,
-//     ]),
-//   ])
-// );
-
 const accessible = $def(() =>
   $or([$seq([primary, $repeat(access)]), anyLiteral])
 );
-
-// call chain access and member access
-// const callable = accessible;
-// const callable = $def(() =>
-//   $or([
-//     // call chain
-//     $seq([memberable, _call, $repeat_seq([memberAccess])]),
-//     memberable,
-//   ])
-// );
-
-const whitespace = $def(() => $any(0, () => " "));
-const plusPlus = $seq(["+", "+"]);
-const minusMinus = $seq(["-", "-"]);
 
 const unary = $def(() =>
   $or([
@@ -997,15 +905,12 @@ const exportStatement = $def(() =>
 );
 
 const ifStatement = $def(() =>
-  // $or([
   $seq([
-    // if
     K_IF,
     K_PAREN_OPEN,
     anyExpression,
     K_PAREN_CLOSE,
     blockOrStmt,
-    // $or([block, $seq([anyStatement])]),
     $opt(
       $seq([
         whitespace,
@@ -1049,7 +954,7 @@ const switchStatement = $def(() =>
 const assign = $def(() => $seq(["=", $not([">"]), anyExpression]));
 const variableStatement = $def(() =>
   $seq([
-    declareType,
+    variableType,
     whitespace,
     $repeat_seq([destructive, $skip_opt(typeAnnotation), $opt(assign), ","]),
     destructive,
@@ -1106,15 +1011,13 @@ const forStatement = $def(() =>
   ])
 );
 
-// include for in / for of
-
-const declareType = $or([K_VAR, K_CONST, K_LET]);
+const variableType = $or([K_VAR, K_CONST, K_LET]);
 
 const forItemStatement = $def(() =>
   $seq([
     K_FOR,
     K_PAREN_OPEN,
-    $seq([declareType, whitespace]),
+    $seq([variableType, whitespace]),
     destructive,
     whitespace,
     $or(["of", "in"]),
@@ -1169,6 +1072,8 @@ const tryCatchStatement = $def(() =>
 const enumAssign = $def(() =>
   $seq([$skip("="), $or([numberLiteral, stringLiteral])])
 );
+
+const ENUM_NAME = "1";
 
 const enumStatement = $def(() =>
   $seqo(
@@ -1295,15 +1200,22 @@ const buildJsxCode = (
   return `${config.jsx}(${element}${data}${childrenCode})`;
 };
 
+const $debug_next_token = $atom((ctx, pos) => {
+  console.log("[next] >", ctx.tokens[pos]);
+  return success(pos, 0, []);
+});
+
 const jsxElement = $def(() =>
   $seqo(
     [
       "<",
-      [{ key: IDENT, push: true }, $or([accessible, ""])],
+      // $debugger,
+      // [{ key: IDENT, push: true }, $or([accessible, ""])],
+      [{ key: IDENT, push: true }, accessible],
       $skip_opt(typeDeclareParameters),
       [ATTRIBUTES, jsxAttributes],
       ">",
-      [CHILDREN, $repeat($or([jsxElement, jsxInlineExpr, jsxText]))],
+      [CHILDREN, $repeat($or([jsxSelfCloseElement, jsxInlineExpr, jsxText]))],
       // [CHILDREN, $repeat_seq([$or([jsxInlineExpr, jsxText])])],
       "<",
       "/",
@@ -1311,8 +1223,8 @@ const jsxElement = $def(() =>
         {
           key: "close",
           pop: (a, b, ctx) => {
-            // TODO: Impl
-            return true;
+            // TODO: Multi token equality
+            return ctx.tokens[a[0]] === ctx.tokens[b[0]];
           },
         },
         $or([accessible, ""]),
@@ -1343,8 +1255,9 @@ const jsxSelfCloseElement = $def(() =>
   $seqo(
     [
       "<",
+      $debug_next_token,
       [IDENT, accessible],
-      $skip_opt(typeDeclareParameters),
+      // $skip_opt(typeDeclareParameters),
       [ATTRIBUTES, jsxAttributes],
       "/",
       ">",
@@ -1364,7 +1277,7 @@ const jsxSelfCloseElement = $def(() =>
   )
 );
 
-const jsxExpression = $def(() => $or([jsxSelfCloseElement, jsxElement]));
+const jsxExpr = $def(() => $or([jsxSelfCloseElement, jsxElement]));
 
 const expressionStatement = $def(() =>
   $seq([anyExpression, $repeat_seq([",", anyExpression])])
@@ -1375,6 +1288,7 @@ const semicolonlessStatement = $def(() =>
     $or([
       // export function/class
       $seq([K_EXPORT, whitespace, $or([func, classExpr])]),
+      // anyStatement,
       classExpr,
       enumStatement,
       func,
@@ -1395,22 +1309,28 @@ const semicolonlessStatement = $def(() =>
 
 const semicolonRequiredStatement = $def(() =>
   $seq([
-    // $not([
-    //   $regex(
-    //     `(${K_CLASS}|${K_EXPORT}|${K_IF}|${K_WHILE}|${K_DO}|${K_SWITCH}|${K_FOR}|${K_INTERFACE}|${K_TRY})[ {\\(]`
-    //   ),
-    // ]),
+    $not([
+      K_CLASS,
+      K_EXPORT,
+      K_IF,
+      K_WHILE,
+      K_DO,
+      K_SWITCH,
+      K_FOR,
+      K_INTERFACE,
+      K_TRY,
+    ]),
     anyStatement,
     // $or([
-    //   debuggerStatement,
-    //   breakStatement,
-    //   returnStatement,
+    //   debuggerStmt,
+    //   breakStmt,
+    //   returnLikeStmt,
     //   declareVariableStatement,
     //   variableStatement,
     //   typeStatement,
-    //   importStatement,
+    //   importStmt,
     //   exportStatement,
-    //   labeledStatement,
+    //   labeledStmt,
     //   expressionStatement,
     // ]),
   ])
@@ -1488,7 +1408,6 @@ const block = $def(() => $seq([K_BRACE_OPEN, lines, K_BRACE_CLOSE]));
 export const program = $def(() => $seq([lines, $eof()]));
 
 import { test, run, is } from "@mizchi/test";
-// import { preprocessLight } from "./preprocess";
 import { Rule } from "../../pargen-tokenized/src/types";
 import { CONTROL_TOKENS, parseTokens } from "./tokenizer";
 
@@ -1496,43 +1415,8 @@ const isMain = require.main === module;
 
 import { compile as compileRaw } from "./ctx";
 import { fail, success } from "../../pargen-tokenized/src/runtime";
+// import { formatError } from "../benchmark/cases/example1";
 if (process.env.NODE_ENV === "test") {
-  // const expectSame = (
-  //   parse: any,
-  //   inputs: string[],
-  //   {
-  //     format = true,
-  //     stripTypes = true,
-  //   }: { format?: boolean; stripTypes?: boolean } = {}
-  // ) => {
-  //   inputs.forEach((raw) => {
-  //     const input = preprocessLight(raw);
-  //     const result = parse(input);
-  //     if (result.error) {
-  //       // reportError(input, result.error);
-  //       // result.reportErrorDetail();
-  //       throw new Error("Unexpected Result: " + input.replace(/\n/g, "\\n"));
-  //     } else {
-  //       const resultf = format
-  //         ? _format(result.result as string, format, stripTypes)
-  //         : result.result;
-  //       const expectedf = format ? _format(input, format, stripTypes) : input;
-  //       if (resultf !== expectedf) {
-  //         throw `Expect: ${input}\nOutput: ${JSON.stringify(result, null, 2)}`;
-  //       }
-  //     }
-  //   });
-  // };
-
-  // const expectError = (parse: any, inputs: string[]) => {
-  //   inputs.forEach((input) => {
-  //     const result = parse(preprocessLight(input));
-  //     if (!result.error) {
-  //       throw new Error("Unexpected SameResult:" + result);
-  //     }
-  //   });
-  // };
-
   const compile = (
     inputRule: Rule | number,
     end: boolean = true
@@ -2278,7 +2162,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("transform: jsx-self-closing", () => {
-    const parse = compile(jsxExpression);
+    const parse = compile(jsxExpr);
     is(parse("<div />"), `React.createElement("div",{})`);
     is(parse(`<div x="a" y={1} />`), `React.createElement("div",{x:"a",y:1,})`);
     is(
@@ -2289,77 +2173,68 @@ if (process.env.NODE_ENV === "test") {
     is(parse(`<div x={foo+1} />`), `React.createElement("div",{x:foo+1,})`);
   });
   test("transform: jsx-element", () => {
-    const parse = compile(jsxExpression);
+    const parse = compile(jsxExpr);
     is(parse("<div></div>"), `React.createElement("div",{})`);
+    is(parse("<div></xxx>"), { error: true });
+    is(parse("<div></xxx></div>"), { error: true });
+
     is(parse("<div>a</div>"), `React.createElement("div",{},"a")`);
     is(parse("<div>a b</div>"), `React.createElement("div",{},"a b")`);
     is(parse("<div>{a}</div>"), `React.createElement("div",{},a)`);
     is(parse("<div>a{b}c</div>"), `React.createElement("div",{},"a",b,"c")`);
-    // is(
-    //   parse("<div></div>"),
-    //   `React.createElement("div",{},React.createElement("main"))`
-    // );
-
-    // is(
-    //   parse("<div><hr /></div>"),
-    //   `React.createElement("div",{},React.createElement("hr", {}))`
-    // );
-
-    //     is(parse("<div>aaa</div>"), {
-    //       error: false,
-    //       result: `React.createElement("div",{},"aaa")`,
-    //     });
-    //     is(parse(`<a href="/">aaa</a>`), {
-    //       error: false,
-    //       result: `React.createElement("a",{href:"/",},"aaa")`,
-    //     });
-
-    //     is(parse("<div>aaa\n   bbb</div>"), {
-    //       error: false,
-    //       result: `React.createElement("div",{},"aaa bbb")`,
-    //     });
-    //     is(parse("<div>{1}</div>"), {
-    //       error: false,
-    //       result: `React.createElement("div",{},1)`,
-    //     });
-    //     is(parse("<div>a{1}b<hr/></div>"), {
-    //       error: false,
-    //       result: `React.createElement("div",{},"a",1,"b",React.createElement("hr",{}))`,
-    //     });
-
-    //     is(parse("<></>"), {
-    //       error: false,
-    //       result: `React.createElement(React.Fragment,{})`,
-    //     });
-    //     is(
-    //       parse(`<div>
-    //   <a href="/">
-    //     xxx
-    //   </a>
-    // </div>`),
-    //       {
-    //         error: false,
-    //         result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
-    //       }
-    //     );
-
-    //     is(
-    //       parse(`<div>
-    //   <a href="/">
-    //     xxx
-    //   </a>
-    // </div>`),
-    //       {
-    //         error: false,
-    //         result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
-    //       }
-    //     );
-
-    //     is(parse("<div><></></div>", { jsx: "h", jsxFragment: "Fragment" }), {
-    //       error: false,
-    //       result: `h("div",{},h(Fragment,{}))`,
-    //     });
+    is(parse("<div>{a}{b}</div>"), `React.createElement("div",{},a,b)`);
+    is(parse("<div> {a}</div>"), `React.createElement("div",{},a)`);
+    is(parse("<div> {a}</div>"), `React.createElement("div",{},a)`);
   });
+
+  test("transform: jsx-element nested", () => {
+    const parse = compile(jsxExpr);
+    is(parse("<div><div></div>"), { error: true });
+    is(parse("<hr />"), `React.createElement("hr",{})`);
+    // const ret = parse("<div><hr /></div>") as any;
+    is(
+      parse("<a><hr /></a>"),
+      `React.createElement("a",{},React.createElement("hr",{}))`
+    );
+    is(
+      parse(`<a href="/">aaa</a>`),
+      `React.createElement("a",{href:"/",},"aaa")`
+    );
+  });
+
+  //     is(parse("<></>"), {
+  //       error: false,
+  //       result: `React.createElement(React.Fragment,{})`,
+  //     });
+  //     is(
+  //       parse(`<div>
+  //   <a href="/">
+  //     xxx
+  //   </a>
+  // </div>`),
+  //       {
+  //         error: false,
+  //         result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
+  //       }
+  //     );
+
+  //     is(
+  //       parse(`<div>
+  //   <a href="/">
+  //     xxx
+  //   </a>
+  // </div>`),
+  //       {
+  //         error: false,
+  //         result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
+  //       }
+  //     );
+
+  //     is(parse("<div><></></div>", { jsx: "h", jsxFragment: "Fragment" }), {
+  //       error: false,
+  //       result: `h("div",{},h(Fragment,{}))`,
+  //     });
+  // });
 
   run({ stopOnFail: true, stub: true, isMain });
 }

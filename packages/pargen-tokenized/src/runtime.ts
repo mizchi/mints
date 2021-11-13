@@ -81,19 +81,25 @@ export function compileFragment(
       internalParser(ctx, pos)
     );
     if (parsed.error) {
-      // TODO: Refactor to Format error
-      if (
-        parsed.error &&
-        [
-          ERROR_Token_Unmatch,
-          ERROR_Regex_Unmatch,
-          ERROR_Eof_Unmatch,
-          ERROR_Not_IncorrectMatch,
-        ].includes(parsed.errorType)
-      ) {
-        if (ctx.currentError == null) ctx.currentError = parsed;
-        if (ctx.currentError.pos < parsed.pos) ctx.currentError = parsed;
+      // console.log("update deepest error", parsed.pos, parsed.errorType);
+      if (ctx.currentError == null) ctx.currentError = parsed;
+
+      if (parsed.pos >= ctx.currentError.pos) {
+        ctx.currentError = parsed;
       }
+      // TODO: Refactor to Format error
+      // if (
+      //   parsed.error &&
+      //   [
+      //     ERROR_Token_Unmatch,
+      //     ERROR_Regex_Unmatch,
+      //     ERROR_Eof_Unmatch,
+      //     ERROR_Not_IncorrectMatch,
+      //   ].includes(parsed.errorType)
+      // ) {
+      //   if (ctx.currentError == null) ctx.currentError = parsed;
+      //   if (ctx.currentError.pos < parsed.pos) ctx.currentError = parsed;
+      // }
     }
     return parsed;
   };
@@ -115,6 +121,8 @@ function compileFragmentInternal(
         } else {
           return fail(pos, rootId, {
             errorType: ERROR_Token_Unmatch,
+            expect: expr,
+            got: token,
           });
         }
       };
@@ -129,7 +137,8 @@ function compileFragmentInternal(
         } else {
           return fail(pos, rootId, {
             errorType: ERROR_Regex_Unmatch,
-            expr: re.toString(),
+            expect: re.toString(),
+            got: token,
           });
         }
       };
@@ -170,6 +179,7 @@ function compileFragmentInternal(
           } else {
             return fail(pos, rootId, {
               errorType: ERROR_Not_IncorrectMatch,
+              matched: result,
             });
           }
         }

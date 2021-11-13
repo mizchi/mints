@@ -208,7 +208,10 @@ export type RootCompiler = (
   opts?: RootCompilerOptions
 ) => RootParser;
 
-export type RootParser = (tokens: string[], pos?: number) => ParseResult;
+export type RootParser = (
+  tokens: string[],
+  pos?: number
+) => ParseSuccess | (ParseError & { tokens: string[] });
 
 export type InputNodeExpr = Rule | string | number;
 
@@ -260,6 +263,7 @@ type RepeatRangeError = {
 
 type NotIncorrectMatch = {
   errorType: typeof ERROR_Not_IncorrectMatch;
+  matched: ParseSuccess;
 };
 
 type EofUnmatch = {
@@ -268,10 +272,14 @@ type EofUnmatch = {
 
 type TokenUnmatch = {
   errorType: typeof ERROR_Token_Unmatch;
+  expect: string;
+  got: string;
 };
 
 type RegexUnmatch = {
   errorType: typeof ERROR_Regex_Unmatch;
+  expect: string;
+  got: string;
 };
 
 type SeqStop = {

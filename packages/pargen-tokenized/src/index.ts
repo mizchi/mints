@@ -4,7 +4,7 @@ import {
   ERROR_Repeat_RangeError,
   ERROR_Seq_UnmatchStack,
 } from "./types";
-import { compileFragment, fail, success } from "./runtime";
+import { compileFragment, success } from "./runtime";
 import {
   CacheMap,
   Compiler,
@@ -53,15 +53,17 @@ export function createContext(partial: Partial<Compiler> = {}) {
     const parseFromRoot = compileFragment(resolved, compiler, resolved.id);
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = createPackratCache();
-      const rootResult = parseFromRoot(
-        {
-          root: resolved.id,
-          tokens,
-          currentError: null,
-          cache,
-        },
-        0
-      );
+      const rootContext = {
+        root: resolved.id,
+        tokens,
+        currentError: null,
+        cache,
+      };
+      const rootResult = parseFromRoot(rootContext, 0);
+      if (rootResult.error && rootContext.currentError != null) {
+        // @ts-ignore
+        return { ...rootContext.currentError, tokens: tokens };
+      }
       return rootResult;
     };
     return rootParser;
@@ -93,10 +95,10 @@ function createPackratCache(): PackratCache {
     // return measurePerf("c-" + id, () => {
     const cached = get(id as number, pos);
     if (cached) {
-      cacheHitCount++;
+      // cacheHitCount++;
       return cached;
     }
-    cacheMissCount++;
+    // cacheMissCount++;
     const result = creator();
     add(id as number, pos, result);
     return result;
@@ -109,9 +111,9 @@ function createPackratCache(): PackratCache {
   };
 }
 
-const perfTimes = new Map<string, { sum: number; count: number }>();
-let cacheHitCount = 0;
-let cacheMissCount = 0;
+// const perfTimes = new Map<string, { sum: number; count: number }>();
+// let cacheHitCount = 0;
+// let cacheMissCount = 0;
 // const addPerfTime = (id: string, time: number) => {
 //   const prev = perfTimes.get(id);
 //   if (prev) {
@@ -137,23 +139,23 @@ let cacheMissCount = 0;
 //   return fn();
 // };
 
-export const printPerfResult = () => {
-  if (process.env.NODE_ENV === "perf") {
-    console.log("========= perf ============");
-    console.log("cache hit", cacheHitCount, "cache miss", cacheMissCount);
-    const ts = [...perfTimes.entries()].sort((a, b) => b[1].sum - a[1].sum);
-    for (const [id, ret] of ts) {
-      // over 30ms
-      if (ret.sum > 30_000_000) {
-        console.log(
-          `[${id}] total:${Math.floor(ret.sum / 1_000_000)}ms ref_count:${
-            ret.count
-          }`
-        );
-      }
-    }
-  }
-};
+// export const printPerfResult = () => {
+//   if (process.env.NODE_ENV === "perf") {
+//     console.log("========= perf ============");
+//     console.log("cache hit", cacheHitCount, "cache miss", cacheMissCount);
+//     const ts = [...perfTimes.entries()].sort((a, b) => b[1].sum - a[1].sum);
+//     for (const [id, ret] of ts) {
+//       // over 30ms
+//       if (ret.sum > 30_000_000) {
+//         console.log(
+//           `[${id}] total:${Math.floor(ret.sum / 1_000_000)}ms ref_count:${
+//             ret.count
+//           }`
+//         );
+//       }
+//     }
+//   }
+// };
 
 /* Test */
 import { is, run, test } from "@mizchi/test";
@@ -192,7 +194,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
   const expectSuccess = (
     parse: RootParser,
-
     tokens: string[],
     expected: string
   ) => {
@@ -385,7 +386,11 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const { compile } = createContext();
     const parser = compile($seq(["a", $skip("x"), "b"]));
     expectSuccess(parser, ["a", "x", "b"], "ab");
-    is(parser(["a", "b"]), { error: true, index: 1 });
+    is(parser(["a", "b"]), {
+      error: true,
+      errorType: 405,
+      childError: { errorType: 403 },
+    });
   });
 
   test("seq:skip_opt", () => {
@@ -407,7 +412,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parseWithMin(["a"]), { error: false });
     is(parseWithMin(["a", "a", "a", "a"]), {
       error: true,
-      errorType: ERROR_Repeat_RangeError,
+      errorType: ERROR_Token_Unmatch,
     });
   });
 
@@ -452,14 +457,12 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser(["a"]), { results: [{ a: ["a"] }], len: 1, pos: 0 });
     // expectSuccessSeqObject(parser, ["a"], { a: [0] });
     is(parser(["x"]), {
-      error: true,
-      errorType: ERROR_Seq_Stop,
-      pos: 0,
       childError: {
-        pos: 0,
-        error: true,
         errorType: ERROR_Token_Unmatch,
       },
+      pos: 0,
+      error: true,
+      errorType: ERROR_Seq_Stop,
     });
   });
 
@@ -482,12 +485,12 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       pos: 0,
       errors: [
         {
-          error: true,
+          // error: true,
           pos: 0,
           errorType: ERROR_Token_Unmatch,
         },
         {
-          error: true,
+          // error: true,
           pos: 0,
           errorType: ERROR_Token_Unmatch,
         },
@@ -504,8 +507,12 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parser, ["x", "y", "z"], "xyz");
     is(parser(["x", "y", "b"]), {
       error: true,
-      pos: 0,
-      errorType: ERROR_Or_UnmatchAll,
+      pos: 2,
+      errorType: ERROR_Seq_Stop,
+      childError: {
+        error: true,
+        errorType: ERROR_Token_Unmatch,
+      },
     });
   });
 

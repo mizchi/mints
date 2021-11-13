@@ -3,7 +3,7 @@ const SINGLE_QUOTE = "'";
 const BACK_QUOTE = "`";
 const SLASH = "/";
 
-const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE, SLASH] as const;
+const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE] as const;
 const L_BRACE = "{";
 const R_BRACE = "}";
 const L_PAREN = "(";
@@ -64,7 +64,6 @@ function* parseStream(
   let openParenStack = 0;
   let isLineComment = false;
   let isInlineComment = false;
-  let jsxTagDepth = 0;
 
   let i: number;
   for (i = initialCursor; i < chars.length; i++) {
@@ -156,7 +155,6 @@ function* parseStream(
     //     jsxTagDepth += 1;
     //     continue;
     //   }
-
     //   // close tag:  </...>
     //   if (char === "<" && nextChar === "/") {
     //     if (_buf.length > 0) {
@@ -204,24 +202,6 @@ function* parseStream(
 
     if (CONTROL_TOKENS.includes(char)) {
       let isEOL = false;
-      // JSX
-      // if (
-      //   char === "<" &&
-      //   nextChar !== " " &&
-      //   // [\(\s\n]<div></div>
-      //   [" ", "\n", "(", undefined].includes(chars[i - 1]) &&
-      //   chars.indexOf("/>", i) > 0
-      // ) {
-      //   if (_buf.length > 0) {
-      //     yield _buf;
-      //     _buf = "";
-      //   }
-      //   yield "<";
-      //   // Enter JSX Mode
-      //   jsxTagDepth++;
-      //   continue;
-      // }
-
       // comment, line-comment, regex
       if (char === SLASH) {
         if (nextChar === "*") {
@@ -256,17 +236,27 @@ function* parseStream(
         // TODO: Regex
         if (openBraceStack === 0 && nextChar === "\n") isEOL = true;
       }
+
+      // TODO: heuristic
+      // not </
+      // not / /
+      if (
+        char === SLASH &&
+        nextChar !== " " &&
+        // />
+        nextChar !== ">" &&
+        // </
+        chars[i - 1] !== "<"
+      ) {
+        regexRegex.lastIndex = i;
+        if (regexRegex.test(chars instanceof Array ? chars.join("") : chars)) {
+          wrapStringContext = char as any;
+        }
+      }
+
       // switch to string context
       if (STRING_PAIR.includes(char as any)) {
-        if (char === SLASH) {
-          regexRegex.lastIndex = i;
-          const isRegex = regexRegex.test(
-            chars instanceof Array ? chars.join("") : chars
-          );
-          if (isRegex && nextChar !== " ") {
-            wrapStringContext = char as any;
-          }
-        } else wrapStringContext = char as any;
+        wrapStringContext = char as any;
       }
 
       if (_buf.length > 0) {
@@ -457,6 +447,20 @@ if (process.env.NODE_ENV === "test") {
       ">",
       "a",
       "b",
+      "<",
+      "/",
+      "a",
+      ">",
+    ]);
+
+    expectParseResult("<a><hr /></a>", [
+      "<",
+      "a",
+      ">",
+      "<",
+      "hr",
+      "/",
+      ">",
       "<",
       "/",
       "a",
