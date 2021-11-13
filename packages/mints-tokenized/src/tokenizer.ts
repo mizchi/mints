@@ -1,50 +1,3 @@
-const DOUBLE_QUOTE = '"';
-const SINGLE_QUOTE = "'";
-const BACK_QUOTE = "`";
-const SLASH = "/";
-
-const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE] as const;
-const L_BRACE = "{";
-const R_BRACE = "}";
-const L_PAREN = "(";
-const R_PAREN = ")";
-
-export const CONTROL_TOKENS = [
-  ";",
-  ",",
-  L_BRACE,
-  R_BRACE,
-  L_PAREN,
-  R_PAREN,
-  "+",
-  "-",
-  "/",
-  "%",
-  ">",
-  "<",
-  "'",
-  '"',
-  "`",
-  "=",
-  "!",
-  "&",
-  "|",
-  "^",
-  "~",
-  "?",
-  ":",
-  ".",
-  "*",
-  "#",
-  "[",
-  "]",
-  "\n",
-  "\r",
-  "\t",
-  " ",
-];
-const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
-
 const regexRegex = /\/.+?(?<!\\)\//uy;
 
 export function parseTokens(input: string): Generator<string> {
@@ -124,81 +77,6 @@ function* parseStream(
     }
 
     const nextChar = chars[i + 1];
-
-    // if (jsxTagDepth > 0) {
-    //   if (char === L_BRACE) {
-    //     // handle {x}
-    //     if (_buf.length > 0) {
-    //       yield _buf;
-    //       _buf = "";
-    //     }
-    //     yield char;
-    //     i += 1;
-    //     for (const tok of parseStream(chars, i, false)) {
-    //       if (typeof tok === "string") {
-    //         yield tok;
-    //       } else {
-    //         i = tok;
-    //       }
-    //     }
-    //     yield R_BRACE;
-    //     i += 1;
-    //     continue;
-    //   }
-    //   // open child tag
-    //   if (char === "<" && nextChar !== "/") {
-    //     if (_buf.length > 0) {
-    //       yield _buf;
-    //       _buf = "";
-    //     }
-    //     yield char;
-    //     jsxTagDepth += 1;
-    //     continue;
-    //   }
-    //   // close tag:  </...>
-    //   if (char === "<" && nextChar === "/") {
-    //     if (_buf.length > 0) {
-    //       yield _buf;
-    //       _buf = "";
-    //     }
-    //     yield "<";
-    //     yield "/";
-    //     i += 2;
-    //     const next = chars.indexOf(">", i);
-    //     // console.log(
-    //     //   "[search close tag]",
-    //     //   i,
-    //     //   chars,
-    //     //   chars[i],
-    //     //   next
-    //     //   // chars.slice(i),
-    //     //   // next
-    //     // );
-    //     if (next === -1) throw new Error("TODO: unexpected end of jsx tag");
-    //     // TODO: Handle unclosed tag
-    //     yield Array.from(chars.slice(i, next)).join("");
-    //     yield ">";
-    //     i = next + 1;
-    //     jsxTagDepth--;
-    //     continue;
-    //   }
-    //   if ([" ", "\n", "\t"].includes(char)) {
-    //     // _buf
-    //     if (_buf.length > 0) {
-    //       yield _buf;
-    //       _buf = "";
-    //     }
-    //   } else if (char === ">") {
-    //     if (_buf.length > 0) {
-    //       yield _buf;
-    //       _buf = "";
-    //     }
-    //     yield char;
-    //   } else {
-    //     _buf += char;
-    //   }
-    //   continue;
-    // }
 
     if (CONTROL_TOKENS.includes(char)) {
       let isEOL = false;
@@ -294,6 +172,16 @@ function createCharSlice(input: string) {
 }
 
 import { test, run } from "@mizchi/test";
+import {
+  CONTROL_TOKENS,
+  L_BRACE,
+  L_PAREN,
+  R_BRACE,
+  R_PAREN,
+  SKIP_TOKENS,
+  SLASH,
+  STRING_PAIR,
+} from "./constants";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
   const assert = require("assert");

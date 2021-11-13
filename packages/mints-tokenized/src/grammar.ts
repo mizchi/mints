@@ -27,12 +27,13 @@ import {
 } from "../../pargen-tokenized/src/builder";
 
 import {
+  CONTROL_TOKENS,
   K_ABSTRACT,
   K_AS,
   K_ASYNC,
   K_AWAIT,
-  K_BLACE_CLOSE as K_BRACE_CLOSE,
-  K_BLACE_OPEN as K_BRACE_OPEN,
+  // K_BLACE_CLOSE as R_BRACE,
+  // K_BLACE_OPEN as L_BRACE,
   K_BREAK,
   K_CASE,
   K_CATCH,
@@ -62,8 +63,8 @@ import {
   K_LET,
   K_NEW,
   K_NULL,
-  K_PAREN_CLOSE,
-  K_PAREN_OPEN,
+  // R_PAREN,
+  // L_PAREN,
   K_PRIVATE,
   K_PROTECTED,
   K_PUBLIC,
@@ -85,10 +86,11 @@ import {
   K_WHILE,
   K_WITH,
   K_YIELD,
-  OPERATORS,
+  L_BRACE,
+  L_PAREN,
   RESERVED_WORDS,
-  // REST_SPREAD,
-  SPACE_REQUIRED_OPERATORS,
+  R_BRACE,
+  R_PAREN,
 } from "./constants";
 import { formatError } from "../../pargen-tokenized/src/format";
 
@@ -97,10 +99,6 @@ import { config } from "./ctx";
 const whitespace = $def(() => $any(0, () => " "));
 const plusPlus = $seq(["+", "+"]);
 const minusMinus = $seq(["-", "-"]);
-// const _ = $regex(_w);
-// const _s = $skip($regex(_w));
-// const __ = $regex(__w);
-// const controlls = CONTROL_TOKENS.map((r) => "\\" + r).join("");
 const identifier = $def(() =>
   // TODO: optimize
   $seq([
@@ -143,7 +141,7 @@ const typeParameters = $def(() =>
 );
 
 const typeParen = $def(() =>
-  $seq([K_PAREN_OPEN, typeExpression, K_PAREN_CLOSE, $opt(typeParameters)])
+  $seq([L_PAREN, typeExpression, R_PAREN, $opt(typeParameters)])
 );
 
 const typeIdentifier = $def(() =>
@@ -227,21 +225,14 @@ const typeFunctionArgs = $def(() =>
 const typeObjectItem = $def(() =>
   $or([
     $seq([
-      // async foo<T>(arg: any): void;
       $opt($seq([K_ASYNC, whitespace])),
       identifier,
-
       $opt(typeDeclareParameters),
-
-      K_PAREN_OPEN,
-
+      L_PAREN,
       typeFunctionArgs,
-
-      K_PAREN_CLOSE,
-
+      R_PAREN,
       $opt(K_QUESTION),
       ":",
-
       typeExpression,
     ]),
     // member
@@ -258,11 +249,12 @@ const typeObjectItem = $def(() =>
 const typeObjectLiteral = $def(() =>
   $seq([
     // object
-    K_BRACE_OPEN,
+    L_BRACE,
     $repeat_seq([typeObjectItem, $or([",", ";"])]),
     $opt(typeObjectItem),
     $opt($or([",", ";"])),
-    K_BRACE_CLOSE,
+    // R_BRACE,
+    R_BRACE,
   ])
 );
 
@@ -281,9 +273,9 @@ const typeLiteral = $def(() =>
 const typeFunctionExpression = $def(() =>
   $seq([
     $opt(typeDeclareParameters),
-    K_PAREN_OPEN,
+    L_PAREN,
     typeFunctionArgs,
-    K_PAREN_CLOSE,
+    R_PAREN,
     "=",
     ">",
     typeExpression,
@@ -341,10 +333,10 @@ const destructiveObjectItem = $def(() =>
 
 const destructiveObjectPattern = $def(() =>
   $seq([
-    K_BRACE_OPEN,
+    L_BRACE,
     $repeat_seq([destructiveObjectItem, ","]),
     $opt($or([$seq([dotDotDot, identifier]), destructiveObjectItem])),
-    K_BRACE_CLOSE,
+    R_BRACE,
   ])
 );
 
@@ -410,7 +402,7 @@ const templateLiteral = $def(() =>
       $opt($seq([$not([templateExpressionStart]), templateLiteralString])),
       templateExpressionStart,
       anyExpression,
-      K_BRACE_CLOSE,
+      R_BRACE,
     ]),
     $opt(templateLiteralString),
     "`",
@@ -458,7 +450,7 @@ const objectItem = $def(() =>
     //   // function
     //   $opt($or([K_ASYNC, K_GET, K_SET])),
     //   $or([stringLiteral, $seq(["[", anyExpression, "]"]), identifier]),
-    //   $seq([K_PAREN_OPEN, functionArguments, K_PAREN_CLOSE, block]),
+    //   $seq([L_PAREN, functionArguments, R_PAREN, block]),
     // ]),
     $seq([
       // value
@@ -481,10 +473,10 @@ const objectItem = $def(() =>
 // ref by key
 const objectLiteral = $def(() =>
   $seq([
-    K_BRACE_OPEN,
+    L_BRACE,
     $repeat($seq([objectItem, ","])),
     $opt($seq([objectItem, $opt(",")])),
-    K_BRACE_CLOSE,
+    R_BRACE,
   ])
 );
 
@@ -569,13 +561,13 @@ const classConstructor = $def(() =>
     [
       $skip_opt(accessModifier),
       K_CONSTRUCTOR,
-      K_PAREN_OPEN,
+      L_PAREN,
       ["args", $repeat($seq([classConstructorArg, $skip(",")]))],
       [{ key: "last", opt: true }, $seq([classConstructorArg, $skip_opt(",")])],
-      K_PAREN_CLOSE,
-      K_BRACE_OPEN,
+      R_PAREN,
+      L_BRACE,
       ["body", lines],
-      K_BRACE_CLOSE,
+      R_BRACE,
     ],
     (input: {
       args: Array<ParsedCostructorArg>;
@@ -608,9 +600,9 @@ const classField = $def(() =>
       $opt("#"),
       identifier,
       $skip_opt($seq([typeDeclareParameters])),
-      K_PAREN_OPEN,
+      L_PAREN,
       funcArgs,
-      K_PAREN_CLOSE,
+      R_PAREN,
       $skip_opt($seq([typeAnnotation])),
       block,
     ]),
@@ -636,9 +628,9 @@ const classExpr = $def(() =>
     $skip_opt(typeDeclareParameters),
     $opt($seq([whitespace, K_EXTENDS, whitespace, anyExpression])),
     $skip_opt($seq([K_IMPLEMENTS, typeExpression])),
-    K_BRACE_OPEN,
+    L_BRACE,
     $repeat_seq([classField]),
-    K_BRACE_CLOSE,
+    R_BRACE,
   ])
 );
 
@@ -649,9 +641,9 @@ const func = $def(() =>
     $opt($seq(["*"])),
     $opt($seq([whitespace, identifier])),
     $skip_opt(typeDeclareParameters),
-    K_PAREN_OPEN,
+    L_PAREN,
     funcArgs,
-    K_PAREN_CLOSE,
+    R_PAREN,
     $skip_opt(typeAnnotation),
     $or([block, anyStatement]),
   ])
@@ -663,7 +655,7 @@ const arrowFunc = $def(() =>
     $skip_opt(typeDeclareParameters),
     $opt("*"),
     $or([
-      $seq([K_PAREN_OPEN, funcArgs, K_PAREN_CLOSE, $skip_opt(typeAnnotation)]),
+      $seq([L_PAREN, funcArgs, R_PAREN, $skip_opt(typeAnnotation)]),
       identifier,
     ]),
     "=",
@@ -675,7 +667,7 @@ const arrowFunc = $def(() =>
 const newExpr = $def(() => $seq([K_NEW, whitespace, accessible]));
 
 const paren = $def(() =>
-  $seq([K_PAREN_OPEN, anyExpression, K_PAREN_CLOSE, $not([$seq(["=", ">"])])])
+  $seq([L_PAREN, anyExpression, R_PAREN, $not([$seq(["=", ">"])])])
 );
 
 const primary = $def(() =>
@@ -702,9 +694,9 @@ const access = $def(() =>
     $seq([
       $opt_seq(["?", "."]),
       $skip_opt(typeParameters),
-      K_PAREN_OPEN,
+      L_PAREN,
       callArguments,
-      K_PAREN_CLOSE,
+      R_PAREN,
     ]),
     $seq([
       $opt($or(["!", "?"])),
@@ -840,7 +832,7 @@ const _importRightSide = $def(() =>
       $seq(["*", K_AS, whitespace, identifier, whitespace]),
       // TODO: * as b
       $seq([
-        K_BRACE_OPEN,
+        L_BRACE,
         $repeat_seq([
           identifier,
           $opt($seq([whitespace, K_AS, whitespace, identifier])),
@@ -855,7 +847,7 @@ const _importRightSide = $def(() =>
             ),
           ])
         ),
-        K_BRACE_CLOSE,
+        R_BRACE,
       ]),
     ]),
     K_FROM,
@@ -882,7 +874,7 @@ const exportStatement = $def(() =>
     // export clause
     $seq([
       K_EXPORT,
-      K_BRACE_OPEN,
+      L_BRACE,
       $repeat_seq([
         defaultOrIdentifer,
         $opt($seq([whitespace, K_AS, whitespace, defaultOrIdentifer])),
@@ -896,7 +888,7 @@ const exportStatement = $def(() =>
           $opt(","),
         ])
       ),
-      K_BRACE_CLOSE,
+      R_BRACE,
       $opt($seq([K_FROM, stringLiteral])),
     ]),
     // export named expression
@@ -907,9 +899,9 @@ const exportStatement = $def(() =>
 const ifStatement = $def(() =>
   $seq([
     K_IF,
-    K_PAREN_OPEN,
+    L_PAREN,
     anyExpression,
-    K_PAREN_CLOSE,
+    R_PAREN,
     blockOrStmt,
     $opt(
       $seq([
@@ -929,10 +921,10 @@ const ifStatement = $def(() =>
 const switchStatement = $def(() =>
   $seq([
     K_SWITCH,
-    K_PAREN_OPEN,
+    L_PAREN,
     anyExpression,
-    K_PAREN_CLOSE,
-    K_BRACE_OPEN,
+    R_PAREN,
+    L_BRACE,
     $repeat_seq([
       $repeat_seq([K_CASE, whitespace, anyExpression, ":"], [1, Infinity]),
       $opt(
@@ -947,7 +939,7 @@ const switchStatement = $def(() =>
       ),
     ]),
     $opt($seq([K_DEFAULT, ":", $or([block, caseClause])])),
-    K_BRACE_CLOSE,
+    R_BRACE,
   ])
 );
 
@@ -1000,13 +992,13 @@ const interfaceStatement = $def(() =>
 const forStatement = $def(() =>
   $seq([
     K_FOR,
-    K_PAREN_OPEN,
+    L_PAREN,
     $opt($or([variableStatement, anyExpression])),
     ";",
     $opt(anyExpression),
     ";",
     $opt(anyExpression),
-    K_PAREN_CLOSE,
+    R_PAREN,
     blockOrStmt,
   ])
 );
@@ -1016,20 +1008,20 @@ const variableType = $or([K_VAR, K_CONST, K_LET]);
 const forItemStatement = $def(() =>
   $seq([
     K_FOR,
-    K_PAREN_OPEN,
+    L_PAREN,
     $seq([variableType, whitespace]),
     destructive,
     whitespace,
     $or(["of", "in"]),
     whitespace,
     anyExpression,
-    K_PAREN_CLOSE,
+    R_PAREN,
     blockOrStmt,
   ])
 );
 
 const whileStatement = $def(() =>
-  $seq([K_WHILE, K_PAREN_OPEN, anyExpression, K_PAREN_CLOSE, blockOrStmt])
+  $seq([K_WHILE, L_PAREN, anyExpression, R_PAREN, blockOrStmt])
 );
 
 const doWhileStatement = $def(() =>
@@ -1038,9 +1030,9 @@ const doWhileStatement = $def(() =>
       K_DO,
       $or([$seq([block]), $seq([anyStatement])]),
       K_WHILE,
-      K_PAREN_OPEN,
+      L_PAREN,
       anyExpression,
-      K_PAREN_CLOSE,
+      R_PAREN,
     ]),
   ])
 );
@@ -1058,7 +1050,7 @@ const tryCatchStatement = $def(() =>
       $or([
         $seq([
           K_CATCH,
-          $opt($seq([K_PAREN_OPEN, anyExpression, K_PAREN_CLOSE])),
+          $opt($seq([L_PAREN, anyExpression, R_PAREN])),
 
           block,
           $opt($seq([_finally])),
@@ -1081,7 +1073,7 @@ const enumStatement = $def(() =>
       K_ENUM,
       whitespace,
       ["enumName", identifier],
-      K_BRACE_OPEN,
+      L_BRACE,
       [
         "items",
         $repeat(
@@ -1100,7 +1092,7 @@ const enumStatement = $def(() =>
           $skip_opt(","),
         ]),
       ],
-      K_BRACE_CLOSE,
+      R_BRACE,
     ],
     (input: {
       enumName: string;
@@ -1403,13 +1395,13 @@ const lines = $def(() =>
   $seq([$repeat_seq([line]), $opt(anyStatement), $skip_opt(";")])
 );
 
-const block = $def(() => $seq([K_BRACE_OPEN, lines, K_BRACE_CLOSE]));
+const block = $def(() => $seq([L_BRACE, lines, R_BRACE]));
 
 export const program = $def(() => $seq([lines, $eof()]));
 
 import { test, run, is } from "@mizchi/test";
 import { Rule } from "../../pargen-tokenized/src/types";
-import { CONTROL_TOKENS, parseTokens } from "./tokenizer";
+import { parseTokens } from "./tokenizer";
 
 const isMain = require.main === module;
 

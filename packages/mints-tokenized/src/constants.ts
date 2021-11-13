@@ -1,8 +1,3 @@
-// export const _ = "[\\s\\n]*";
-export const _ = "([\\s\\n]+)?";
-export const __ = `[\\s\\n]+`;
-export const K_QUESTION = "?";
-export const K_BANG = "!";
 export const K_CASE = "case";
 export const K_TRY = "try";
 export const K_CONSTRUCTOR = "constructor";
@@ -59,62 +54,6 @@ export const K_ENUM = "enum";
 export const K_WITH = "with";
 export const K_SUPER = "super";
 
-export const K_PAREN_OPEN = "(";
-export const K_PAREN_CLOSE = ")";
-export const K_BLACE_OPEN = "{";
-export const K_BLACE_CLOSE = "}";
-
-// "(?!.*@N).*?"
-// export const PAIRED_CHARS = ["(", ")", "{", "}", "[", "]", "<", ">"] as const;
-export const REST_SPREAD = "...";
-export const SPACE_REQUIRED_OPERATORS = [K_INSTANCEOF, K_IN];
-
-const SINGLE_OPERATORS = [
-  "+",
-  "-",
-  "|",
-  "&",
-  "*",
-  "/",
-  ">",
-  "<",
-  "^",
-  "%",
-  "=",
-];
-
-export const OPERATORS = [
-  // relation
-  // "instanceof",
-  // "in",
-
-  // 3 chars
-  ">>>",
-  "===",
-  "!==",
-
-  // 2 chars
-  "||",
-  "&&",
-  "**",
-  ">=",
-  "<=",
-  "==",
-  "!=",
-  "<<",
-  ">>",
-
-  "+=",
-  "-=",
-  "*=",
-  "|=",
-  "/=",
-  "??",
-
-  // 1 chars
-  ...SINGLE_OPERATORS,
-] as const;
-
 const KEYWORDS = [
   K_BREAK,
   K_DO,
@@ -135,7 +74,7 @@ const KEYWORDS = [
   K_DEBUGGER,
   K_FUNCTION,
   K_THIS,
-  "with",
+  K_WITH,
   K_DEFAULT,
   K_IF,
   K_THROW,
@@ -162,5 +101,51 @@ const KEYWORDS = [
 ] as const;
 
 export const LITERAL_KEYWORDS = [K_NULL, K_TRUE, K_FALSE] as const;
-
 export const RESERVED_WORDS = [...KEYWORDS, ...LITERAL_KEYWORDS] as const;
+export const DOUBLE_QUOTE = '"';
+export const SINGLE_QUOTE = "'";
+export const BACK_QUOTE = "`";
+export const SLASH = "/";
+export const L_BRACE = "{";
+export const R_BRACE = "}";
+export const L_PAREN = "(";
+export const R_PAREN = ")";
+export const K_QUESTION = "?";
+export const K_BANG = "!";
+export const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE] as const;
+
+export const CONTROL_TOKENS = [
+  ";",
+  ",",
+  L_BRACE,
+  R_BRACE,
+  L_PAREN,
+  R_PAREN,
+  "+",
+  "-",
+  SLASH,
+  "%",
+  ">",
+  "<",
+  SINGLE_QUOTE,
+  DOUBLE_QUOTE,
+  BACK_QUOTE,
+  "=",
+  K_BANG,
+  "&",
+  "|",
+  "^",
+  "~",
+  "?",
+  ":",
+  ".",
+  "*",
+  "#",
+  "[",
+  "]",
+  "\n",
+  "\r",
+  "\t",
+  " ",
+];
+export const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
