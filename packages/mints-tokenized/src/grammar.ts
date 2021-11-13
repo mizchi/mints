@@ -172,7 +172,7 @@ const _typeNameableItem = $def(() =>
     $seq([
       // start: number,
       identifier,
-      $opt($seq([K_QUESTION])),
+      $opt(K_QUESTION),
       ":",
       typeExpression,
     ]),
@@ -398,7 +398,9 @@ const stringLiteral = $def(() =>
   ])
 );
 
-// const nonBacktickChars = "[^`]*";
+const regexpLiteral = $def(() =>
+  $seq(["/", $regex(/^[^/]+$/u), "/", $opt($regex(/^[gimuy]*$/u))])
+);
 
 // const templateLiteralString = $def(() => $regex(/^[^`]+$/mu));
 const templateExpressionStart = $token("${");
@@ -416,8 +418,6 @@ const templateLiteral = $def(() =>
     "`",
   ])
 );
-
-const regexpLiteral = $def(() => $seq([$r`\\/[^\\/]+\\/([igmsuy]*)?`]));
 
 // TODO: 111_000
 // TODO: 0b1011
@@ -719,7 +719,7 @@ const primary = $def(() =>
     objectLiteral,
     arrayLiteral,
     stringLiteral,
-    // regexpLiteral,
+    regexpLiteral,
     templateLiteral,
     identifier,
     // should be after identifier
@@ -872,10 +872,9 @@ const binaryOperator = $or([
   $seq(["=", $not([">"])]),
 ]);
 
-const asExpr = $def(() =>
+const binaryAsExpr = $def(() =>
   $seq([
     binary,
-    // WIP
     $skip_opt($seq([whitespace, K_AS, whitespace, typeExpression])),
   ])
 );
@@ -895,16 +894,19 @@ const binary = $def(() =>
 
 // a ? b: c
 const ternary = $def(() =>
-  $or([$seq([asExpr, K_QUESTION, anyExpression, ":", anyExpression]), asExpr])
+  $or([
+    $seq([binaryAsExpr, K_QUESTION, anyExpression, ":", anyExpression]),
+    binaryAsExpr,
+  ])
 );
 
 const anyExpression = ternary;
 
 const typeAnnotation = $seq([":", typeExpression]);
 // const emptyStatement = $def(() => $seq([$r`(\\s)*`]));
-const breakStatement = $def(() => K_BREAK);
-const continueStatement = $def(() => K_CONTINUE);
-const debuggerStatement = $def(() => K_DEBUGGER);
+const breakStmt = $def(() => K_BREAK);
+const continueStmt = $def(() => K_CONTINUE);
+const debuggerStmt = $def(() => K_DEBUGGER);
 
 // it includes yield and throw
 const returnLikeStmt = $def(() =>
@@ -933,11 +935,11 @@ const throwStmt = $def(() =>
   $seq([K_THROW, whitespace, $or([newExpr, anyExpression])])
 );
 
-const blockOrStatement = $def(() => $or([block, anyStatement]));
+const blockOrStmt = $def(() => $or([block, anyStatement]));
 
-const blockStatement = $def(() => block);
+const blockStmt = $def(() => block);
 
-const labeledStatement = $def(() => $seq([identifier, ":", anyStatement]));
+const labeledStmt = $def(() => $seq([identifier, ":", anyStatement]));
 
 const _importRightSide = $def(() =>
   $seq([
@@ -970,7 +972,7 @@ const _importRightSide = $def(() =>
   ])
 );
 
-const importStatement = $def(() =>
+const importStmt = $def(() =>
   $or([
     // import 'specifier';
     $seq([K_IMPORT, stringLiteral]),
@@ -1019,7 +1021,7 @@ const ifStatement = $def(() =>
     K_PAREN_OPEN,
     anyExpression,
     K_PAREN_CLOSE,
-    blockOrStatement,
+    blockOrStmt,
     // $or([block, $seq([anyStatement])]),
     $opt(
       $seq([
@@ -1064,19 +1066,12 @@ const switchStatement = $def(() =>
 const assign = $def(() => $seq(["=", $not([">"]), anyExpression]));
 const variableStatement = $def(() =>
   $seq([
-    // single
     declareType,
     whitespace,
-    // x, y=1,
-    $repeat_seq([
-      destructive,
-      $skip_opt(typeAnnotation),
-      $opt($seq([assign])),
-      ",",
-    ]),
+    $repeat_seq([destructive, $skip_opt(typeAnnotation), $opt(assign), ","]),
     destructive,
     $skip_opt(typeAnnotation),
-    $opt($seq([assign])),
+    $opt(assign),
   ])
 );
 
@@ -1124,7 +1119,7 @@ const forStatement = $def(() =>
     ";",
     $opt(anyExpression),
     K_PAREN_CLOSE,
-    blockOrStatement,
+    blockOrStmt,
   ])
 );
 
@@ -1143,12 +1138,12 @@ const forItemStatement = $def(() =>
     whitespace,
     anyExpression,
     K_PAREN_CLOSE,
-    blockOrStatement,
+    blockOrStmt,
   ])
 );
 
 const whileStatement = $def(() =>
-  $seq([K_WHILE, K_PAREN_OPEN, anyExpression, K_PAREN_CLOSE, blockOrStatement])
+  $seq([K_WHILE, K_PAREN_OPEN, anyExpression, K_PAREN_CLOSE, blockOrStmt])
 );
 
 const doWhileStatement = $def(() =>
@@ -1392,7 +1387,7 @@ const semicolonlessStatement = $def(() =>
       interfaceStatement,
       forStatement,
       forItemStatement,
-      blockStatement,
+      blockStmt,
     ]),
     // $seq([$opt(";")]),
   ])
@@ -1424,11 +1419,11 @@ const semicolonRequiredStatement = $def(() =>
 export const anyStatement = $def(() =>
   $or([
     // "debbuger"
-    debuggerStatement,
+    debuggerStmt,
     // break ...
-    breakStatement,
+    breakStmt,
     // continue ...
-    continueStatement,
+    continueStmt,
     // return ...
     returnLikeStmt,
     // throw ...
@@ -1448,7 +1443,7 @@ export const anyStatement = $def(() =>
     // enum
     enumStatement,
     // import ...
-    importStatement,
+    importStmt,
     // export ...
     exportStatement,
     // for ...
@@ -1461,9 +1456,9 @@ export const anyStatement = $def(() =>
     // switch ...
     switchStatement,
     // foo: ...
-    labeledStatement,
+    labeledStmt,
     // { ...
-    blockStatement,
+    blockStmt,
     // other expression
     expressionStatement,
   ])
@@ -1623,11 +1618,11 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "`a${a}`");
     expectSuccess(parse, "`${a}_${b}_c`");
   });
-  //   test("RegExp", () => {
-  //     const parse = compile(regexpLiteral);
-  //     expectSame(parse, ["/hello/", "/hello/i", "/hello/gui"]);
-  //     expectError(parse, ["//"]);
-  //   });
+  test("RegExp", () => {
+    const parse = compile(regexpLiteral);
+    expectSuccessList(parse, ["/hello/", "/hello/i", "/hello/gui"]);
+    // expectError(parse, ["//"]);
+  });
 
   test("number", () => {
     const parse = compile(numberLiteral);
@@ -1833,7 +1828,9 @@ if (process.env.NODE_ENV === "test") {
       "1+(1)",
       "(1)+1",
       "(1+1)+1",
-      "(1+1)*1+2/(3/4)",
+      // "(1+1)*1+2/ (3/4)",
+      "3/4",
+      // "3 / 4 / 5",
       "a in []",
       "a instanceof Array",
       "this.#a",
@@ -1844,6 +1841,7 @@ if (process.env.NODE_ENV === "test") {
       "1+1",
       "(1)",
     ]);
+    expectSuccess(parse, "1 / 2 / 3", "1/2/3");
   });
 
   test("ternary", () => {
@@ -1942,7 +1940,7 @@ if (process.env.NODE_ENV === "test") {
 
   // it depends expression and as
   test("asExpr", () => {
-    const parse = compile(asExpr);
+    const parse = compile(binaryAsExpr);
     is(parse("1"), "1");
     is(parse("1 as number"), "1");
     is(parse("1 + 1 as number"), "1+1");
@@ -1952,7 +1950,7 @@ if (process.env.NODE_ENV === "test") {
 
   // simple statement
   test("debugger", () => {
-    const parse = compile(debuggerStatement);
+    const parse = compile(debuggerStmt);
     is(parse("debugger"), "debugger");
   });
 
@@ -2153,7 +2151,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("importStatement", () => {
-    const parse = compile(importStatement);
+    const parse = compile(importStmt);
     expectSuccessList(parse, [
       "import'foo'",
       "import'foo'",
