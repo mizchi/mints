@@ -64,6 +64,8 @@ function* parseStream(
   let openParenStack = 0;
   let isLineComment = false;
   let isInlineComment = false;
+  let jsxTagDepth = 0;
+
   let i: number;
   for (i = initialCursor; i < chars.length; i++) {
     const char = chars[i];
@@ -73,6 +75,7 @@ function* parseStream(
       }
       continue;
     }
+
     // skip under inline comment
     if (isInlineComment) {
       const nextChar = chars[i + 1];
@@ -120,9 +123,106 @@ function* parseStream(
       }
       continue;
     }
+
+    const nextChar = chars[i + 1];
+
+    // if (jsxTagDepth > 0) {
+    //   if (char === L_BRACE) {
+    //     // handle {x}
+    //     if (_buf.length > 0) {
+    //       yield _buf;
+    //       _buf = "";
+    //     }
+    //     yield char;
+    //     i += 1;
+    //     for (const tok of parseStream(chars, i, false)) {
+    //       if (typeof tok === "string") {
+    //         yield tok;
+    //       } else {
+    //         i = tok;
+    //       }
+    //     }
+    //     yield R_BRACE;
+    //     i += 1;
+    //     continue;
+    //   }
+    //   // open child tag
+    //   if (char === "<" && nextChar !== "/") {
+    //     if (_buf.length > 0) {
+    //       yield _buf;
+    //       _buf = "";
+    //     }
+    //     yield char;
+    //     jsxTagDepth += 1;
+    //     continue;
+    //   }
+
+    //   // close tag:  </...>
+    //   if (char === "<" && nextChar === "/") {
+    //     if (_buf.length > 0) {
+    //       yield _buf;
+    //       _buf = "";
+    //     }
+    //     yield "<";
+    //     yield "/";
+    //     i += 2;
+    //     const next = chars.indexOf(">", i);
+    //     // console.log(
+    //     //   "[search close tag]",
+    //     //   i,
+    //     //   chars,
+    //     //   chars[i],
+    //     //   next
+    //     //   // chars.slice(i),
+    //     //   // next
+    //     // );
+    //     if (next === -1) throw new Error("TODO: unexpected end of jsx tag");
+    //     // TODO: Handle unclosed tag
+    //     yield Array.from(chars.slice(i, next)).join("");
+    //     yield ">";
+    //     i = next + 1;
+    //     jsxTagDepth--;
+    //     continue;
+    //   }
+    //   if ([" ", "\n", "\t"].includes(char)) {
+    //     // _buf
+    //     if (_buf.length > 0) {
+    //       yield _buf;
+    //       _buf = "";
+    //     }
+    //   } else if (char === ">") {
+    //     if (_buf.length > 0) {
+    //       yield _buf;
+    //       _buf = "";
+    //     }
+    //     yield char;
+    //   } else {
+    //     _buf += char;
+    //   }
+    //   continue;
+    // }
+
     if (CONTROL_TOKENS.includes(char)) {
-      const nextChar = chars[i + 1];
       let isEOL = false;
+      // JSX
+      // if (
+      //   char === "<" &&
+      //   nextChar !== " " &&
+      //   // [\(\s\n]<div></div>
+      //   [" ", "\n", "(", undefined].includes(chars[i - 1]) &&
+      //   chars.indexOf("/>", i) > 0
+      // ) {
+      //   if (_buf.length > 0) {
+      //     yield _buf;
+      //     _buf = "";
+      //   }
+      //   yield "<";
+      //   // Enter JSX Mode
+      //   jsxTagDepth++;
+      //   continue;
+      // }
+
+      // comment, line-comment, regex
       if (char === SLASH) {
         if (nextChar === "*") {
           if (_buf.length > 0) {
@@ -235,15 +335,6 @@ if (process.env.NODE_ENV === "test") {
     expectParseResult("/a\nb/", ["/", "a", "b", "/"]);
   });
 
-  // TODO: Handle escape
-  // test("parse escaped string", () => {
-  //   // prettier-ignore
-  //   const input = "'\'aaa\''";
-  //   // prettier-ignore
-  //   let expected = ["'", "'aaa'", "'"];
-  //   expectParseResult(input, expected);
-  // });
-
   test("parse template", () => {
     const input = "`xxx`";
     let expected = ["`", "xxx", "`"];
@@ -347,6 +438,32 @@ if (process.env.NODE_ENV === "test") {
     eq(lineEndCount, 1);
     eq(after, ["1"]);
   });
+
+  test("jsx", () => {
+    expectParseResult("<a>text</a>", [
+      "<",
+      "a",
+      ">",
+      "text",
+      "<",
+      "/",
+      "a",
+      ">",
+    ]);
+
+    expectParseResult("<a>a b</a>", [
+      "<",
+      "a",
+      ">",
+      "a",
+      "b",
+      "<",
+      "/",
+      "a",
+      ">",
+    ]);
+  });
+
   // test("Multiline", () => {
   //   let lineEndCount = 0;
   //   for (const token of parseStream("{}\n{};1")) {

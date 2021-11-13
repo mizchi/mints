@@ -1231,7 +1231,7 @@ const enumStatement = $def(() =>
   )
 );
 
-const jsxElement = $seq([$skip("{"), anyExpression, $skip("}")]);
+const jsxInlineExpr = $seq([$skip("{"), anyExpression, $skip("}")]);
 
 const jsxText = $seq([$regex("^[^<>{]+$")], (input) => {
   return `"${input
@@ -1241,12 +1241,10 @@ const jsxText = $seq([$regex("^[^<>{]+$")], (input) => {
 });
 
 const jsxAttributes = $repeat(
-  // $or([
   $seqo([
     ["name", identifier],
-    ["value", $seq([$skip_opt("="), $or([stringLiteral, jsxElement])])],
+    ["value", $seq([$skip_opt("="), $or([stringLiteral, jsxInlineExpr])])],
   ])
-  // ])
 );
 
 const buildJsxCode = (
@@ -1277,76 +1275,78 @@ const buildJsxCode = (
   return `${config.jsx}(${element}${data}${childrenCode})`;
 };
 
-const jsxExpression = $def(() =>
-  $or([
-    // paired tag
-    $seqo(
-      [
-        "<",
-        [{ key: "ident", push: true }, $or([accessible, ""])],
-        $skip_opt(typeDeclareParameters),
-        ["attributes", jsxAttributes],
-        ">",
-        ["children", $repeat_seq([$or([jsxExpression, jsxText, jsxElement])])],
-        "<",
-        "/",
-        [
-          {
-            key: "close",
-            pop: (a, b, ctx) => {
-              // TODO: Impl
-              return true;
-            },
-          },
-          $or([accessible, ""]),
-        ],
-        ">",
-      ],
-      (input: {
-        ident: string[];
-        attributes: Array<{ name: string[]; value: string[] }>;
-        children: Array<string>;
-      }) => {
-        return buildJsxCode(
-          input.ident.join(""),
-          // input.attributes,
-          input.attributes.map((a) => {
-            return {
-              name: a.name.join(""),
-              value: a.value.join(""),
-            };
-          }),
-          input.children
-        );
-      }
-    ),
+const IDENT = "1";
+const ATTRIBUTES = "2";
+const CHILDREN = "3";
 
-    // self closing
-    $seqo(
+const jsxElement = $def(() =>
+  $seqo(
+    [
+      "<",
+      [{ key: IDENT, push: true }, $or([accessible, ""])],
+      $skip_opt(typeDeclareParameters),
+      [ATTRIBUTES, jsxAttributes],
+      ">",
+      [CHILDREN, $repeat_seq([$or([jsxExpression, jsxInlineExpr, jsxText])])],
+      "<",
+      "/",
       [
-        "<",
-        ["ident", $or([accessible])],
-        $skip_opt(typeDeclareParameters),
-        ["attributes", jsxAttributes],
-        "/",
-        ">",
+        {
+          key: "close",
+          pop: (a, b, ctx) => {
+            // TODO: Impl
+            return true;
+          },
+        },
+        $or([accessible, ""]),
       ],
-      (input: {
-        ident: string[];
-        attributes: Array<{ name: string[]; value?: string[] }>;
-      }) => {
-        console.log("self closing input", input);
-        return buildJsxCode(
-          input.ident.join(""),
-          input.attributes.map((a) => ({
+      ">",
+    ],
+    (input: {
+      [IDENT]: string[];
+      [ATTRIBUTES]: Array<{ name: string[]; value: string[] }>;
+      [CHILDREN]: Array<string>;
+    }) => {
+      return buildJsxCode(
+        input[IDENT].join(""),
+        input[ATTRIBUTES].map((a) => {
+          return {
             name: a.name.join(""),
-            value: a.value?.join("") ?? "",
-          }))
-        );
-      }
-    ),
-  ])
+            value: a.value.join(""),
+          };
+        }),
+        input[CHILDREN]
+      );
+    }
+  )
 );
+
+const jsxSelfCloseElement = $def(() =>
+  $seqo(
+    [
+      "<",
+      [IDENT, accessible],
+      $skip_opt(typeDeclareParameters),
+      [ATTRIBUTES, jsxAttributes],
+      "/",
+      ">",
+    ],
+    (input: {
+      [IDENT]: string[];
+      [ATTRIBUTES]: Array<{ name: string[]; value?: string[] }>;
+    }) => {
+      return buildJsxCode(
+        input[IDENT].join(""),
+        input[ATTRIBUTES].map((a) => ({
+          name: a.name.join(""),
+          value: a.value?.join("") ?? "",
+        }))
+      );
+    }
+  )
+);
+
+const jsxExpression = $def(() => $or([jsxSelfCloseElement, jsxElement]));
 
 const expressionStatement = $def(() =>
   $seq([anyExpression, $repeat_seq([",", anyExpression])])
@@ -2258,7 +2258,7 @@ if (process.env.NODE_ENV === "test") {
     is(parse(`enum X { a = "foo", b = "bar" }`), `const X={a:"foo",b:"bar",};`);
   });
 
-  test("transform: jsx", () => {
+  test("transform: jsx-self-closing", () => {
     const parse = compile(jsxExpression);
     is(parse("<div />"), `React.createElement("div",{})`);
     is(parse(`<div x="a" y={1} />`), `React.createElement("div",{x:"a",y:1,})`);
@@ -2268,12 +2268,12 @@ if (process.env.NODE_ENV === "test") {
     );
     is(parse(`<div x={1} />`), `React.createElement("div",{x:1,})`);
     is(parse(`<div x={foo+1} />`), `React.createElement("div",{x:foo+1,})`);
+  });
+  test("transform: jsx-element", () => {
+    const parse = compile(jsxExpression);
+    is(parse("<div></div>"), `React.createElement("div",{})`);
+    is(parse("<div>a</div>"), `React.createElement("div",{},'a')`);
 
-    //     // paired
-    //     is(parse("<div><hr /><hr /></div>"), {
-    //       error: false,
-    //       result: `React.createElement("div",{},React.createElement("hr",{}),React.createElement("hr",{}))`,
-    //     });
     //     is(parse("<div>aaa</div>"), {
     //       error: false,
     //       result: `React.createElement("div",{},"aaa")`,
