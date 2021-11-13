@@ -1220,7 +1220,7 @@ const enumStatement = $def(() =>
     }) => {
       let baseValue = 0;
       let out = `const ${input.enumName}={`;
-      console.log("input", input);
+      // console.log("input", input);
       for (const item of [...(input.items ?? []), ...(input.last ?? [])]) {
         let val: string | number;
         if (item.assign) {

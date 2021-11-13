@@ -289,7 +289,7 @@ if (process.env.NODE_ENV === "test") {
   run({ stopOnFail: true, stub: true, isMain });
 }
 
-if (process.env.NODE_ENV === "perf") {
+if (process.env.NODE_ENV === "perf" && isMain) {
   const fs = require("fs");
   const path = require("path");
   const code = fs.readFileSync(
