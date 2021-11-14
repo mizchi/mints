@@ -1,6 +1,12 @@
-// import { createParseSuccess } from "./../../pargen/src/compiler";
+import type {
+  Compiler,
+  ParseResult,
+  RootCompiler,
+  RootParser,
+  Seq,
+} from "./types";
+
 import { compileFragment, success } from "./runtime";
-import { Compiler, ParseResult, RootCompiler, RootParser, Seq } from "./types";
 
 const isNumber = (x: any): x is number => typeof x === "number";
 
@@ -20,13 +26,13 @@ export function createContext(partial: Partial<Compiler> = {}) {
     const resolved = end
       ? ({
           id: 0, // shoud be zero
-          kind: SEQ,
+          kind: RULE_SEQ,
           primitive: true,
           children: [
             _resolved,
             {
               id: 1,
-              kind: EOF,
+              kind: RULE_EOF,
               primitive: true,
             },
           ],
@@ -80,14 +86,14 @@ import {
   createRef,
 } from "./builder";
 import {
-  EOF,
-  ERROR_Eof_Unmatch,
-  ERROR_Or_UnmatchAll,
-  ERROR_Repeat_RangeError,
-  ERROR_Seq_Stop,
-  ERROR_Seq_UnmatchStack,
-  ERROR_Token_Unmatch,
-  SEQ,
+  RULE_EOF,
+  CODE_EOF_UNMATCH,
+  CODE_OR_UNMATCH_ALL,
+  CODE_REPEAT_RANGE,
+  CODE_SEQ_STOP,
+  CODE_SEQ_UNMATCH_STACK,
+  CODE_TOKEN_UNMATCH,
+  RULE_SEQ,
 } from "./constants";
 if (process.env.NODE_ENV === "test" && require.main === module) {
   const _buildTokens = (tokens: string[], xs: any[]) => {
@@ -147,7 +153,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const { compile } = createContext();
     const parse = compile($eof());
     is(parse([]), { results: [] });
-    is(parse(["a"]), { error: true, errorType: ERROR_Eof_Unmatch });
+    is(parse(["a"]), { error: true, code: CODE_EOF_UNMATCH });
   });
 
   test("any", () => {
@@ -298,8 +304,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parser, ["a", "x", "b"], "ab");
     is(parser(["a", "b"]), {
       error: true,
-      errorType: ERROR_Seq_Stop,
-      childError: { errorType: ERROR_Token_Unmatch },
+      code: CODE_SEQ_STOP,
+      childError: { code: CODE_TOKEN_UNMATCH },
     });
   });
 
@@ -318,11 +324,11 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parse, ["a", "a", "a"], "aaa");
     expectSuccess(parse, ["b"], "");
     const parseWithMin = compile($repeat($token("a"), [1, 3]));
-    is(parseWithMin([]), { error: true, errorType: ERROR_Repeat_RangeError });
+    is(parseWithMin([]), { error: true, code: CODE_REPEAT_RANGE });
     is(parseWithMin(["a"]), { error: false });
     is(parseWithMin(["a", "a", "a", "a"]), {
       error: true,
-      errorType: ERROR_Repeat_RangeError,
+      code: CODE_REPEAT_RANGE,
     });
   });
 
@@ -368,11 +374,11 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     // expectSuccessSeqObject(parser, ["a"], { a: [0] });
     is(parser(["x"]), {
       childError: {
-        errorType: ERROR_Token_Unmatch,
+        code: CODE_TOKEN_UNMATCH,
       },
       pos: 0,
       error: true,
-      errorType: ERROR_Seq_Stop,
+      code: CODE_SEQ_STOP,
     });
   });
 
@@ -391,18 +397,18 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parser, ["y"], "y");
     is(parser(["z"]), {
       error: true,
-      errorType: ERROR_Or_UnmatchAll,
+      code: CODE_OR_UNMATCH_ALL,
       pos: 0,
       errors: [
         {
           // error: true,
           pos: 0,
-          errorType: ERROR_Token_Unmatch,
+          code: CODE_TOKEN_UNMATCH,
         },
         {
           // error: true,
           pos: 0,
-          errorType: ERROR_Token_Unmatch,
+          code: CODE_TOKEN_UNMATCH,
         },
       ],
       // ]
@@ -418,10 +424,10 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser(["x", "y", "b"]), {
       error: true,
       pos: 2,
-      errorType: ERROR_Seq_Stop,
+      code: CODE_SEQ_STOP,
       childError: {
         error: true,
-        errorType: ERROR_Token_Unmatch,
+        code: CODE_TOKEN_UNMATCH,
       },
     });
   });
@@ -536,7 +542,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
     is(parser(["x", "y"]), {
       error: true,
-      errorType: ERROR_Seq_UnmatchStack,
+      code: CODE_SEQ_UNMATCH_STACK,
     });
   });
   test("paired close: like jsx", () => {
@@ -561,7 +567,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
     is(parser(["<", "div", ">", "x", "<", "/", "a", ">"]), {
       error: true,
-      errorType: ERROR_Seq_UnmatchStack,
+      code: CODE_SEQ_UNMATCH_STACK,
     });
   });
   test("paired close: like jsx nested", () => {
@@ -631,7 +637,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       ]),
       {
         error: true,
-        errorType: ERROR_Seq_UnmatchStack,
+        code: CODE_SEQ_UNMATCH_STACK,
       }
     );
   });

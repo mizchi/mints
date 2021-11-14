@@ -19,8 +19,8 @@ export function reportError(
   const errorLineNumber = lines.length;
   const linePrefix = `L${errorLineNumber}: `;
   const errorNextLine = input.slice(err.pos).split(/[\n;]/)[0];
-  // const errorSummary = `ParseError: ${err.errorType}[${err.rule.kind}] defId:${err.rootId} => nodeId:${err.rule.id}`;
-  const errorSummary = `ParseError: ${err.errorType} defId:${err.rootId}`;
+  // const errorSummary = `ParseError: ${err.code}[${err.rule.kind}] defId:${err.rootId} => nodeId:${err.rule.id}`;
+  const errorSummary = `ParseError: ${err.code} defId:${err.rootId}`;
   const outputLine = `${linePrefix}${errorLine}${errorNextLine}`;
   const errorCursor =
     " ".repeat(linePrefix.length) + " ".repeat(err.pos - errorLineStart) + "^";
@@ -33,18 +33,18 @@ function findDeepestError(
   currentError: ParseError
 ): ParseError {
   if (error.pos === currentError.pos) {
-    if (error.errorType === ERROR_Token_Unmatch) {
+    if (error.code === ERROR_Token_Unmatch) {
       currentError = error;
     }
   } else {
     currentError = error.pos > currentError.pos ? error : currentError;
   }
 
-  if (error.errorType === ERROR_Seq_Stop) {
+  if (error.code === ERROR_Seq_Stop) {
     currentError = findDeepestError(error.childError, currentError);
   }
 
-  if (error.errorType === ERROR_Or_UnmatchAll) {
+  if (error.code === ERROR_Or_UnmatchAll) {
     for (const e of error.errors) {
       currentError = findDeepestError(e, currentError);
     }

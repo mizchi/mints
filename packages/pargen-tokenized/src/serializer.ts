@@ -1,5 +1,5 @@
-import { REGEX, SEQ, TOKEN } from "./constants";
-import { Rule, SerializedRule, SerializedToken } from "./types";
+import type { Rule, SerializedRule, SerializedToken } from "./types";
+import { RULE_REGEX, RULE_SEQ, RULE_TOKEN } from "./constants";
 
 // const NULL_FUNCTION_PTR = 0;
 const NULL_STRING_PTR = 0;
@@ -49,14 +49,14 @@ export function createSerializer() {
     //   addFunc(undefined),
     //   // addFunc(node.reshape),
     // ];
-    if (node.kind === TOKEN) {
+    if (node.kind === RULE_TOKEN) {
       return [node.kind, node.expr] as SerializedToken;
     }
-    if (node.kind === REGEX) {
+    if (node.kind === RULE_REGEX) {
       // @ts-ignore
       return [node.kind, addString(node.expr)];
     }
-    if (node.kind === SEQ) {
+    if (node.kind === RULE_SEQ) {
       // @ts-ignore
       node.children.forEach(serialize);
       // @ts-ignore

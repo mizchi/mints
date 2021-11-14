@@ -257,7 +257,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
     is(parser("xz"), {
       error: true,
-      errorType: ERROR_Seq_Stop,
+      code: ERROR_Seq_Stop,
       pos: 1,
       errorChild: {},
       // detail: {
@@ -265,20 +265,20 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       //     pos: 1,
       //     // detail: '"z" does not fill: y',
       //     error: true,
-      //     errorType: ErrorType.Token_Unmatch,
+      //     code: ErrorType.Token_Unmatch,
       //   },
       // },
     });
     is(parser(" xy"), {
       error: true,
-      errorType: ERROR_Seq_Stop,
+      code: ERROR_Seq_Stop,
       pos: 0,
       errorChild: {},
       // detail: {
       //   child: {
       //     error: true,
       //     pos: 0,
-      //     errorType: ErrorType.Token_Unmatch,
+      //     code: ErrorType.Token_Unmatch,
       //     // detail: '" xy" does not fill: x',
       //   },
       // },
@@ -338,12 +338,12 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
     is(parser("x"), {
       error: true,
-      errorType: ERROR_Seq_Stop,
+      code: ERROR_Seq_Stop,
       pos: 0,
       childError: {
         pos: 0,
         error: true,
-        errorType: ERROR_Token_Unmatch,
+        code: ERROR_Token_Unmatch,
       },
     });
   });
@@ -562,19 +562,19 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
     is(parser("z"), {
       error: true,
-      errorType: ERROR_Or_UnmatchAll,
+      code: ERROR_Or_UnmatchAll,
       pos: 0,
       errors: [
         {
           error: true,
           pos: 0,
-          errorType: ERROR_Token_Unmatch,
+          code: ERROR_Token_Unmatch,
           // detail: "x",
         },
         {
           error: true,
           pos: 0,
-          errorType: ERROR_Token_Unmatch,
+          code: ERROR_Token_Unmatch,
           // detail: "y",
         },
       ],
@@ -595,27 +595,27 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parser("xyb"), {
       error: true,
       pos: 0,
-      errorType: ERROR_Or_UnmatchAll,
+      code: ERROR_Or_UnmatchAll,
       // errors: [
       //   {
       //     error: true,
-      //     errorType: ErrorType.Seq_Stop,
+      //     code: ErrorType.Seq_Stop,
       //     pos: 0,
       //     childError: {
       //       error: true,
       //       pos: 0,
-      //       errorType: ErrorType.Token_Unmatch,
+      //       code: ErrorType.Token_Unmatch,
       //       // detail: "xyz",
       //     },
       //   },
       //   {
       //     error: true,
-      //     errorType: ErrorType.Seq_Stop,
+      //     code: ErrorType.Seq_Stop,
       //     pos: 0,
       //     childError: {
       //       error: true,
       //       pos: 0,
-      //       errorType: ErrorType.Token_Unmatch,
+      //       code: ErrorType.Token_Unmatch,
       //       // detail: "xya",
       //     },
       //   },

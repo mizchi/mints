@@ -1,11 +1,12 @@
+import type { ParseError } from "./types";
+
 import {
-  ERROR_Not_IncorrectMatch,
-  ERROR_Or_UnmatchAll,
-  ERROR_Regex_Unmatch,
-  ERROR_Seq_Stop,
-  ERROR_Token_Unmatch,
+  CODE_NOT_INCORRECT_MATCH,
+  CODE_OR_UNMATCH_ALL,
+  CODE_REGEX_UNMATCH,
+  CODE_SEQ_STOP,
+  CODE_TOKEN_UNMATCH,
 } from "./constants";
-import { ParseError } from "./types";
 
 export function formatError(
   tokens: string[],
@@ -14,7 +15,7 @@ export function formatError(
 ): string {
   const prefix = "  ".repeat(depth) + `${err.pos}:`.padStart(3);
 
-  if (err.errorType === ERROR_Not_IncorrectMatch) {
+  if (err.code === CODE_NOT_INCORRECT_MATCH) {
     // const formatted = formatError(tokens, err, depth + 1);
     return `${prefix}IncorrectMatch: ${JSON.stringify(
       err.matched.results,
@@ -23,19 +24,16 @@ export function formatError(
     )}`;
   }
 
-  if (
-    err.errorType === ERROR_Token_Unmatch ||
-    err.errorType === ERROR_Regex_Unmatch
-  ) {
+  if (err.code === CODE_TOKEN_UNMATCH || err.code === CODE_REGEX_UNMATCH) {
     return `${prefix}Expect ${err.expect}, got ${err.got}`;
   }
 
-  if (err.errorType === ERROR_Seq_Stop) {
+  if (err.code === CODE_SEQ_STOP) {
     const formatted = formatError(tokens, err.childError, depth + 1);
     return `${prefix}Seq Stopped\n` + formatted;
   }
 
-  if (err.errorType === ERROR_Or_UnmatchAll) {
+  if (err.code === CODE_OR_UNMATCH_ALL) {
     const formatted = err.errors
       .map((e) => "\n" + formatError(tokens, e, depth + 1))
       .join("");
@@ -43,7 +41,6 @@ export function formatError(
   }
 
   return (
-    `${prefix}TODO: formatError(${err.errorType})\n` +
-    JSON.stringify(err, null, 2)
+    `${prefix}TODO: formatError(${err.code})\n` + JSON.stringify(err, null, 2)
   );
 }

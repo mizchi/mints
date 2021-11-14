@@ -1,18 +1,4 @@
-import {
-  ANY,
-  ATOM,
-  EOF,
-  NOT,
-  OR,
-  REF,
-  REGEX,
-  REPEAT,
-  SEQ,
-  SEQ_OBJECT,
-  TOKEN,
-} from "./constants";
-import { compileFragment } from "./runtime";
-import {
+import type {
   Rule,
   Compiler,
   InputNodeExpr,
@@ -34,13 +20,29 @@ import {
   Any,
 } from "./types";
 
+import {
+  RULE_ANY,
+  RULE_ATOM,
+  RULE_EOF,
+  RULE_NOT,
+  RULE_OR,
+  RULE_REF,
+  RULE_REGEX,
+  RULE_REPEAT,
+  RULE_SEQ,
+  RULE_SEQ_OBJECT,
+  RULE_TOKEN,
+} from "./constants";
+
+import { compileFragment } from "./runtime";
+
 let cnt = 2;
 const genId = () => cnt++;
 
 export function createRef(refId: string | number, reshape?: Reshape): Ref {
   return {
     id: genId(),
-    kind: REF,
+    kind: RULE_REF,
     ref: refId,
     reshape,
   } as Ref;
@@ -76,7 +78,7 @@ export function $def(nodeCreator: () => InputNodeExpr): number {
 export function $ref(refId: string | number, reshape?: Reshape): Ref {
   return {
     id: genId(),
-    kind: REF,
+    kind: RULE_REF,
     ref: refId,
     reshape,
   } as Ref;
@@ -88,7 +90,7 @@ export function $any<T = string>(
 ): Any {
   return {
     id: genId(),
-    kind: ANY,
+    kind: RULE_ANY,
     len,
     reshape,
   } as Any;
@@ -141,7 +143,7 @@ export function $seq<T = string, U = string>(
 ): Seq {
   return {
     id: genId(),
-    kind: SEQ,
+    kind: RULE_SEQ,
     children: toSeqChildren(children),
     reshape,
   } as Seq;
@@ -155,7 +157,7 @@ export function $seqo<T = any, U = any>(
 ): SeqObject<T, U> {
   return {
     id: genId(),
-    kind: SEQ_OBJECT,
+    kind: RULE_SEQ_OBJECT,
     children: toSeqChildren(children),
     reshape,
   } as SeqObject<T, U>;
@@ -199,12 +201,14 @@ export function $opt(input: InputNodeExpr): SeqChildRule {
 export function $not(children: InputNodeExpr[], reshape?: Reshape): Not {
   const childNodes = children.map(toNode);
   return {
-    kind: NOT,
+    kind: RULE_NOT,
     patterns: childNodes,
     reshape,
     id: genId(),
   } as Not;
 }
+
+// TODO: Impl head tables
 
 // function findFirstNonOptionalRule(seq: Seq): Rule | undefined {
 //   if (seq.kind === SEQ) {
@@ -262,7 +266,7 @@ export function $or(
   // const heads = builtPatterns.map(buildHeadTable).flat();
 
   return {
-    kind: OR,
+    kind: RULE_OR,
     // heads: [],
     patterns: builtPatterns,
     reshape,
@@ -279,7 +283,7 @@ export function $repeat<T = any, U = T, R = T[]>(
   const [min = 0, max = undefined] = minmax ?? [];
   return {
     id: genId(),
-    kind: REPEAT,
+    kind: RULE_REPEAT,
     pattern: toNode(pattern),
     min,
     max,
@@ -295,7 +299,7 @@ export function $token<T = string>(
 ): Token<T> {
   return {
     id: genId(),
-    kind: TOKEN,
+    kind: RULE_TOKEN,
     expr,
     reshape,
   };
@@ -308,7 +312,7 @@ export function $regex<T = string>(
 ): Regex<T> {
   return {
     id: genId(),
-    kind: REGEX,
+    kind: RULE_REGEX,
     expr,
     reshape,
   };
@@ -322,14 +326,14 @@ export function $r(strings: TemplateStringsArray): Regex {
 export function $eof(): Eof {
   return {
     id: genId(),
-    kind: EOF,
+    kind: RULE_EOF,
   };
 }
 
 export function $atom(parse: InternalParser): Atom {
   return {
     id: genId(),
-    kind: ATOM,
+    kind: RULE_ATOM,
     parse: parse,
   };
 }

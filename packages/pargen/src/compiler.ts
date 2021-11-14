@@ -159,7 +159,7 @@ function compileFragmentInternal(
           }
         }
         return createParseError(rule, pos, rootId, {
-          errorType: ERROR_Not_IncorrectMatch,
+          code: ERROR_Not_IncorrectMatch,
         });
 
         // return 1 as any;
@@ -184,7 +184,7 @@ function compileFragmentInternal(
           return createParseSuccess(ctx, "", pos, 0, undefined, rule.reshape);
         }
         return createParseError(rule, pos, rootId, {
-          errorType: ERROR_Eof_Unmatch,
+          code: ERROR_Eof_Unmatch,
         });
       };
     }
@@ -206,7 +206,7 @@ function compileFragmentInternal(
             );
           } else {
             return createParseError(rule, pos, rootId, {
-              errorType: ERROR_Regex_Unmatch,
+              code: ERROR_Regex_Unmatch,
               expr: expr,
             });
           }
@@ -239,7 +239,7 @@ function compileFragmentInternal(
             );
           } else {
             return createParseError(rule, pos, rootId, {
-              errorType: ERROR_Token_Unmatch,
+              code: ERROR_Token_Unmatch,
             });
           }
         }
@@ -287,7 +287,7 @@ function compileFragmentInternal(
         //       console.log("fail to parse head", headErrors);
         //     }
         //     return createParseError(rule, pos, rootId, {
-        //       errorType: ERROR_Or_UnmatchAll,
+        //       code: ERROR_Or_UnmatchAll,
         //       errors: headErrors,
         //     });
         //   }
@@ -315,7 +315,7 @@ function compileFragmentInternal(
         }
 
         return createParseError(rule, pos, rootId, {
-          errorType: ERROR_Or_UnmatchAll,
+          code: ERROR_Or_UnmatchAll,
           errors,
         });
       };
@@ -346,7 +346,7 @@ function compileFragmentInternal(
           (repeat.max && xs.length > repeat.max)
         ) {
           return createParseError(rule, pos, rootId, {
-            errorType: ERROR_Repeat_RangeError,
+            code: ERROR_Repeat_RangeError,
           });
         }
         return createParseSuccess(
@@ -377,7 +377,7 @@ function compileFragmentInternal(
             if (parseResult.error) {
               if (parser.node.optional) continue;
               return createParseError(rule, cursor, rootId, {
-                errorType: ERROR_Seq_Stop,
+                code: ERROR_Seq_Stop,
                 childError: parseResult,
                 index: parsers.indexOf(parser),
               });
@@ -406,7 +406,7 @@ function compileFragmentInternal(
             if (parseResult.error) {
               if (parser.node.optional) continue;
               return createParseError(rule, cursor, rootId, {
-                errorType: ERROR_Seq_Stop,
+                code: ERROR_Seq_Stop,
                 childError: parseResult,
                 index: parsers.indexOf(parser),
               });
@@ -454,7 +454,7 @@ function compileFragmentInternal(
             return parsed;
           } else {
             return createParseError(rule, pos, rootId, {
-              errorType: ERROR_Pair_Unmatch,
+              code: ERROR_Pair_Unmatch,
             });
           }
         }

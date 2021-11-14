@@ -95,7 +95,7 @@ for (const word of [...CONTROL_TOKENS, ...RESERVED_WORDS]) {
 const identifier = $def(() =>
   $atom((ctx, pos) => {
     const token = ctx.tokens[pos] ?? "";
-    const errorData = { errorType: "IdentifierError", token } as any;
+    const errorData = { code: "IdentifierError", token } as any;
     const len = Array.from(token).length;
     const charCode = token.charCodeAt(0);
     if (len === 0) return fail(pos, -1, errorData);
@@ -1443,11 +1443,11 @@ if (process.env.NODE_ENV === "test") {
     expectFail(parse, "");
     is(parse("'hello"), {
       error: true,
-      errorType: ERROR_Seq_Stop,
+      code: ERROR_Seq_Stop,
     });
     is(parse("hello'"), {
       error: true,
-      errorType: ERROR_Seq_Stop,
+      code: ERROR_Seq_Stop,
     });
   });
 

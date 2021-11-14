@@ -249,43 +249,43 @@ export type ParseSuccess = {
 };
 
 type RepeatRangeError = {
-  errorType: typeof ERROR_Repeat_RangeError;
+  code: typeof ERROR_Repeat_RangeError;
 };
 
 type NotIncorrectMatch = {
-  errorType: typeof ERROR_Not_IncorrectMatch;
+  code: typeof ERROR_Not_IncorrectMatch;
 };
 
 type EofUnmatch = {
-  errorType: typeof ERROR_Eof_Unmatch;
+  code: typeof ERROR_Eof_Unmatch;
 };
 
 type TokenUnmatch = {
-  errorType: typeof ERROR_Token_Unmatch;
+  code: typeof ERROR_Token_Unmatch;
 };
 
 type RegexUnmatch = {
-  errorType: typeof ERROR_Regex_Unmatch;
+  code: typeof ERROR_Regex_Unmatch;
 };
 
 type SeqStop = {
-  errorType: typeof ERROR_Seq_Stop;
+  code: typeof ERROR_Seq_Stop;
   index: number;
   childError: ParseError;
 };
 
 type UnmatchAll = {
-  errorType: typeof ERROR_Or_UnmatchAll;
+  code: typeof ERROR_Or_UnmatchAll;
   errors: Array<ParseError>;
 };
 
 type AtomError = {
-  errorType: typeof ERROR_Atom_ParseError;
+  code: typeof ERROR_Atom_ParseError;
   childError: ParseError;
 };
 
 type PairUnmatchError = {
-  errorType: typeof ERROR_Pair_Unmatch;
+  code: typeof ERROR_Pair_Unmatch;
 };
 
 export type ParseErrorData =

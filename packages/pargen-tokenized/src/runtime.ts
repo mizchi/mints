@@ -1,24 +1,24 @@
 import {
-  ANY,
-  ATOM,
-  EOF,
-  ERROR_Eof_Unmatch,
-  ERROR_Not_IncorrectMatch,
-  ERROR_Or_UnmatchAll,
-  ERROR_Regex_Unmatch,
-  ERROR_Repeat_RangeError,
-  ERROR_Seq_NoStackOnPop,
-  ERROR_Seq_Stop,
-  ERROR_Seq_UnmatchStack,
-  ERROR_Token_Unmatch,
-  NOT,
-  OR,
-  REF,
-  REGEX,
-  REPEAT,
-  SEQ,
-  SEQ_OBJECT,
-  TOKEN,
+  RULE_ANY,
+  RULE_ATOM,
+  RULE_EOF,
+  CODE_EOF_UNMATCH,
+  CODE_NOT_INCORRECT_MATCH,
+  CODE_OR_UNMATCH_ALL,
+  CODE_REGEX_UNMATCH,
+  CODE_REPEAT_RANGE,
+  CODE_SEQ_NO_STACK_ON_POP,
+  CODE_SEQ_STOP,
+  CODE_SEQ_UNMATCH_STACK,
+  CODE_TOKEN_UNMATCH,
+  RULE_NOT,
+  RULE_OR,
+  RULE_REF,
+  RULE_REGEX,
+  RULE_REPEAT,
+  RULE_SEQ,
+  RULE_SEQ_OBJECT,
+  RULE_TOKEN,
 } from "./constants";
 import {
   Compiler,
@@ -101,10 +101,10 @@ function compileFragmentInternal(
 ): InternalParser {
   switch (rule.kind) {
     // generic rule
-    case ATOM: {
+    case RULE_ATOM: {
       return (ctx, pos) => rule.parse(ctx, pos);
     }
-    case TOKEN: {
+    case RULE_TOKEN: {
       let expr = rule.expr;
       return (ctx, pos) => {
         const token = ctx.tokens[pos];
@@ -112,14 +112,14 @@ function compileFragmentInternal(
           return success(pos, 1, [rule.reshape ? rule.reshape(token) : pos]);
         } else {
           return fail(pos, rootId, {
-            errorType: ERROR_Token_Unmatch,
+            code: CODE_TOKEN_UNMATCH,
             expect: expr,
             got: token,
           });
         }
       };
     }
-    case REGEX: {
+    case RULE_REGEX: {
       let re = rule.expr instanceof RegExp ? rule.expr : new RegExp(rule.expr);
       return (ctx, pos) => {
         const token = ctx.tokens[pos];
@@ -128,26 +128,26 @@ function compileFragmentInternal(
           return success(pos, 1, [rule.reshape ? rule.reshape(token) : pos]);
         } else {
           return fail(pos, rootId, {
-            errorType: ERROR_Regex_Unmatch,
+            code: CODE_REGEX_UNMATCH,
             expect: re.toString(),
             got: token,
           });
         }
       };
     }
-    case EOF: {
+    case RULE_EOF: {
       return (ctx, pos) => {
         const ended = pos === ctx.tokens.length;
         if (ended) {
           return success(pos, 1, []);
         } else {
           return fail(pos, rootId, {
-            errorType: ERROR_Eof_Unmatch,
+            code: CODE_EOF_UNMATCH,
           });
         }
       };
     }
-    case ANY: {
+    case RULE_ANY: {
       return (ctx, pos) => {
         return success(
           pos,
@@ -158,7 +158,7 @@ function compileFragmentInternal(
         );
       };
     }
-    case NOT: {
+    case RULE_NOT: {
       const parsers = rule.patterns.map((pat) =>
         compileFragment(pat, compiler, rootId)
       );
@@ -169,7 +169,7 @@ function compileFragmentInternal(
             continue;
           } else {
             return fail(pos, rootId, {
-              errorType: ERROR_Not_IncorrectMatch,
+              code: CODE_NOT_INCORRECT_MATCH,
               matched: result,
             });
           }
@@ -178,13 +178,13 @@ function compileFragmentInternal(
         return success(pos, 0, []);
       };
     }
-    case REF: {
+    case RULE_REF: {
       return (ctx, pos) => {
         const resolvedRule = compiler.parsers.get(rule.ref);
         return resolvedRule!(ctx, pos);
       };
     }
-    case SEQ_OBJECT: {
+    case RULE_SEQ_OBJECT: {
       const parsers = rule.children.map((c) => {
         const parse = compileFragment(c as Rule, compiler, rootId);
         return { parse, opt: c.opt, key: c.key, push: c.push, pop: c.pop };
@@ -200,7 +200,7 @@ function compileFragmentInternal(
           if (parsed.error) {
             if (parser.opt) continue;
             return fail(cursor, rootId, {
-              errorType: ERROR_Seq_Stop,
+              code: CODE_SEQ_STOP,
               childError: parsed,
               index: i,
             });
@@ -212,13 +212,13 @@ function compileFragmentInternal(
             const top = capturedStack.pop();
             if (top == null) {
               return fail(cursor, rootId, {
-                errorType: ERROR_Seq_NoStackOnPop,
+                code: CODE_SEQ_NO_STACK_ON_POP,
                 index: i,
               });
             }
             if (!parser.pop(top.results, parsed.results, ctx)) {
               return fail(cursor, rootId, {
-                errorType: ERROR_Seq_UnmatchStack,
+                code: CODE_SEQ_UNMATCH_STACK,
                 index: parsers.indexOf(parser),
               });
             }
@@ -233,7 +233,7 @@ function compileFragmentInternal(
       };
     }
 
-    case SEQ: {
+    case RULE_SEQ: {
       const parsers = rule.children.map((c) => {
         const parse = compileFragment(c as Rule, compiler, rootId);
         return { parse, skip: c.skip, opt: c.opt, push: c.push, pop: c.pop };
@@ -248,7 +248,7 @@ function compileFragmentInternal(
           if (parsed.error) {
             if (parser.opt) continue;
             return fail(cursor, rootId, {
-              errorType: ERROR_Seq_Stop,
+              code: CODE_SEQ_STOP,
               childError: parsed,
               index: i,
             });
@@ -258,13 +258,13 @@ function compileFragmentInternal(
             const top = capturedStack.pop();
             if (top == null) {
               return fail(cursor, rootId, {
-                errorType: ERROR_Seq_NoStackOnPop,
+                code: CODE_SEQ_NO_STACK_ON_POP,
                 index: i,
               });
             }
             if (!parser.pop(top.results, parsed.results, ctx)) {
               return fail(cursor, rootId, {
-                errorType: ERROR_Seq_UnmatchStack,
+                code: CODE_SEQ_UNMATCH_STACK,
                 index: i,
               });
             }
@@ -281,7 +281,7 @@ function compileFragmentInternal(
         return success(pos, cursor - pos, results);
       };
     }
-    case OR: {
+    case RULE_OR: {
       const compiledPatterns = rule.patterns.map((p) => {
         return {
           parse: compileFragment(p, compiler, rootId),
@@ -299,13 +299,13 @@ function compileFragmentInternal(
           return parsed as ParseResult;
         }
         return fail(pos, rootId, {
-          errorType: ERROR_Or_UnmatchAll,
+          code: CODE_OR_UNMATCH_ALL,
           errors,
         });
       };
     }
 
-    case REPEAT: {
+    case RULE_REPEAT: {
       const parser = compileFragment(rule.pattern, compiler, rootId);
       return (ctx, pos) => {
         const repeat = rule as Repeat;
@@ -329,7 +329,7 @@ function compileFragmentInternal(
           (repeat.max && results.length > repeat.max)
         ) {
           return fail(pos, rootId, {
-            errorType: ERROR_Repeat_RangeError,
+            code: CODE_REPEAT_RANGE,
           });
         }
         if (rule.reshape) {

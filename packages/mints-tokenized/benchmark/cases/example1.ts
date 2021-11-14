@@ -62,11 +62,11 @@ export function findMaxPosError(
 ): ParseError {
   currentError = error.pos > currentError.pos ? error : currentError;
 
-  if (error.errorType === ErrorType.Seq_Stop) {
+  if (error.code === ErrorType.Seq_Stop) {
     currentError = findMaxPosError(error.detail.child, currentError);
   }
 
-  if (error.errorType === ErrorType.Or_UnmatchAll) {
+  if (error.code === ErrorType.Or_UnmatchAll) {
     for (const e of error.detail.children) {
       currentError = findMaxPosError(e, currentError);
     }
@@ -81,20 +81,20 @@ function _formatError(input: string, error: ParseError, depth: number = 0) {
   const prefix = " ".repeat(depth * 2);
   console.log(
     prefix,
-    `${ErrorType?.[error.errorType]}[${error.pos}]`,
+    `${ErrorType?.[error.code]}[${error.pos}]`,
     `<$>`,
     input.substr(error.pos).split("\n")[0] + " ..."
   );
-  if (error.errorType === ErrorType.Token_Unmatch && error.detail) {
+  if (error.code === ErrorType.Token_Unmatch && error.detail) {
     console.log(prefix, ">", error.detail);
   }
-  if (error.errorType === ErrorType.Not_IncorrectMatch) {
+  if (error.code === ErrorType.Not_IncorrectMatch) {
     console.log(prefix, "matche", error);
   }
-  if (error.errorType === ErrorType.Seq_Stop) {
+  if (error.code === ErrorType.Seq_Stop) {
     _formatError(input, error.detail.child, depth + 1);
   }
-  if (error.errorType === ErrorType.Or_UnmatchAll) {
+  if (error.code === ErrorType.Or_UnmatchAll) {
     for (const e of error.detail.children) {
       _formatError(input, e, depth + 1);
     }
