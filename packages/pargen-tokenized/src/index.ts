@@ -1,22 +1,6 @@
 // import { createParseSuccess } from "./../../pargen/src/compiler";
-import {
-  ERROR_Or_UnmatchAll,
-  ERROR_Repeat_RangeError,
-  ERROR_Seq_UnmatchStack,
-} from "./types";
 import { compileFragment, success } from "./runtime";
-import {
-  Compiler,
-  EOF,
-  ERROR_Eof_Unmatch,
-  ERROR_Seq_Stop,
-  ERROR_Token_Unmatch,
-  ParseResult,
-  RootCompiler,
-  RootParser,
-  SEQ,
-  Seq,
-} from "./types";
+import { Compiler, ParseResult, RootCompiler, RootParser, Seq } from "./types";
 
 const isNumber = (x: any): x is number => typeof x === "number";
 
@@ -95,6 +79,16 @@ import {
   $token,
   createRef,
 } from "./builder";
+import {
+  EOF,
+  ERROR_Eof_Unmatch,
+  ERROR_Or_UnmatchAll,
+  ERROR_Repeat_RangeError,
+  ERROR_Seq_Stop,
+  ERROR_Seq_UnmatchStack,
+  ERROR_Token_Unmatch,
+  SEQ,
+} from "./constants";
 if (process.env.NODE_ENV === "test" && require.main === module) {
   const _buildTokens = (tokens: string[], xs: any[]) => {
     return xs

@@ -1,11 +1,11 @@
 import {
-  ERROR_Token_Unmatch,
-  ERROR_Regex_Unmatch,
-  ParseError,
-  ERROR_Or_UnmatchAll,
-  ERROR_Seq_Stop,
   ERROR_Not_IncorrectMatch,
-} from "./types";
+  ERROR_Or_UnmatchAll,
+  ERROR_Regex_Unmatch,
+  ERROR_Seq_Stop,
+  ERROR_Token_Unmatch,
+} from "./constants";
+import { ParseError } from "./types";
 
 export function formatError(
   tokens: string[],

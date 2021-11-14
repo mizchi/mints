@@ -1,11 +1,5 @@
-import {
-  REGEX,
-  Rule,
-  SEQ,
-  SerializedRule,
-  SerializedToken,
-  TOKEN,
-} from "./types";
+import { REGEX, SEQ, TOKEN } from "./constants";
+import { Rule, SerializedRule, SerializedToken } from "./types";
 
 // const NULL_FUNCTION_PTR = 0;
 const NULL_STRING_PTR = 0;

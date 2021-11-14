@@ -1,30 +1,29 @@
 // import { TokenMap } from "./utils";
 
-// ==== constants ====
-
-export const SEQ = 1;
-export const SEQ_OBJECT = 2;
-export const REPEAT = 3;
-export const TOKEN = 4;
-export const REGEX = 5;
-export const OR = 6;
-export const REF = 7;
-export const EOF = 8;
-export const NOT = 9;
-export const ATOM = 10;
-export const ANY = 11;
-
-export const ERROR_Not_IncorrectMatch = 400;
-export const ERROR_Eof_Unmatch = 402;
-export const ERROR_Token_Unmatch = 403;
-export const ERROR_Regex_Unmatch = 404;
-export const ERROR_Seq_Stop = 405;
-export const ERROR_Or_UnmatchAll = 406;
-export const ERROR_Repeat_RangeError = 407;
-export const ERROR_Atom_ParseError = 408;
-export const ERROR_Seq_UnmatchStack = 409;
-export const ERROR_Seq_NoStackOnPop = 410;
-export const ERROR_Seq_StackLeft = 411;
+import {
+  ANY,
+  ATOM,
+  EOF,
+  ERROR_Atom_ParseError,
+  ERROR_Eof_Unmatch,
+  ERROR_Not_IncorrectMatch,
+  ERROR_Or_UnmatchAll,
+  ERROR_Regex_Unmatch,
+  ERROR_Repeat_RangeError,
+  ERROR_Seq_NoStackOnPop,
+  ERROR_Seq_StackLeft,
+  ERROR_Seq_Stop,
+  ERROR_Seq_UnmatchStack,
+  ERROR_Token_Unmatch,
+  NOT,
+  OR,
+  REF,
+  REGEX,
+  REPEAT,
+  SEQ,
+  SEQ_OBJECT,
+  TOKEN,
+} from "./constants";
 
 export const defaultReshape: Reshape<any, any> = <T>(i: T): T => i;
 

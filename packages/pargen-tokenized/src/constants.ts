@@ -1,0 +1,23 @@
+export const SEQ = 1;
+export const SEQ_OBJECT = 2;
+export const REPEAT = 3;
+export const TOKEN = 4;
+export const REGEX = 5;
+export const OR = 6;
+export const REF = 7;
+export const EOF = 8;
+export const NOT = 9;
+export const ATOM = 10;
+export const ANY = 11;
+
+export const ERROR_Not_IncorrectMatch = 16;
+export const ERROR_Eof_Unmatch = 17;
+export const ERROR_Token_Unmatch = 18;
+export const ERROR_Regex_Unmatch = 19;
+export const ERROR_Seq_Stop = 20;
+export const ERROR_Or_UnmatchAll = 21;
+export const ERROR_Repeat_RangeError = 22;
+export const ERROR_Atom_ParseError = 23;
+export const ERROR_Seq_UnmatchStack = 24;
+export const ERROR_Seq_NoStackOnPop = 25;
+export const ERROR_Seq_StackLeft = 26;

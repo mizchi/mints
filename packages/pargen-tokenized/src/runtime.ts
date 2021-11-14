@@ -1,7 +1,6 @@
 import {
   ANY,
   ATOM,
-  Compiler,
   EOF,
   ERROR_Eof_Unmatch,
   ERROR_Not_IncorrectMatch,
@@ -12,21 +11,24 @@ import {
   ERROR_Seq_Stop,
   ERROR_Seq_UnmatchStack,
   ERROR_Token_Unmatch,
-  InternalParser,
   NOT,
   OR,
+  REF,
+  REGEX,
+  REPEAT,
+  SEQ,
+  SEQ_OBJECT,
+  TOKEN,
+} from "./constants";
+import {
+  Compiler,
+  InternalParser,
   ParseError,
   ParseErrorData,
   ParseResult,
   ParseSuccess,
-  REF,
-  REGEX,
-  REPEAT,
   Repeat,
   Rule,
-  SEQ,
-  SEQ_OBJECT,
-  TOKEN,
 } from "./types";
 
 const resolveToken = (tokens: string[], result: any) => {

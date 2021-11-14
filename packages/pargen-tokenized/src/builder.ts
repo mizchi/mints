@@ -1,3 +1,16 @@
+import {
+  ANY,
+  ATOM,
+  EOF,
+  NOT,
+  OR,
+  REF,
+  REGEX,
+  REPEAT,
+  SEQ,
+  SEQ_OBJECT,
+  TOKEN,
+} from "./constants";
 import { compileFragment } from "./runtime";
 import {
   Rule,
@@ -14,21 +27,10 @@ import {
   Atom,
   Regex,
   InternalParser,
-  REF,
-  SEQ,
-  NOT,
-  OR,
-  REPEAT,
-  TOKEN,
-  REGEX,
-  ATOM,
-  EOF,
   ParseContext,
   SeqChildRule,
   SeqChildParams,
-  SEQ_OBJECT,
   SeqObject,
-  ANY,
   Any,
 } from "./types";
 
@@ -54,21 +56,20 @@ const toNode = (input: InputNodeExpr): Rule => {
   return typeof input === "string" ? $token(input) : input;
 };
 
-const __registeredPatterns: Array<[number, () => InputNodeExpr]> = [];
+const __registered: Array<[number, () => InputNodeExpr]> = [];
 export const $close = (compiler: Compiler) => {
-  __registeredPatterns.forEach(([rootId, nodeCreator]) => {
-    const node = nodeCreator();
-    const resolvedNode = toNode(node);
+  __registered.forEach(([rootId, nodeCreator]) => {
+    const resolvedNode = toNode(nodeCreator());
     const parser = compileFragment(resolvedNode, compiler, rootId);
     compiler.parsers.set(rootId, parser);
   });
-  __registeredPatterns.length = 0;
+  __registered.length = 0;
 };
 
 let _defCounter = 2;
 export function $def(nodeCreator: () => InputNodeExpr): number {
   const id = _defCounter++;
-  __registeredPatterns.push([id as any, nodeCreator]);
+  __registered.push([id as any, nodeCreator]);
   return id;
 }
 
@@ -332,14 +333,3 @@ export function $atom(parse: InternalParser): Atom {
     parse: parse,
   };
 }
-
-// export function $reshape<T extends Rule>(
-//   node: InputNodeExpr,
-//   reshape: Reshape
-// ): T {
-//   return { ...toNode(node), reshape } as T;
-// }
-
-// export function $repeat_seq1(input: InputNodeExpr[]) {
-//   return $repeat($seq(input), [1]);
-// }
