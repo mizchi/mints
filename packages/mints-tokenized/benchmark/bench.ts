@@ -3,7 +3,7 @@ import { transform } from "../src/index";
 import ts from "typescript";
 import fs from "fs";
 import path from "path";
-import esbuild from "esbuild";
+import esbuild_ from "esbuild";
 import { createTransformer } from "../node/node_main";
 import { transform as sucraseTransform } from "sucrase";
 
@@ -60,8 +60,8 @@ function sucrase(input: string) {
   return sucraseTransform(input, { transforms: ["jsx", "typescript"] }).code;
 }
 
-async function esbuild_(input: string) {
-  const x = await esbuild.transform(input, {
+async function esbuild(input: string) {
+  const x = await esbuild_.transform(input, {
     loader: "ts",
   });
   return x.code;
@@ -87,24 +87,23 @@ async function mints_para(input: string) {
 }
 
 export async function main() {
-  const compilers = [tsc, mints, mints_para, sucrase, esbuild_];
+  const compilers = [tsc, sucrase, esbuild, mints, mints_para];
 
   // const targets = [code1, code2, code3];
   // const targets = [code_scratch];
   const targets = [code0, code1, code2, code3, code4];
 
   // check mints can parse all
+  console.log("=== mints-check");
   for (const target of targets) {
     mints(target);
-    console.log("mints pass", JSON.stringify(target.slice(0, 10)) + "...");
+    console.log("pass", JSON.stringify(target.slice(0, 10)) + "...");
   }
-
+  console.log("=== perf start");
   for (const code of targets) {
     const caseName = "example:" + targets.indexOf(code);
     console.log("---------", caseName);
     for (const compiler of compilers) {
-      // console.log(`[${compiler.name}] start`);
-      // console.log("[pre]", preprocessLight(code));
       const results: number[] = [];
       for (let i = 0; i < N; i++) {
         const now = Date.now();
@@ -119,8 +118,8 @@ export async function main() {
     }
   }
   process.exit(0);
-  // transformer.terminate();
 }
+
 main().catch((e) => {
   console.error(e);
   process.exit(1);

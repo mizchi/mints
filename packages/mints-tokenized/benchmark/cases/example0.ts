@@ -97,15 +97,10 @@ interface X {}
 
 export function escapeWhistespace(input: string) {
   return input.replace(/[ ]{1,}/gmu, (text) => `@W${text.length}}`);
-
-  /*
-  // return input.replace(/[ ]{1,}/gmu, (text) => `@W${text.length}}`);
-  // .replace(/\n{1,}/gmu, (text) => `@N${text.length}}`)
-  */
 }
 
 export function restoreEscaped(input: string, literals: Map<string, string>) {
-  // return input.replace(/@(W|L|N)(\d+)\}/, (full, type, $2) => {});
+  return input.replace(/@(W|L|N)(\d+)\}/, (full, type, $2) => {});
 }
 
 export function main() {

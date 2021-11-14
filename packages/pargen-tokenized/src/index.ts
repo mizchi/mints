@@ -6,13 +6,11 @@ import {
 } from "./types";
 import { compileFragment, success } from "./runtime";
 import {
-  CacheMap,
   Compiler,
   EOF,
   ERROR_Eof_Unmatch,
   ERROR_Seq_Stop,
   ERROR_Token_Unmatch,
-  PackratCache,
   ParseResult,
   RootCompiler,
   RootParser,
@@ -51,8 +49,9 @@ export function createContext(partial: Partial<Compiler> = {}) {
         } as Seq)
       : _resolved;
     const parseFromRoot = compileFragment(resolved, compiler, resolved.id);
+
     const rootParser: RootParser = (tokens: string[]) => {
-      const cache = createPackratCache();
+      const cache = new Map<string, ParseResult>();
       const rootContext = {
         root: resolved.id,
         tokens,
@@ -75,41 +74,52 @@ export function createContext(partial: Partial<Compiler> = {}) {
 }
 
 // impl
-function createPackratCache(): PackratCache {
-  const cache: CacheMap = {};
-  const keygen = (id: number, pos: number): `${number}@${string}` =>
-    `${pos}@${id}`;
-  function add(id: number, pos: number, result: ParseResult) {
-    // @ts-ignore
-    cache[keygen(id, pos)] = result;
-  }
-  function get(id: number, pos: number): ParseResult | void {
-    const key = keygen(id, pos);
-    return cache[key];
-  }
-  const getOrCreate = (
-    id: number | string,
-    pos: number,
-    creator: () => ParseResult
-  ): ParseResult => {
-    // return measurePerf("c-" + id, () => {
-    const cached = get(id as number, pos);
-    if (cached) {
-      // cacheHitCount++;
-      return cached;
-    }
-    // cacheMissCount++;
-    const result = creator();
-    add(id as number, pos, result);
-    return result;
-    // });
-  };
-  return {
-    add,
-    get,
-    getOrCreate,
-  };
-}
+// const _keygen = (id: number, pos: number): string => `${pos}@${id}`;
+// const _cache = new Map<string, ParseResult>();
+// const getOrCreate = (
+//   id: number,
+//   pos: number,
+//   creator: () => ParseResult
+// ): ParseResult => {
+//   const cached = _cache.get(_keygen(id, pos));
+//   if (cached) {
+//     return cached;
+//   }
+//   const result = creator();
+//   add(id as number, pos, result);
+//   return result;
+//   // });
+// };
+
+// function createPackratCache(): PackratCache {
+//   const _cache = new Map<string, ParseResult>();
+//   function add(id: number, pos: number, result: ParseResult) {
+//     _cache.set(_keygen(id, pos), result);
+//   }
+//   function get(id: number, pos: number): ParseResult | void {
+//     return _cache.get(_keygen(id, pos));
+//   }
+//   const _cache = new Map<string, ParseResult>();
+//   const getOrCreate = (
+//     id: number,
+//     pos: number,
+//     creator: () => ParseResult
+//   ): ParseResult => {
+//     const cached = _cache.get(_keygen(id, pos));
+//     if (cached) {
+//       return cached;
+//     }
+//     const result = creator();
+//     add(id as number, pos, result);
+//     return result;
+//     // });
+//   };
+//   return {
+//     add,
+//     get,
+//     getOrCreate,
+//   };
+// }
 
 // const perfTimes = new Map<string, { sum: number; count: number }>();
 // let cacheHitCount = 0;

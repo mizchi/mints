@@ -62,7 +62,6 @@ export function fail<ErrorData extends ParseErrorData>(
   return {
     error: true,
     rootId,
-    // rule,
     pos,
     ...errorData,
   };
@@ -75,31 +74,18 @@ export function compileFragment(
   rootId: number
 ): InternalParser {
   const internalParser = compileFragmentInternal(rule, compiler, rootId);
-  // generic cache
   const parser: InternalParser = (ctx, pos) => {
-    const parsed = ctx.cache.getOrCreate(rule.id, pos, () =>
-      internalParser(ctx, pos)
-    );
+    // use cached result
+    const cacheKey = pos + "@" + rule.id;
+    let parsed = ctx.cache.get(cacheKey);
+    if (!parsed) {
+      parsed = internalParser(ctx, pos);
+      ctx.cache.set(cacheKey, parsed);
+    }
+    // update deepest error
     if (parsed.error) {
-      // console.log("update deepest error", parsed.pos, parsed.errorType);
-      if (ctx.currentError == null) ctx.currentError = parsed;
-
-      if (parsed.pos >= ctx.currentError.pos) {
-        ctx.currentError = parsed;
-      }
-      // TODO: Refactor to Format error
-      // if (
-      //   parsed.error &&
-      //   [
-      //     ERROR_Token_Unmatch,
-      //     ERROR_Regex_Unmatch,
-      //     ERROR_Eof_Unmatch,
-      //     ERROR_Not_IncorrectMatch,
-      //   ].includes(parsed.errorType)
-      // ) {
-      //   if (ctx.currentError == null) ctx.currentError = parsed;
-      //   if (ctx.currentError.pos < parsed.pos) ctx.currentError = parsed;
-      // }
+      if (!ctx.currentError) ctx.currentError = parsed;
+      if (parsed.pos >= ctx.currentError.pos) ctx.currentError = parsed;
     }
     return parsed;
   };
@@ -112,6 +98,10 @@ function compileFragmentInternal(
   rootId: number
 ): InternalParser {
   switch (rule.kind) {
+    // generic rule
+    case ATOM: {
+      return (ctx, pos) => rule.parse(ctx, pos);
+    }
     case TOKEN: {
       let expr = rule.expr;
       return (ctx, pos) => {
@@ -157,7 +147,6 @@ function compileFragmentInternal(
     }
     case ANY: {
       return (ctx, pos) => {
-        // const tokens = ctx.tokens.slice(pos, pos + rule.len);
         return success(
           pos,
           rule.len,
@@ -191,12 +180,6 @@ function compileFragmentInternal(
       return (ctx, pos) => {
         const resolvedRule = compiler.parsers.get(rule.ref);
         return resolvedRule!(ctx, pos);
-      };
-    }
-    // generic rule
-    case ATOM: {
-      return (ctx, pos) => {
-        return rule.parse(ctx, pos);
       };
     }
     case SEQ_OBJECT: {
@@ -326,7 +309,7 @@ function compileFragmentInternal(
         const repeat = rule as Repeat;
         const results: (string | number | any)[] = [];
         let cursor = pos;
-        while (true) {
+        while (cursor < ctx.tokens.length) {
           const parseResult = parser(ctx, cursor);
           if (parseResult.error === true) break;
           if (parseResult.len === 0) throw new Error(`ZeroRepeat`);
@@ -341,7 +324,6 @@ function compileFragmentInternal(
         // size check
         if (
           results.length < repeat.min ||
-          // @ts-ignore
           (repeat.max && results.length > repeat.max)
         ) {
           return fail(pos, rootId, {

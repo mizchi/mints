@@ -224,21 +224,10 @@ export type Compiler = {
 };
 
 export type ParserMap = Map<number, InternalParser>;
-export type PackratCache = {
-  add(id: number | string, pos: number, result: any): void;
-  get(id: number | string, pos: number): ParseResult | void;
-  getOrCreate(
-    id: number | string,
-    pos: number,
-    creator: () => ParseResult
-  ): ParseResult;
-};
-// internal
-export type CacheMap = { [key: `${number}@${string}`]: ParseSuccess };
 export type ParseContext = {
   root: number | string;
   tokens: string[];
-  cache: PackratCache;
+  cache: Map<string, ParseResult>;
   currentError: ParseError | null;
 };
 

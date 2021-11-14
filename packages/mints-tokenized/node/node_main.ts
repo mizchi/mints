@@ -6,9 +6,9 @@ import fs from "fs";
 import { parseTokens } from "../src/tokenizer";
 import os from "os";
 
-export function createTransformer() {
-  // const worker = new Worker(path.join(__dirname, "node_worker.js"));
+const MAX_TOKENS = 512;
 
+export function createTransformer() {
   const MAX_CPUS = os.cpus().length - 1;
   const apis = [...Array(MAX_CPUS).keys()].map((_i) => {
     return wrap(new Worker(path.join(__dirname, "node_worker.js")));
@@ -21,32 +21,21 @@ export function createTransformer() {
       let i = 0;
       const promises: Promise<string>[] = [];
 
-      // const usedList = new Array(MAX_CPUS).fill(false);
-      // let usedCount = 0;
-      // const _select = () => {};
-
       let _tokens: string[] = [];
       let _tokensList: Array<string[]> = [];
       let _currentTokensCount = 0;
 
       const _hydrate = () => {
-        // console.log("__hydrate", _tokensList);
         promises.push(apis[i++ % apis.length].exec("transform", _tokensList));
         _tokensList = [];
         _currentTokensCount = 0;
       };
-
-      // const MAX_TOKENS = 512;
-      // const MAX_TOKENS = 256;
-
       const _enque = (tokens: string[], end = false) => {
-        // if (tokens.length + _currentTokensCount >= MAX_TOKENS) _hydrate();
+        if (tokens.length + _currentTokensCount >= MAX_TOKENS) _hydrate();
         _currentTokensCount += tokens.length;
-        // console.log("tokens!", tokens.length, _currentTokensCount);
         _tokensList.push(tokens);
-        // if (_currentTokensCount >= MAX_TOKENS) _hydrate();
-        _hydrate();
-        // if (end) _hydrate();
+        if (_currentTokensCount >= MAX_TOKENS) _hydrate();
+        if (end) _hydrate();
       };
       for (const t of parseTokens(input)) {
         if (t === "\n") {

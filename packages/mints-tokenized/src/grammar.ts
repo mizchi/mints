@@ -1,8 +1,4 @@
-import {
-  ERROR_Regex_Unmatch,
-  ERROR_Seq_Stop,
-  ParseError,
-} from "./../../pargen-tokenized/src/types";
+import { ERROR_Seq_Stop, ParseError } from "./../../pargen-tokenized/src/types";
 import {
   $any,
   $atom,
@@ -12,13 +8,9 @@ import {
   $opt,
   $opt_seq,
   $or,
-  // $pairClose,
-  // $pairOpen,
-  $r,
   $regex,
   $repeat,
   $repeat_seq,
-  // $repeat_seq1,
   $seq,
   $seqo,
   $skip,
@@ -32,8 +24,6 @@ import {
   K_AS,
   K_ASYNC,
   K_AWAIT,
-  // K_BLACE_CLOSE as R_BRACE,
-  // K_BLACE_OPEN as L_BRACE,
   K_BREAK,
   K_CASE,
   K_CATCH,
@@ -63,8 +53,6 @@ import {
   K_LET,
   K_NEW,
   K_NULL,
-  // R_PAREN,
-  // L_PAREN,
   K_PRIVATE,
   K_PROTECTED,
   K_PUBLIC,
@@ -92,8 +80,6 @@ import {
   R_BRACE,
   R_PAREN,
 } from "./constants";
-import { formatError } from "../../pargen-tokenized/src/format";
-
 import { config } from "./ctx";
 
 const whitespace = $def(() => $any(0, () => " "));
@@ -105,11 +91,6 @@ for (const word of [...CONTROL_TOKENS, ...RESERVED_WORDS]) {
   const words = reservedWordsByLength.get(word.length) ?? [];
   reservedWordsByLength.set(word.length, [...words, word].sort());
 }
-
-// console.log(
-//   "res",
-//   reservedWordsByLength.get(1)?.map((w) => w.charCodeAt(0))
-// );
 
 const identifier = $def(() =>
   $atom((ctx, pos) => {
@@ -193,22 +174,14 @@ const typeReference = $def(() =>
 
 const typeNameableItem = $def(() =>
   $or([
-    $seq([
-      // start: number,
-      identifier,
-      $opt(K_QUESTION),
-      ":",
-      typeExpression,
-    ]),
+    $seq([identifier, $opt(K_QUESTION), ":", typeExpression]),
     typeExpression,
   ])
 );
 
 const typeArrayLiteral = $def(() =>
   $seq([
-    // array
     "[",
-    // repeat
     $repeat_seq([typeNameableItem, ","]),
     $opt(
       $or([
@@ -426,10 +399,6 @@ const templateLiteral = $def(() =>
   ])
 );
 
-// TODO: 111_000
-// TODO: 0b1011
-
-// const digit = $regex(/^[1-9][0-9_]*$/);
 const digit = $regex(/^[1-9](_?\d)*$/);
 const digitWithSuffix = $regex(/^[1-9](_?\d)*(e[1-9]\d*)?$/);
 const numberLiteral = $def(() =>
@@ -470,15 +439,7 @@ const objectItem = $def(() =>
       $seq([L_PAREN, funcArgs, R_PAREN, block]),
     ]),
     $seq([
-      // value
-      $or([
-        // 'key':
-        stringLiteral,
-        // [key]:
-        $seq(["[", anyExpression, "]"]),
-        // a
-        identifier,
-      ]),
+      $or([stringLiteral, $seq(["[", anyExpression, "]"]), identifier]),
       ":",
       anyExpression,
     ]),
@@ -513,6 +474,9 @@ const anyLiteral = $def(() =>
 /* Class */
 const accessModifier = $or([K_PRIVATE, K_PUBLIC, K_PROTECTED]);
 const getOrSetModifier = $seq([$or([K_GET, K_SET])]);
+
+const INIT = "1";
+const CODE = "2";
 
 type ParsedCostructorArg = {
   init: string | null;
@@ -814,7 +778,6 @@ const ternary = $def(() =>
 const anyExpression = ternary;
 
 const typeAnnotation = $seq([":", typeExpression]);
-// const emptyStatement = $def(() => $seq([$r`(\\s)*`]));
 const breakStmt = $def(() => K_BREAK);
 const continueStmt = $def(() => K_CONTINUE);
 const debuggerStmt = $def(() => K_DEBUGGER);
@@ -1392,6 +1355,12 @@ export const line = $def(() =>
   ])
 );
 
+const lines = $def(() =>
+  $seq([$repeat_seq([line]), $opt(anyStatement), $skip_opt(";")])
+);
+
+const block = $def(() => $seq([L_BRACE, lines, R_BRACE]));
+
 const caseClause = $def(() =>
   $seq([
     $repeat_seq([$not([K_CASE]), line]),
@@ -1399,12 +1368,6 @@ const caseClause = $def(() =>
     $skip_opt(";"),
   ])
 );
-
-const lines = $def(() =>
-  $seq([$repeat_seq([line]), $opt(anyStatement), $skip_opt(";")])
-);
-
-const block = $def(() => $seq([L_BRACE, lines, R_BRACE]));
 
 export const program = $def(() => $seq([lines, $eof()]));
 
@@ -1451,11 +1414,10 @@ if (process.env.NODE_ENV === "test") {
     }
   };
 
-  const expectFail = (parse: any, input: string, expect: string = input) => {
+  const expectFail = (parse: any, input: string) => {
     const parsed = parse(input);
-    if (!parsed.error) {
+    if (!parsed.error)
       throw new Error("Unexpected Success:" + JSON.stringify(parsed));
-    }
   };
 
   test("identifier", () => {
@@ -1586,7 +1548,6 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "{a:{b:{c:1}}}");
     expectFail(parse, "{a:{}");
     expectFail(parse, "{a:{}}}");
-    // TODO: Impl a(){} after statement
     expectSuccess(parse, "{a(){}}");
     expectSuccess(parse, "{a(b){1;}}");
     expectSuccess(parse, "{a(b=1,c=2){1;}}");
@@ -1596,7 +1557,6 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(paren);
     expectSuccess(parse, "(a)");
     expectFail(parse, "(a)=>1");
-    // expectSuccess(parse, "{}");
   });
 
   test("newExpr", () => {
@@ -1985,9 +1945,7 @@ if (process.env.NODE_ENV === "test") {
       "for(;;){}",
       "for(;x;x){}",
     ]);
-    // expectSuccessList(parse, ["for(;;)"]);
   });
-
   test("for-item", () => {
     const parse = compile(forItemStatement);
     expectSuccessList(parse, [
