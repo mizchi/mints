@@ -6,7 +6,6 @@ import {
   CODE_NOT_INCORRECT_MATCH,
   CODE_OR_UNMATCH_ALL,
   CODE_REGEX_UNMATCH,
-  CODE_REPEAT_RANGE,
   CODE_SEQ_NO_STACK_ON_POP,
   CODE_SEQ_STOP,
   CODE_SEQ_UNMATCH_STACK,
@@ -27,7 +26,6 @@ import {
   ParseErrorData,
   ParseResult,
   ParseSuccess,
-  Repeat,
   Rule,
 } from "./types";
 

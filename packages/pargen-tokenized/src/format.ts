@@ -1,5 +1,4 @@
 import type { ParseError } from "./types";
-
 import {
   CODE_NOT_INCORRECT_MATCH,
   CODE_OR_UNMATCH_ALL,
@@ -14,7 +13,6 @@ export function formatError(
   depth: number = 0
 ): string {
   const prefix = "  ".repeat(depth) + `${err.pos}:`.padStart(3);
-
   if (err.code === CODE_NOT_INCORRECT_MATCH) {
     // const formatted = formatError(tokens, err, depth + 1);
     return `${prefix}IncorrectMatch: ${JSON.stringify(

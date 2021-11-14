@@ -1,3 +1,10 @@
+import {
+  SerializedAtom,
+  SerializedEof,
+  SerializedOr,
+  SerializedRef,
+  SerializedSeqObject,
+} from "./../../pargen-tokenized/src/types";
 // import "./index";
 import * as grammar from "./grammar";
 console.log(Object.keys(grammar));
@@ -9,6 +16,7 @@ import {
   SerializedAny,
   SerializedNot,
   SerializedRegex,
+  SerializedRepeat,
   SerializedRule,
   SerializedSeq,
   SerializedToken,
@@ -70,6 +78,13 @@ const id = () => _id++;
 
 const rules: SerializedRule[] = [];
 const addRule = (rule: SerializedRule) => {
+  if (Math.max(...(rule as any)) > 255) {
+    // console.error("too many rules");
+    console.log(rule);
+    throw new Error("too many rules");
+  }
+  // @ts-ignore
+  // rule = [...rule, ...Array(8 - rule.length).fill(0)];
   rules.push(rule);
   // console.log("push", rule);
   return id();
@@ -78,6 +93,13 @@ const addRule = (rule: SerializedRule) => {
 const encode = () => {
   return rules;
   // return JSON.stringify(rules);
+};
+
+const SIZE = 2 ** 8;
+const twoBytes = (x: number): [number, number] => {
+  const id1 = Math.floor(x / SIZE);
+  const id2 = x % SIZE;
+  return [id1, id2];
 };
 
 const serialize = (rule: Rule, refId: number): number => {
@@ -92,14 +114,16 @@ const serialize = (rule: Rule, refId: number): number => {
   // ];
   // console.log("s", rule);
 
-  const SIZE = 8;
-  const id1 = Math.floor(rule.id / SIZE);
-  const id2 = rule.id % SIZE;
+  const SIZE = 2 ** 8;
+  const [id1, id2] = twoBytes(rule.id);
+  // const id1 = Math.floor(rule.id / SIZE);
+  // const id2 = rule.id % SIZE;
   switch (rule.kind) {
     case RULE_TOKEN: {
       const s = [
-        rule.id,
         rule.kind,
+        id1,
+        id2,
         addString(rule.expr),
         NULL,
       ] as SerializedToken;
@@ -107,8 +131,9 @@ const serialize = (rule: Rule, refId: number): number => {
     }
     case RULE_REGEX: {
       const s = [
-        rule.id,
         rule.kind,
+        id1,
+        id2,
         addString(rule.expr.toString()),
         NULL,
       ] as SerializedRegex;
@@ -116,40 +141,77 @@ const serialize = (rule: Rule, refId: number): number => {
     }
     case RULE_SEQ: {
       const s = [
-        rule.id,
         rule.kind,
-        addChildren(rule.children.map((x) => serialize(x as Rule, refId))),
+        id1,
+        id2,
+        ...twoBytes(
+          addChildren(rule.children.map((x) => serialize(x as Rule, refId)))
+        ),
         NULL,
       ] as SerializedSeq;
       return addRule(s);
     }
+    case RULE_SEQ_OBJECT: {
+      const s = [
+        rule.kind,
+        id1,
+        id2,
+        ...twoBytes(
+          addChildren(rule.children.map((x) => serialize(x as Rule, refId)))
+        ),
+        NULL,
+      ] as SerializedSeqObject;
+      return addRule(s);
+    }
+
     case RULE_ANY: {
-      const s = [rule.id, rule.kind, rule.len, NULL] as SerializedAny;
+      const s = [rule.kind, id1, id2, rule.len, NULL] as SerializedAny;
       return addRule(s);
     }
     case RULE_REPEAT: {
-      return [rule.id, rule.kind] as any;
-    }
-    case RULE_SEQ_OBJECT: {
-      return [rule.id, rule.kind] as any;
+      const childPtr = serialize(rule.pattern as Rule, refId);
+      const cid1 = Math.floor(childPtr / SIZE);
+      const cid2 = childPtr % SIZE;
+      const s = [
+        rule.kind,
+        id1,
+        id2,
+        cid1,
+        cid2,
+        NULL,
+        NULL,
+      ] as SerializedRepeat;
+      return addRule(s);
     }
     case RULE_EOF: {
-      return [rule.id, rule.kind] as any;
+      const s = [rule.kind, id1, id2] as SerializedEof;
+      return addRule(s);
     }
 
     case RULE_OR: {
-      return [rule.id, rule.kind] as any;
+      const children = rule.patterns.map((p) => serialize(p, refId));
+      const childrenPtr = addChildren(children);
+      const s = [rule.kind, id1, id2, ...twoBytes(childrenPtr)] as SerializedOr;
+      return addRule(s);
     }
-
     case RULE_ATOM: {
-      return [rule.id, rule.kind] as any;
+      const s = [rule.kind, id1, id2, NULL] as SerializedAtom;
+      return addRule(s);
     }
-
     case RULE_REF: {
-      return [rule.id, rule.kind] as any;
+      const s = [rule.kind, id1, id2, rule.ref, NULL] as SerializedRef;
+      return addRule(s);
     }
     case RULE_NOT: {
-      return [rule.id, rule.kind] as any;
+      const children = rule.patterns.map((p) => serialize(p, refId));
+      const childrenPtr = addChildren(children);
+      const s = [
+        rule.kind,
+        id1,
+        id2,
+        ...twoBytes(childrenPtr),
+      ] as SerializedNot;
+      return addRule(s);
     }
     default: {
       // @ts-expect-error
@@ -157,14 +219,13 @@ const serialize = (rule: Rule, refId: number): number => {
     }
   }
 };
-// return { serialize, stringMap, encode };
-// }
 
-// const { serialize, stringMap, encode } = createSerializer();
-
-// console.log($dump());
+import zlib from "zlib";
 
 const dumpped = $dump();
+const dumppedRaw = JSON.stringify(dumpped);
+// console.log("dump", dumppedRaw + "bytes");
+console.log("dump:deflate", zlib.deflateSync(dumppedRaw).length + "bytes");
 
 for (const [id, rule] of Object.entries(dumpped)) {
   serialize(rule, parseInt(id));
@@ -174,4 +235,11 @@ const encoded = encode();
 
 // @ts-ignore
 console.log("max id", Math.max(...encoded.flat(Infinity)));
-console.log("bytes", new Uint8Array(encoded.flat(2)).byteLength);
+
+const buf = new Uint8Array(encoded.flat(2));
+// console.log("raw:", buf.byteLength / 1024 + "kb");
+
+const gzipped = zlib.deflateSync(buf);
+console.log("gzipped", gzipped.byteLength / 1024 + "kb");
+// console.log("gzipped", gzipped);
+console.log("string", JSON.stringify([...stringMap]).length / 1024);

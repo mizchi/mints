@@ -35,7 +35,7 @@ export type Atom = {
 };
 
 export type SerializedAtom = [
-  kind: typeof RULE_EOF,
+  kind: typeof RULE_ATOM,
   id1: number,
   id2: number,
   parsePtr: number
@@ -68,9 +68,10 @@ export type Not = RuleBase & {
 
 export type SerializedNot = [
   kind: typeof RULE_NOT,
-  id: number,
+  id1: number,
   id2: number,
-  childPtr: number
+  childrenPtr1: number,
+  childrenPtr1: number
 ];
 
 export type SeqChildParams = {
@@ -105,7 +106,8 @@ export type SerializedSeq = [
   kind: typeof RULE_SEQ,
   id1: number,
   id2: number,
-  childrenPtr: number,
+  childrenPtr1: number,
+  childrenPtr1: number,
   reshapePtr: number
 ];
 
@@ -113,7 +115,8 @@ export type SerializedSeqObject = [
   kind: typeof RULE_SEQ_OBJECT,
   id1: number,
   id2: number,
-  childrenPtr: number,
+  childrenPtr1: number,
+  childrenPtr1: number,
   reshapePtr: number
 ];
 
@@ -133,11 +136,9 @@ export type SerializedRef = [
 ];
 
 export type Repeat<T = string, U = T, R = U[]> = {
-  id: number;
   kind: typeof RULE_REPEAT;
+  id: number;
   pattern: Rule;
-  // min: number;
-  // max?: number | void;
   reshapeEach?: (results: T[], ctx: ParseContext) => U;
   reshape?: (results: U[], ctx: ParseContext) => R;
 };
@@ -146,9 +147,8 @@ export type SerializedRepeat = [
   kind: typeof RULE_REPEAT,
   id1: number,
   id2: number,
-  patternPtr: number,
-  min: number,
-  max: number,
+  patternPtr1: number,
+  patternPtr2: number,
   reshapeEachPtr: number,
   reshapePtr: number
 ];
@@ -163,7 +163,8 @@ export type SerializedOr = [
   kind: typeof RULE_OR,
   id1: number,
   id2: number,
-  patternsPtr: number
+  childPtr1: number,
+  childPtr1: number
 ];
 
 export type Token<T = string> = {
@@ -196,18 +197,6 @@ export type SerializedRegex = [
   reshapePtr: number
 ];
 
-export type SerializedRule =
-  | SerializedSeq
-  | SerializedToken
-  | SerializedOr
-  | SerializedRepeat
-  | SerializedRef
-  | SerializedEof
-  | SerializedNot
-  | SerializedAtom
-  | SerializedAny
-  | SerializedRegex;
-
 export type Rule =
   | Seq
   | SeqObject
@@ -221,8 +210,21 @@ export type Rule =
   | Regex
   | Any;
 
-// ==== public interface
+export type SerializedRule =
+  | SerializedSeq
+  | SerializedToken
+  | SerializedOr
+  | SerializedRepeat
+  | SerializedRef
+  | SerializedEof
+  | SerializedNot
+  | SerializedAtom
+  | SerializedAny
+  | SerializedAtom
+  | SerializedSeqObject
+  | SerializedRegex;
 
+// ==== public interface
 export type RootCompilerOptions = {
   end?: boolean;
 };
