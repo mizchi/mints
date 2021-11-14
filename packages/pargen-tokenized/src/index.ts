@@ -73,100 +73,6 @@ export function createContext(partial: Partial<Compiler> = {}) {
   };
 }
 
-// impl
-// const _keygen = (id: number, pos: number): string => `${pos}@${id}`;
-// const _cache = new Map<string, ParseResult>();
-// const getOrCreate = (
-//   id: number,
-//   pos: number,
-//   creator: () => ParseResult
-// ): ParseResult => {
-//   const cached = _cache.get(_keygen(id, pos));
-//   if (cached) {
-//     return cached;
-//   }
-//   const result = creator();
-//   add(id as number, pos, result);
-//   return result;
-//   // });
-// };
-
-// function createPackratCache(): PackratCache {
-//   const _cache = new Map<string, ParseResult>();
-//   function add(id: number, pos: number, result: ParseResult) {
-//     _cache.set(_keygen(id, pos), result);
-//   }
-//   function get(id: number, pos: number): ParseResult | void {
-//     return _cache.get(_keygen(id, pos));
-//   }
-//   const _cache = new Map<string, ParseResult>();
-//   const getOrCreate = (
-//     id: number,
-//     pos: number,
-//     creator: () => ParseResult
-//   ): ParseResult => {
-//     const cached = _cache.get(_keygen(id, pos));
-//     if (cached) {
-//       return cached;
-//     }
-//     const result = creator();
-//     add(id as number, pos, result);
-//     return result;
-//     // });
-//   };
-//   return {
-//     add,
-//     get,
-//     getOrCreate,
-//   };
-// }
-
-// const perfTimes = new Map<string, { sum: number; count: number }>();
-// let cacheHitCount = 0;
-// let cacheMissCount = 0;
-// const addPerfTime = (id: string, time: number) => {
-//   const prev = perfTimes.get(id);
-//   if (prev) {
-//     perfTimes.set(id, { sum: prev.sum + time, count: prev.count + 1 });
-//   } else {
-//     perfTimes.set(id, { sum: time, count: 1 });
-//   }
-// };
-
-// const measurePerf = <Fn extends (...args: any[]) => any>(
-//   id: string,
-//   fn: Fn
-// ): ReturnType<Fn> => {
-//   if (process.env.NODE_ENV === "perf") {
-//     // const start = Date.now();
-//     // const ret = fn();
-//     // addPerfTime(id, Date.now() - start);
-//     const start = process.hrtime.bigint();
-//     const ret = fn();
-//     addPerfTime(id, Number(process.hrtime.bigint() - start));
-//     return ret;
-//   }
-//   return fn();
-// };
-
-// export const printPerfResult = () => {
-//   if (process.env.NODE_ENV === "perf") {
-//     console.log("========= perf ============");
-//     console.log("cache hit", cacheHitCount, "cache miss", cacheMissCount);
-//     const ts = [...perfTimes.entries()].sort((a, b) => b[1].sum - a[1].sum);
-//     for (const [id, ret] of ts) {
-//       // over 30ms
-//       if (ret.sum > 30_000_000) {
-//         console.log(
-//           `[${id}] total:${Math.floor(ret.sum / 1_000_000)}ms ref_count:${
-//             ret.count
-//           }`
-//         );
-//       }
-//     }
-//   }
-// };
-
 /* Test */
 import { is, run, test } from "@mizchi/test";
 import {
@@ -398,8 +304,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parser, ["a", "x", "b"], "ab");
     is(parser(["a", "b"]), {
       error: true,
-      errorType: 405,
-      childError: { errorType: 403 },
+      errorType: ERROR_Seq_Stop,
+      childError: { errorType: ERROR_Token_Unmatch },
     });
   });
 
@@ -422,7 +328,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     is(parseWithMin(["a"]), { error: false });
     is(parseWithMin(["a", "a", "a", "a"]), {
       error: true,
-      errorType: ERROR_Token_Unmatch,
+      errorType: ERROR_Repeat_RangeError,
     });
   });
 

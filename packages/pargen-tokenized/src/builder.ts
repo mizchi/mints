@@ -56,18 +56,13 @@ const toNode = (input: InputNodeExpr): Rule => {
 
 const __registeredPatterns: Array<[number, () => InputNodeExpr]> = [];
 export const $close = (compiler: Compiler) => {
-  const nodes: Rule[] = [];
   __registeredPatterns.forEach(([rootId, nodeCreator]) => {
     const node = nodeCreator();
     const resolvedNode = toNode(node);
     const parser = compileFragment(resolvedNode, compiler, rootId);
     compiler.parsers.set(rootId, parser);
-    // TODO: Remove on prod
-    // compiler.definitions.set(rootId, resolvedNode);
-    nodes.push(resolvedNode);
   });
   __registeredPatterns.length = 0;
-  nodes.length = 0;
 };
 
 let _defCounter = 2;
