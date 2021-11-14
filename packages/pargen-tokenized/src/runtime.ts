@@ -308,7 +308,6 @@ function compileFragmentInternal(
     case RULE_REPEAT: {
       const parser = compileFragment(rule.pattern, compiler, rootId);
       return (ctx, pos) => {
-        const repeat = rule as Repeat;
         const results: (string | number | any)[] = [];
         let cursor = pos;
         while (cursor < ctx.tokens.length) {
@@ -322,15 +321,6 @@ function compileFragmentInternal(
             results.push(...parseResult.results);
           }
           cursor += parseResult.len;
-        }
-        // size check
-        if (
-          results.length < repeat.min ||
-          (repeat.max && results.length > repeat.max)
-        ) {
-          return fail(pos, rootId, {
-            code: CODE_REPEAT_RANGE,
-          });
         }
         if (rule.reshape) {
           return success(pos, cursor - pos, [

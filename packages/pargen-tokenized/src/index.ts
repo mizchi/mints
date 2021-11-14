@@ -323,23 +323,19 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectSuccess(parse, ["a"], "a");
     expectSuccess(parse, ["a", "a", "a"], "aaa");
     expectSuccess(parse, ["b"], "");
-    const parseWithMin = compile($repeat($token("a"), [1, 3]));
-    is(parseWithMin([]), { error: true, code: CODE_REPEAT_RANGE });
-    is(parseWithMin(["a"]), { error: false });
-    is(parseWithMin(["a", "a", "a", "a"]), {
-      error: true,
-      code: CODE_REPEAT_RANGE,
-    });
+    // const parseWithMin = compile($repeat($token("a"), [1, 3]));
+    // is(parseWithMin([]), { error: true, code: CODE_REPEAT_RANGE });
+    // is(parseWithMin(["a"]), { error: false });
+    // is(parseWithMin(["a", "a", "a", "a"]), {
+    //   error: true,
+    //   code: CODE_REPEAT_RANGE,
+    // });
   });
 
   test("repeat_reshape", () => {
     const { compile } = createContext();
     const parse = compile(
-      $repeat<string, string, string[]>(
-        $token("a"),
-        undefined,
-        ([a]) => a + "x"
-      )
+      $repeat<string, string, string[]>($token("a"), ([a]) => a + "x")
     );
     expectSuccess(parse, [], "");
     expectSuccess(parse, ["a"], "ax");
@@ -348,7 +344,6 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const parseWithTransResult = compile(
       $repeat<string, string, any>(
         $token("a"),
-        undefined,
         ([a]) => a + "x",
         (results) => {
           return results.join("") + "-end";

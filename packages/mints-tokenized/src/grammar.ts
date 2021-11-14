@@ -1,4 +1,4 @@
-import { ERROR_Seq_Stop, ParseError } from "./../../pargen-tokenized/src/types";
+import type { ParseError } from "./../../pargen-tokenized/src/types";
 import {
   $any,
   $atom,
@@ -898,7 +898,10 @@ const switchStatement = $def(() =>
     R_PAREN,
     L_BRACE,
     $repeat_seq([
-      $repeat_seq([K_CASE, whitespace, anyExpression, ":"], [1, Infinity]),
+      K_CASE,
+      whitespace,
+      anyExpression,
+      ":",
       $opt(
         $or([
           $seq([
@@ -1379,6 +1382,7 @@ const isMain = require.main === module;
 
 import { compile as compileRaw } from "./ctx";
 import { fail, success } from "../../pargen-tokenized/src/runtime";
+import { CODE_SEQ_STOP } from "../../pargen-tokenized/src/constants";
 // import { formatError } from "../benchmark/cases/example1";
 if (process.env.NODE_ENV === "test") {
   const compile = (
@@ -1443,11 +1447,11 @@ if (process.env.NODE_ENV === "test") {
     expectFail(parse, "");
     is(parse("'hello"), {
       error: true,
-      code: ERROR_Seq_Stop,
+      code: CODE_SEQ_STOP,
     });
     is(parse("hello'"), {
       error: true,
-      code: ERROR_Seq_Stop,
+      code: CODE_SEQ_STOP,
     });
   });
 

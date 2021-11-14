@@ -68,6 +68,14 @@ export const $close = (compiler: Compiler) => {
   __registered.length = 0;
 };
 
+export const $dump = () => {
+  const rules: { [key: string]: Rule } = {};
+  __registered.forEach(([rootId, nodeCreator]) => {
+    rules[rootId] = toNode(nodeCreator());
+  });
+  return rules;
+};
+
 let _defCounter = 2;
 export function $def(nodeCreator: () => InputNodeExpr): number {
   const id = _defCounter++;
@@ -167,10 +175,10 @@ export function $repeat_seq(
   input: Array<
     SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
   >,
-  minmax?: [number, number],
+  reshapeEach?: Reshape,
   reshape?: Reshape
 ): Repeat {
-  return $repeat($seq(input), minmax, reshape);
+  return $repeat($seq(input), reshapeEach, reshape);
 }
 
 export function $opt_seq(
@@ -276,17 +284,13 @@ export function $or(
 
 export function $repeat<T = any, U = T, R = T[]>(
   pattern: InputNodeExpr,
-  minmax?: [min: number | void, max?: number | void],
   reshapeEach?: (results: T[], ctx: ParseContext) => U,
   reshape?: (results: U[], ctx: ParseContext) => R
 ): Repeat<T, U, R> {
-  const [min = 0, max = undefined] = minmax ?? [];
   return {
     id: genId(),
     kind: RULE_REPEAT,
     pattern: toNode(pattern),
-    min,
-    max,
     reshapeEach,
     reshape,
   };

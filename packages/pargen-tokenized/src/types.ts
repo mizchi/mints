@@ -23,49 +23,43 @@ import type {
   CODE_TOKEN_UNMATCH,
 } from "./constants";
 
-// basic parser rule
-
 export type RuleBase = {
   id: number;
   kind: number;
 };
 
-export type SerializedRuleBody = [
-  id: number,
-  flags: number,
-  keyPtr: number,
-  reshapePtr: number
-];
-
-export type Atom = RuleBase & {
+export type Atom = {
+  id: number;
   kind: typeof RULE_ATOM;
   parse: InternalParser;
 };
 
 export type SerializedAtom = [
   kind: typeof RULE_EOF,
-  parsePtr: number,
-  ...body: SerializedRuleBody
+  id1: number,
+  id2: number,
+  parsePtr: number
 ];
 
-export type Any<T = any> = RuleBase & {
+export type Any<T = any> = {
+  id: number;
   kind: typeof RULE_ANY;
   len: number;
   reshape?: (tokens: string[]) => T;
 };
 
-// Atom can not serialize
-// export type SerializedEof = [kind: typeof EOF, ...body: SerializedRuleBody];
+export type SerializedAny = [
+  kind: typeof RULE_ANY,
+  id: number,
+  id2: number,
+  len: number,
+  reshapePtr: number
+];
 
 export type Eof = RuleBase & {
   kind: typeof RULE_EOF;
 };
-
-// Atom can not serialize
-export type SerializedEof = [
-  kind: typeof RULE_EOF,
-  ...body: SerializedRuleBody
-];
+export type SerializedEof = [kind: typeof RULE_EOF, id1: number, id2: number];
 
 export type Not = RuleBase & {
   kind: typeof RULE_NOT;
@@ -74,11 +68,11 @@ export type Not = RuleBase & {
 
 export type SerializedNot = [
   kind: typeof RULE_NOT,
-  childPtr: number,
-  ...body: SerializedRuleBody
+  id: number,
+  id2: number,
+  childPtr: number
 ];
 
-// export const STACK_PUSH = 0;
 export type SeqChildParams = {
   key?: string;
   opt?: boolean;
@@ -93,78 +87,102 @@ export type SeqChildParams = {
 
 export type SeqChildRule = RuleBase & SeqChildParams;
 
-export type Seq<T = string, U = string> = RuleBase & {
+export type Seq<T = string, U = string> = {
   kind: typeof RULE_SEQ;
+  id: number;
   children: SeqChildRule[];
   reshape?: (results: T[], ctx: ParseContext) => U;
 };
 
-export type SeqObject<T = any, U = any> = RuleBase & {
+export type SeqObject<T = any, U = any> = {
   kind: typeof RULE_SEQ_OBJECT;
+  id: number;
   children: SeqChildRule[];
   reshape?: (results: T, ctx: ParseContext) => U;
 };
 
 export type SerializedSeq = [
   kind: typeof RULE_SEQ,
+  id1: number,
+  id2: number,
   childrenPtr: number,
-  ...body: SerializedRuleBody
-];
-export type SerializedSeqObject = [
-  kind: typeof RULE_SEQ_OBJECT,
-  childrenPtr: number,
-  ...body: SerializedRuleBody
+  reshapePtr: number
 ];
 
-export type Ref = RuleBase & {
+export type SerializedSeqObject = [
+  kind: typeof RULE_SEQ_OBJECT,
+  id1: number,
+  id2: number,
+  childrenPtr: number,
+  reshapePtr: number
+];
+
+export type Ref<T = any, U = any> = {
+  id: number;
   kind: typeof RULE_REF;
   ref: number;
+  reshape?: (results: T, ctx: ParseContext) => U;
 };
 
 export type SerializedRef = [
   kind: typeof RULE_REF,
+  id1: number,
+  id2: number,
   ref: number,
-  ...body: SerializedRuleBody
+  reshapePtr: number
 ];
 
-export type Repeat<T = string, U = T, R = U[]> = RuleBase & {
+export type Repeat<T = string, U = T, R = U[]> = {
+  id: number;
   kind: typeof RULE_REPEAT;
   pattern: Rule;
-  min: number;
-  max?: number | void;
+  // min: number;
+  // max?: number | void;
   reshapeEach?: (results: T[], ctx: ParseContext) => U;
   reshape?: (results: U[], ctx: ParseContext) => R;
 };
 
 export type SerializedRepeat = [
   kind: typeof RULE_REPEAT,
+  id1: number,
+  id2: number,
   patternPtr: number,
   min: number,
   max: number,
-  ...body: SerializedRuleBody
+  reshapeEachPtr: number,
+  reshapePtr: number
 ];
 
-export type Or = RuleBase & {
+export type Or = {
+  id: number;
   kind: typeof RULE_OR;
-  // heads: Rule[];
   patterns: Array<Seq | Token | Ref | Regex>;
 };
 
 export type SerializedOr = [
   kind: typeof RULE_OR,
-  patternsPtr: number,
-  ...body: SerializedRuleBody
+  id1: number,
+  id2: number,
+  patternsPtr: number
 ];
 
-export type Token<T = string> = RuleBase & {
+export type Token<T = string> = {
+  id: number;
   kind: typeof RULE_TOKEN;
   expr: string;
   reshape?: (raw: string) => T;
 };
 
-export type SerializedToken = [kind: typeof RULE_TOKEN, exprPtr: string];
+export type SerializedToken = [
+  kind: typeof RULE_TOKEN,
+  id1: number,
+  id2: number,
+  exprPtr: number,
+  reshapePtr: number
+];
 
-export type Regex<T = string> = RuleBase & {
+export type Regex<T = string> = {
+  id: number;
   kind: typeof RULE_REGEX;
   expr: string | RegExp;
   reshape?: (raw: string) => T;
@@ -172,8 +190,10 @@ export type Regex<T = string> = RuleBase & {
 
 export type SerializedRegex = [
   kind: typeof RULE_REGEX,
+  id1: number,
+  id2: number,
   exprPtr: number,
-  ...body: SerializedRuleBody
+  reshapePtr: number
 ];
 
 export type SerializedRule =
@@ -185,6 +205,7 @@ export type SerializedRule =
   | SerializedEof
   | SerializedNot
   | SerializedAtom
+  | SerializedAny
   | SerializedRegex;
 
 export type Rule =
@@ -248,6 +269,7 @@ export type ParseSuccess = {
   results: Array<number | any>;
 };
 
+// Parse Errors
 type RepeatRangeError = {
   code: typeof CODE_REPEAT_RANGE;
 };
