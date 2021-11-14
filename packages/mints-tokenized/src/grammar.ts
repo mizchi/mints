@@ -99,12 +99,36 @@ import { config } from "./ctx";
 const whitespace = $def(() => $any(0, () => " "));
 const plusPlus = $seq(["+", "+"]);
 const minusMinus = $seq(["-", "-"]);
+
+const reservedWordsByLength: Map<number, string[]> = new Map();
+for (const word of [...CONTROL_TOKENS, ...RESERVED_WORDS]) {
+  const words = reservedWordsByLength.get(word.length) ?? [];
+  reservedWordsByLength.set(word.length, [...words, word].sort());
+}
+
+// console.log(
+//   "res",
+//   reservedWordsByLength.get(1)?.map((w) => w.charCodeAt(0))
+// );
+
 const identifier = $def(() =>
-  // TODO: optimize
-  $seq([
-    $not([...RESERVED_WORDS, ...CONTROL_TOKENS]),
-    $regex(/^[_$a-zA-Z\xA0-\uFFFF][_$a-zA-Z0-9\xA0-\uFFFF]*$/m),
-  ])
+  $atom((ctx, pos) => {
+    const token = ctx.tokens[pos] ?? "";
+    const errorData = { errorType: "IdentifierError", token } as any;
+    const len = Array.from(token).length;
+    const charCode = token.charCodeAt(0);
+    if (len === 0) return fail(pos, -1, errorData);
+    const words = reservedWordsByLength.get(len);
+    if (len === 1 && charCode > 127) {
+      // Nothing
+    } else {
+      if (words?.includes(token)) return fail(pos, -1, errorData);
+    }
+    if (48 <= charCode && charCode <= 57) {
+      return fail(pos, -1, errorData);
+    }
+    return success(pos, 1, [pos]);
+  })
 );
 
 const thisKeyword = $token(K_THIS);
@@ -310,16 +334,9 @@ const typeExpression = $def(() => typeBinaryExpression);
 const destructiveArrayPattern = $def(() =>
   $seq([
     "[",
-    $repeat_seq([
-      // item, {},,
-      $opt($seq([destructive, $opt($seq([assign]))])),
-      ",",
-    ]),
-    // last item
+    $repeat_seq([$opt($seq([destructive, $opt($seq([assign]))])), ","]),
     $or([
-      // [,...i]
       $seq([dotDotDot, identifier]),
-      // [,a = 1 ,]
       $seq([destructive, $opt(assign), $opt(",")]),
       $seq([$opt(",")]),
     ]),
@@ -446,12 +463,12 @@ const arrayLiteral = $def(() =>
 const objectItem = $def(() =>
   $or([
     $seq([".", ".", ".", anyExpression]),
-    // $seq([
-    //   // function
-    //   $opt($or([K_ASYNC, K_GET, K_SET])),
-    //   $or([stringLiteral, $seq(["[", anyExpression, "]"]), identifier]),
-    //   $seq([L_PAREN, functionArguments, R_PAREN, block]),
-    // ]),
+    $seq([
+      // function
+      $opt($or([K_ASYNC, K_GET, K_SET])),
+      $or([stringLiteral, $seq(["[", anyExpression, "]"]), identifier]),
+      $seq([L_PAREN, funcArgs, R_PAREN, block]),
+    ]),
     $seq([
       // value
       $or([
@@ -494,13 +511,7 @@ const anyLiteral = $def(() =>
 );
 
 /* Class */
-// const accessModifier = $regex(`(${K_PRIVATE}|${K_PUBLIC}|${K_PROTECTED}) `);
 const accessModifier = $or([K_PRIVATE, K_PUBLIC, K_PROTECTED]);
-// const accessModifier = $or([K_PRIVATE,K_PUBLIC,K_PROTECTED]);
-// const staticModifier = $token(`static `);
-// const readonlyModifier = $token(`readonly `);
-// const staticModifier = $seq([K_STATIC]);
-// const asyncModifier = $seq([K_ASYNC]);
 const getOrSetModifier = $seq([$or([K_GET, K_SET])]);
 
 type ParsedCostructorArg = {
@@ -538,9 +549,7 @@ const classConstructorArg = $def(() =>
       ident: (string | { access: string; ident: string })[] | [{}];
       init: string[];
     }): ParsedCostructorArg => {
-      // console.log("constructor-arg", input);
       if (typeof input.ident[0] === "object") {
-        // console.log("is private", input.init?.join(""));
         // @ts-ignore
         const ident = input.ident[0].ident.join("");
         return {
@@ -1578,7 +1587,9 @@ if (process.env.NODE_ENV === "test") {
     expectFail(parse, "{a:{}");
     expectFail(parse, "{a:{}}}");
     // TODO: Impl a(){} after statement
-    // expectSuccess(parse, "{a(){}}");
+    expectSuccess(parse, "{a(){}}");
+    expectSuccess(parse, "{a(b){1;}}");
+    expectSuccess(parse, "{a(b=1,c=2){1;}}");
   });
 
   test("paren", () => {
@@ -1843,7 +1854,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("return", () => {
     const parse = compile(returnLikeStmt, false);
-    expectSuccess(parse, "return", "return ");
+    expectSuccess(parse, "return", "return");
     expectSuccess(parse, "return ret");
     expectSuccess(parse, "yield 1");
     expectSuccess(parse, "yield ret");
