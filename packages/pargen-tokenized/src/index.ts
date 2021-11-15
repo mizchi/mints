@@ -13,9 +13,7 @@ const isNumber = (x: any): x is number => typeof x === "number";
 export function createContext(partial: Partial<Compiler> = {}) {
   const compiler: Compiler = {
     data: {},
-    // useHeadTables: false,
-    parsers: new Map(),
-    definitions: new Map(),
+    parsers: [],
     ...partial,
   };
 
@@ -49,9 +47,9 @@ export function createContext(partial: Partial<Compiler> = {}) {
         cache,
       };
       const rootResult = parseFromRoot(rootContext, 0);
-      if (rootResult.error && rootContext.currentError != null) {
+      if (rootResult.error && rootContext.currentError) {
         // @ts-ignore
-        return { ...rootContext.currentError, tokens: tokens };
+        return { ...rootContext.currentError, tokens };
       }
       return rootResult;
     };

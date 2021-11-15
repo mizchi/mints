@@ -68,31 +68,28 @@ const toNode = (input: InputNodeExpr): Rule => {
   return input;
 };
 
-const __registered: Array<[number, () => InputNodeExpr]> = [];
+const __registered: Array<() => InputNodeExpr> = [];
+const buildRules = () => __registered.map((creator) => toNode(creator()));
+
 export const $close = (compiler: Compiler) => {
   console.time("mints:init");
-  __registered.forEach(([rootId, nodeCreator]) => {
-    const resolvedNode = toNode(nodeCreator());
-    const parser = compileFragment(resolvedNode, compiler, rootId);
-    compiler.parsers.set(rootId, parser);
-  });
+  const rules = buildRules();
+  const parsers = rules.map((rule, rootId) =>
+    compileFragment(rule, compiler, rootId)
+  );
+  compiler.parsers.push(...parsers);
   __registered.length = 0;
   console.timeEnd("mints:init");
 };
 
 export const $dump = () => {
-  const rules: { [key: string]: Rule } = {};
-  __registered.forEach(([rootId, nodeCreator]) => {
-    rules[rootId] = toNode(nodeCreator());
-  });
-  return rules;
+  return buildRules();
 };
 
-let _defCounter = 2;
 export function $def(nodeCreator: () => InputNodeExpr): number {
-  const id = _defCounter++;
-  __registered.push([id as any, nodeCreator]);
-  return id;
+  const rootId = __registered.length;
+  __registered.push(nodeCreator);
+  return rootId;
 }
 
 export function $ref(refId: string | number, reshape?: Reshape): Ref {

@@ -178,8 +178,8 @@ function compileFragmentInternal(
     }
     case RULE_REF: {
       return (ctx, pos) => {
-        const resolvedRule = compiler.parsers.get(rule.ref);
-        return resolvedRule!(ctx, pos);
+        const resolvedRule = compiler.parsers[rule.ref];
+        return resolvedRule(ctx, pos);
       };
     }
     case RULE_SEQ_OBJECT: {

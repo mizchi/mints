@@ -183,7 +183,7 @@ export type InputNodeExpr = Rule | string | number;
 export type DefinitionMap = Map<number, Rule>;
 
 export type Compiler = {
-  parsers: ParserMap;
+  parsers: InternalParser[];
   definitions: DefinitionMap;
   data: any;
 };
