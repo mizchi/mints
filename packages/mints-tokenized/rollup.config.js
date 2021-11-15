@@ -5,6 +5,7 @@ import nodeResolve from "@rollup/plugin-node-resolve";
 
 export default {
   input: ["src/index.ts"],
+  // input: ["src/index_prebuild.ts"],
   output: [
     {
       file: "dist/index.js",

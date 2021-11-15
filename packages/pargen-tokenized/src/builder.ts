@@ -48,6 +48,7 @@ export function createRef(refId: string | number, reshape?: Reshape): Ref {
   } as Ref;
 }
 
+const __tokenCache = new Map<string, Token>();
 const toNode = (input: InputNodeExpr): Rule => {
   if (typeof input === "object") {
     return input;
@@ -55,17 +56,28 @@ const toNode = (input: InputNodeExpr): Rule => {
   if (typeof input === "number") {
     return $ref(input);
   }
-  return typeof input === "string" ? $token(input) : input;
+  if (typeof input === "string") {
+    if (__tokenCache.has(input)) {
+      return __tokenCache.get(input)!;
+    } else {
+      const newToken = $token(input);
+      __tokenCache.set(input, newToken);
+      return newToken;
+    }
+  }
+  return input;
 };
 
 const __registered: Array<[number, () => InputNodeExpr]> = [];
 export const $close = (compiler: Compiler) => {
+  console.time("mints:init");
   __registered.forEach(([rootId, nodeCreator]) => {
     const resolvedNode = toNode(nodeCreator());
     const parser = compileFragment(resolvedNode, compiler, rootId);
     compiler.parsers.set(rootId, parser);
   });
   __registered.length = 0;
+  console.timeEnd("mints:init");
 };
 
 export const $dump = () => {

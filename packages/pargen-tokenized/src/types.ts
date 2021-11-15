@@ -34,13 +34,6 @@ export type Atom = {
   parse: InternalParser;
 };
 
-export type SerializedAtom = [
-  kind: typeof RULE_ATOM,
-  id1: number,
-  id2: number,
-  parsePtr: number
-];
-
 export type Any<T = any> = {
   id: number;
   kind: typeof RULE_ANY;
@@ -48,31 +41,14 @@ export type Any<T = any> = {
   reshape?: (tokens: string[]) => T;
 };
 
-export type SerializedAny = [
-  kind: typeof RULE_ANY,
-  id: number,
-  id2: number,
-  len: number,
-  reshapePtr: number
-];
-
 export type Eof = RuleBase & {
   kind: typeof RULE_EOF;
 };
-export type SerializedEof = [kind: typeof RULE_EOF, id1: number, id2: number];
 
 export type Not = RuleBase & {
   kind: typeof RULE_NOT;
   patterns: Rule[];
 };
-
-export type SerializedNot = [
-  kind: typeof RULE_NOT,
-  id1: number,
-  id2: number,
-  childrenPtr1: number,
-  childrenPtr1: number
-];
 
 export type SeqChildParams = {
   key?: string;
@@ -102,38 +78,12 @@ export type SeqObject<T = any, U = any> = {
   reshape?: (results: T, ctx: ParseContext) => U;
 };
 
-export type SerializedSeq = [
-  kind: typeof RULE_SEQ,
-  id1: number,
-  id2: number,
-  childrenPtr1: number,
-  childrenPtr1: number,
-  reshapePtr: number
-];
-
-export type SerializedSeqObject = [
-  kind: typeof RULE_SEQ_OBJECT,
-  id1: number,
-  id2: number,
-  childrenPtr1: number,
-  childrenPtr1: number,
-  reshapePtr: number
-];
-
 export type Ref<T = any, U = any> = {
   id: number;
   kind: typeof RULE_REF;
   ref: number;
   reshape?: (results: T, ctx: ParseContext) => U;
 };
-
-export type SerializedRef = [
-  kind: typeof RULE_REF,
-  id1: number,
-  id2: number,
-  ref: number,
-  reshapePtr: number
-];
 
 export type Repeat<T = string, U = T, R = U[]> = {
   kind: typeof RULE_REPEAT;
@@ -143,29 +93,11 @@ export type Repeat<T = string, U = T, R = U[]> = {
   reshape?: (results: U[], ctx: ParseContext) => R;
 };
 
-export type SerializedRepeat = [
-  kind: typeof RULE_REPEAT,
-  id1: number,
-  id2: number,
-  patternPtr1: number,
-  patternPtr2: number,
-  reshapeEachPtr: number,
-  reshapePtr: number
-];
-
 export type Or = {
   id: number;
   kind: typeof RULE_OR;
   patterns: Array<Seq | Token | Ref | Regex>;
 };
-
-export type SerializedOr = [
-  kind: typeof RULE_OR,
-  id1: number,
-  id2: number,
-  childPtr1: number,
-  childPtr1: number
-];
 
 export type Token<T = string> = {
   id: number;
@@ -174,28 +106,12 @@ export type Token<T = string> = {
   reshape?: (raw: string) => T;
 };
 
-export type SerializedToken = [
-  kind: typeof RULE_TOKEN,
-  id1: number,
-  id2: number,
-  exprPtr: number,
-  reshapePtr: number
-];
-
 export type Regex<T = string> = {
   id: number;
   kind: typeof RULE_REGEX;
   expr: string | RegExp;
   reshape?: (raw: string) => T;
 };
-
-export type SerializedRegex = [
-  kind: typeof RULE_REGEX,
-  id1: number,
-  id2: number,
-  exprPtr: number,
-  reshapePtr: number
-];
 
 export type Rule =
   | Seq
@@ -209,6 +125,30 @@ export type Rule =
   | Atom
   | Regex
   | Any;
+
+export type u8 = number;
+
+// 0
+export type SerializedEof = [];
+// 1 byte
+export type SerializedAtom = [funcPtr: u8];
+export type SerializedAny = [len: u8];
+export type SerializedToken = [stringPtr: u8];
+export type SerializedRegex = [stringPtr: u8];
+export type SerializedRef = [ref: u8];
+
+// 2 bytes
+export type SerializedNot = [childrenPtr1: u8];
+export type SerializedSeq = [childrenPtr1: u8];
+export type SerializedSeqObject = [childrenPtr1: u8];
+export type SerializedOr = [childPtr1: u8];
+
+// 3 bytes
+export type SerializedRepeat = [
+  patternPtr1: u8,
+  patternPtr2: u8,
+  reshapeEachPtr: u8
+];
 
 export type SerializedRule =
   | SerializedSeq

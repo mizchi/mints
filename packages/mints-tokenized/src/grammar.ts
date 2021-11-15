@@ -1372,7 +1372,7 @@ const caseClause = $def(() =>
   ])
 );
 
-export const program = $def(() => $seq([lines, $eof()]));
+export const program = lines;
 
 import { test, run, is } from "@mizchi/test";
 import { Rule } from "../../pargen-tokenized/src/types";
