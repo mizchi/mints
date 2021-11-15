@@ -42,7 +42,7 @@ const genId = () => cnt++;
 export function createRef(refId: string | number, reshape?: Reshape): Ref {
   return {
     id: genId(),
-    kind: RULE_REF,
+    t: RULE_REF,
     ref: refId,
     reshape,
   } as Ref;
@@ -95,7 +95,7 @@ export function $def(nodeCreator: () => InputNodeExpr): number {
 export function $ref(refId: string | number, reshape?: Reshape): Ref {
   return {
     id: genId(),
-    kind: RULE_REF,
+    t: RULE_REF,
     ref: refId,
     reshape,
   } as Ref;
@@ -107,7 +107,7 @@ export function $any<T = string>(
 ): Any {
   return {
     id: genId(),
-    kind: RULE_ANY,
+    t: RULE_ANY,
     len,
     reshape,
   } as Any;
@@ -160,7 +160,7 @@ export function $seq<T = string, U = string>(
 ): Seq {
   return {
     id: genId(),
-    kind: RULE_SEQ,
+    t: RULE_SEQ,
     children: toSeqChildren(children),
     reshape,
   } as Seq;
@@ -174,7 +174,7 @@ export function $seqo<T = any, U = any>(
 ): SeqObject<T, U> {
   return {
     id: genId(),
-    kind: RULE_SEQ_OBJECT,
+    t: RULE_SEQ_OBJECT,
     children: toSeqChildren(children),
     reshape,
   } as SeqObject<T, U>;
@@ -218,7 +218,7 @@ export function $opt(input: InputNodeExpr): SeqChildRule {
 export function $not(children: InputNodeExpr[], reshape?: Reshape): Not {
   const childNodes = children.map(toNode);
   return {
-    kind: RULE_NOT,
+    t: RULE_NOT,
     patterns: childNodes,
     reshape,
     id: genId(),
@@ -283,7 +283,7 @@ export function $or(
   // const heads = builtPatterns.map(buildHeadTable).flat();
 
   return {
-    kind: RULE_OR,
+    t: RULE_OR,
     // heads: [],
     patterns: builtPatterns,
     reshape,
@@ -298,7 +298,7 @@ export function $repeat<T = any, U = T, R = T[]>(
 ): Repeat<T, U, R> {
   return {
     id: genId(),
-    kind: RULE_REPEAT,
+    t: RULE_REPEAT,
     pattern: toNode(pattern),
     reshapeEach,
     reshape,
@@ -312,7 +312,7 @@ export function $token<T = string>(
 ): Token<T> {
   return {
     id: genId(),
-    kind: RULE_TOKEN,
+    t: RULE_TOKEN,
     expr,
     reshape,
   };
@@ -325,7 +325,7 @@ export function $regex<T = string>(
 ): Regex<T> {
   return {
     id: genId(),
-    kind: RULE_REGEX,
+    t: RULE_REGEX,
     expr,
     reshape,
   };
@@ -339,14 +339,14 @@ export function $r(strings: TemplateStringsArray): Regex {
 export function $eof(): Eof {
   return {
     id: genId(),
-    kind: RULE_EOF,
+    t: RULE_EOF,
   };
 }
 
 export function $atom(parse: InternalParser): Atom {
   return {
     id: genId(),
-    kind: RULE_ATOM,
+    t: RULE_ATOM,
     parse: parse,
   };
 }

@@ -25,28 +25,30 @@ import type {
 
 export type RuleBase = {
   id: number;
-  kind: number;
+  t: number;
 };
 
 export type Atom = {
   id: number;
-  kind: typeof RULE_ATOM;
+  t: typeof RULE_ATOM;
   parse: InternalParser;
 };
 
 export type Any<T = any> = {
   id: number;
-  kind: typeof RULE_ANY;
+  t: typeof RULE_ANY;
   len: number;
   reshape?: (tokens: string[]) => T;
 };
 
-export type Eof = RuleBase & {
-  kind: typeof RULE_EOF;
+export type Eof = {
+  id: number;
+  t: typeof RULE_EOF;
 };
 
-export type Not = RuleBase & {
-  kind: typeof RULE_NOT;
+export type Not = {
+  id: number;
+  t: typeof RULE_NOT;
   patterns: Rule[];
 };
 
@@ -65,14 +67,14 @@ export type SeqChildParams = {
 export type SeqChildRule = RuleBase & SeqChildParams;
 
 export type Seq<T = string, U = string> = {
-  kind: typeof RULE_SEQ;
   id: number;
+  t: typeof RULE_SEQ;
   children: SeqChildRule[];
   reshape?: (results: T[], ctx: ParseContext) => U;
 };
 
 export type SeqObject<T = any, U = any> = {
-  kind: typeof RULE_SEQ_OBJECT;
+  t: typeof RULE_SEQ_OBJECT;
   id: number;
   children: SeqChildRule[];
   reshape?: (results: T, ctx: ParseContext) => U;
@@ -80,13 +82,13 @@ export type SeqObject<T = any, U = any> = {
 
 export type Ref<T = any, U = any> = {
   id: number;
-  kind: typeof RULE_REF;
+  t: typeof RULE_REF;
   ref: number;
   reshape?: (results: T, ctx: ParseContext) => U;
 };
 
 export type Repeat<T = string, U = T, R = U[]> = {
-  kind: typeof RULE_REPEAT;
+  t: typeof RULE_REPEAT;
   id: number;
   pattern: Rule;
   reshapeEach?: (results: T[], ctx: ParseContext) => U;
@@ -95,20 +97,20 @@ export type Repeat<T = string, U = T, R = U[]> = {
 
 export type Or = {
   id: number;
-  kind: typeof RULE_OR;
+  t: typeof RULE_OR;
   patterns: Array<Seq | Token | Ref | Regex>;
 };
 
 export type Token<T = string> = {
   id: number;
-  kind: typeof RULE_TOKEN;
+  t: typeof RULE_TOKEN;
   expr: string;
   reshape?: (raw: string) => T;
 };
 
 export type Regex<T = string> = {
   id: number;
-  kind: typeof RULE_REGEX;
+  t: typeof RULE_REGEX;
   expr: string | RegExp;
   reshape?: (raw: string) => T;
 };
@@ -184,7 +186,7 @@ export type DefinitionMap = Map<number, Rule>;
 
 export type Compiler = {
   parsers: InternalParser[];
-  definitions: DefinitionMap;
+  // definitions: DefinitionMap;
   data: any;
 };
 

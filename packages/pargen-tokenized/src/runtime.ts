@@ -97,7 +97,7 @@ function compileFragmentInternal(
   compiler: Compiler,
   rootId: number
 ): InternalParser {
-  switch (rule.kind) {
+  switch (rule.t) {
     // generic rule
     case RULE_ATOM: {
       return (ctx, pos) => rule.parse(ctx, pos);
