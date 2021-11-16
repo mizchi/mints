@@ -49,7 +49,7 @@ export type Eof = {
 export type Not = {
   u: number;
   t: typeof RULE_NOT;
-  c: Rule[];
+  c: Rule[] | number[];
 };
 
 export type Flags = {
@@ -67,7 +67,7 @@ export type Flags = {
 export type Seq<T = string, U = string> = {
   u: number;
   t: typeof RULE_SEQ;
-  c: Rule[];
+  c: Rule[] | number[];
   f: (Flags | null)[];
   r?: (results: T[], ctx: ParseContext) => U;
 };
@@ -75,7 +75,7 @@ export type Seq<T = string, U = string> = {
 export type SeqObject<T = any, U = any> = {
   u: number;
   t: typeof RULE_SEQ_OBJECT;
-  c: Rule[];
+  c: Rule[] | number[];
   f: (Flags | null)[];
   r?: (results: T, ctx: ParseContext) => U;
 };
@@ -90,7 +90,7 @@ export type Ref<T = any, U = any> = {
 export type Repeat<T = string, U = T, R = U[]> = {
   u: number;
   t: typeof RULE_REPEAT;
-  c: Rule;
+  c: Rule | number;
   e?: (results: T[], ctx: ParseContext) => U;
   r?: (results: U[], ctx: ParseContext) => R;
 };
@@ -98,7 +98,7 @@ export type Repeat<T = string, U = T, R = U[]> = {
 export type Or = {
   u: number;
   t: typeof RULE_OR;
-  c: Array<Seq | Token | Ref | Regex>;
+  c: Array<Seq | Token | Ref | Regex> | number[];
 };
 
 export type Token<T = string> = {
@@ -147,17 +147,21 @@ export type RuleExpr = Rule | string | number;
 export type DefinitionMap = Map<number, Rule>;
 
 export type Compiler = {
-  parsers: InternalParser[];
-  // definitions: DefinitionMap;
-  data: any;
+  refs: number[];
+  rules: Rule[];
 };
 
 export type ParserMap = Map<number, InternalParser>;
+
 export type ParseContext = {
   root: number | string;
   tokens: string[];
   cache: Map<string, ParseResult>;
   currentError: ParseError | null;
+
+  refs: number[]; // ref index to rule index
+  rules: Rule[];
+  parsers: InternalParser[];
 };
 
 export type InternalParser = (ctx: ParseContext, pos: number) => ParseResult;
@@ -245,7 +249,6 @@ export type ParseErrorData =
 
 export type ParseErrorBase = {
   error: true;
-  rootId: number;
   pos: number;
 };
 

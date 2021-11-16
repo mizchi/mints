@@ -1,6 +1,5 @@
 import type {
   Rule,
-  Compiler,
   RuleExpr,
   Token,
   Reshape,
@@ -32,8 +31,6 @@ import {
   RULE_SEQ_OBJECT,
   RULE_TOKEN,
 } from "./constants";
-
-import { compileFragment } from "./runtime";
 
 let cnt = 2;
 const genId = () => cnt++;
@@ -68,23 +65,43 @@ const toNode = (input: RuleExpr): Rule => {
 };
 
 const __registered: Array<() => RuleExpr> = [];
-const buildRules = () => __registered.map((creator) => toNode(creator()));
+const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
-export const $close = (compiler: Compiler) => {
-  console.time("mints:init");
-  const rules = buildRules();
-  const parsers = rules.map((rule, rootId) =>
-    compileFragment(rule, compiler, rootId)
-  );
-  // console.log("before push", compiler.parsers.length);
-  compiler.parsers.push(...parsers);
+function compileToRules(defs: Rule[]): [Rule[], number[]] {
+  // const defsMap = new Array(defs.length).fill(-1);
+  const builtRules: Rule[] = [];
+  function _compile(rule: Rule): number {
+    switch (rule.t) {
+      case RULE_REPEAT: {
+        rule.c = _compile(rule.c as Rule);
+        break;
+      }
+      case RULE_OR:
+      case RULE_SEQ:
+      case RULE_SEQ_OBJECT:
+      case RULE_NOT: {
+        rule.c = (rule.c as Rule[]).map(_compile);
+      }
+    }
+    const id = builtRules.length;
+    builtRules.push(rule);
+    return id;
+  }
+
+  const refMap = defs.map(_compile);
+  return [builtRules, refMap];
+}
+
+export const $close = () => {
+  const defs = buildDefs();
+  const compiled = compileToRules(defs);
   __registered.length = 0;
   __tokenCache.clear();
-  console.timeEnd("mints:init");
+  return compiled;
 };
 
 export const $dump = () => {
-  return buildRules();
+  return buildDefs();
 };
 
 export function $def(nodeCreator: () => RuleExpr): number {
@@ -194,14 +211,8 @@ export function $opt_seq(input: Array<RuleWithFlags>): [Flags, Rule] {
   // return $opt($seq(input)) as Seq;
 }
 
-// seq child builder
-// export function $param(key: string, node: RuleExpr): Flags {
-//   return { ...toNode(node), key } as Flags;
-// }
-
 export function $skip(input: RuleExpr): [Flags, Rule] {
   return [{ skip: true }, toNode(input)];
-  // return { ...toNode(input), skip: true } as SeqChildRule;
 }
 
 export function $skip_opt(input: RuleExpr): [Flags, Rule] {
@@ -298,7 +309,6 @@ export function $repeat<T = any, U = T, R = T[]>(
   };
 }
 
-// const tokenCache: { [key: string]: Token } = {};
 export function $token<T = string>(
   expr: string,
   reshape?: (raw: string) => T
@@ -311,7 +321,6 @@ export function $token<T = string>(
   };
 }
 
-// const regexCache: { [key: string]: Regex<any> } = {};
 export function $regex<T = string>(
   expr: string | RegExp,
   reshape?: (raw: string) => T
@@ -324,7 +333,6 @@ export function $regex<T = string>(
   };
 }
 
-// regex sharthand
 export function $r(strings: TemplateStringsArray): Regex {
   return $regex(strings.join(""));
 }
