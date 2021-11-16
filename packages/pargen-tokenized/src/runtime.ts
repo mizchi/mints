@@ -68,6 +68,7 @@ export function fail<ErrorData extends ParseErrorData>(
 
 // parse with cache
 export function compileFragment(rule: Rule): InternalParser {
+  // console.log("compile", rule);
   const parser: InternalParser = (ctx, pos) => {
     // use cached result
     const cacheKey = pos + "@" + rule.u;
