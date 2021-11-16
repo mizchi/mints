@@ -23,25 +23,23 @@ export function createContext(partial: Partial<Compiler> = {}) {
     const _resolved = isNumber(node) ? createRef(node) : node;
     const resolved = end
       ? ({
-          id: 0, // shoud be zero
-          kind: RULE_SEQ,
-          primitive: true,
-          children: [
+          u: 0, // shoud be zero
+          t: RULE_SEQ,
+          c: [
             _resolved,
             {
-              id: 1,
-              kind: RULE_EOF,
-              primitive: true,
+              u: 1,
+              t: RULE_EOF,
             },
           ],
         } as Seq)
       : _resolved;
-    const parseFromRoot = compileFragment(resolved, compiler, resolved.id);
+    const parseFromRoot = compileFragment(resolved, compiler, resolved.u);
 
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const rootContext = {
-        root: resolved.id,
+        root: resolved.u,
         tokens,
         currentError: null,
         cache,

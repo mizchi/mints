@@ -1,7 +1,7 @@
 import type {
   Rule,
   Compiler,
-  InputNodeExpr,
+  RuleExpr,
   Token,
   Reshape,
   Seq,
@@ -41,15 +41,15 @@ const genId = () => cnt++;
 
 export function createRef(refId: string | number, reshape?: Reshape): Ref {
   return {
-    id: genId(),
+    u: genId(),
     t: RULE_REF,
-    ref: refId,
-    reshape,
+    c: refId,
+    r: reshape,
   } as Ref;
 }
 
 const __tokenCache = new Map<string, Token>();
-const toNode = (input: InputNodeExpr): Rule => {
+const toNode = (input: RuleExpr): Rule => {
   if (typeof input === "object") {
     return input;
   }
@@ -68,7 +68,7 @@ const toNode = (input: InputNodeExpr): Rule => {
   return input;
 };
 
-const __registered: Array<() => InputNodeExpr> = [];
+const __registered: Array<() => RuleExpr> = [];
 const buildRules = () => __registered.map((creator) => toNode(creator()));
 
 export const $close = (compiler: Compiler) => {
@@ -77,8 +77,10 @@ export const $close = (compiler: Compiler) => {
   const parsers = rules.map((rule, rootId) =>
     compileFragment(rule, compiler, rootId)
   );
+  // console.log("before push", compiler.parsers.length);
   compiler.parsers.push(...parsers);
   __registered.length = 0;
+  __tokenCache.clear();
   console.timeEnd("mints:init");
 };
 
@@ -86,7 +88,7 @@ export const $dump = () => {
   return buildRules();
 };
 
-export function $def(nodeCreator: () => InputNodeExpr): number {
+export function $def(nodeCreator: () => RuleExpr): number {
   const rootId = __registered.length;
   __registered.push(nodeCreator);
   return rootId;
@@ -94,10 +96,10 @@ export function $def(nodeCreator: () => InputNodeExpr): number {
 
 export function $ref(refId: string | number, reshape?: Reshape): Ref {
   return {
-    id: genId(),
+    u: genId(),
     t: RULE_REF,
-    ref: refId,
-    reshape,
+    c: refId,
+    r: reshape,
   } as Ref;
 }
 
@@ -106,10 +108,10 @@ export function $any<T = string>(
   reshape?: (token: string) => T
 ): Any {
   return {
-    id: genId(),
+    u: genId(),
     t: RULE_ANY,
-    len,
-    reshape,
+    c: len,
+    r: reshape,
   } as Any;
 }
 
@@ -124,11 +126,11 @@ const toSeqChild = (
   return { key, skip, opt, push, pop, ...rule };
 };
 
-type SeqChildInputNodeExpr = InputNodeExpr | SeqChildRule;
+type SeqChildInputNodeExpr = RuleExpr | SeqChildRule;
 
 const toSeqChildren = (
   children: Array<
-    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
+    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: RuleExpr]
   >
 ): SeqChildRule[] => {
   return children.map((child): SeqChildRule => {
@@ -147,42 +149,42 @@ const toSeqChildren = (
         );
       }
     } else {
-      return toSeqChild(toNode(child as InputNodeExpr));
+      return toSeqChild(toNode(child as RuleExpr));
     }
   });
 };
 
 export function $seq<T = string, U = string>(
   children: Array<
-    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
+    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: RuleExpr]
   >,
   reshape?: (results: T[], ctx: ParseContext) => U
 ): Seq {
   return {
-    id: genId(),
+    u: genId(),
     t: RULE_SEQ,
-    children: toSeqChildren(children),
-    reshape,
+    c: toSeqChildren(children),
+    r: reshape,
   } as Seq;
 }
 
 export function $seqo<T = any, U = any>(
   children: Array<
-    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
+    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: RuleExpr]
   >,
   reshape?: (obj: T, ctx: ParseContext) => U
 ): SeqObject<T, U> {
   return {
-    id: genId(),
+    u: genId(),
     t: RULE_SEQ_OBJECT,
-    children: toSeqChildren(children),
-    reshape,
+    c: toSeqChildren(children),
+    r: reshape,
   } as SeqObject<T, U>;
 }
 
 export function $repeat_seq(
   input: Array<
-    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
+    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: RuleExpr]
   >,
   reshapeEach?: Reshape,
   reshape?: Reshape
@@ -192,41 +194,40 @@ export function $repeat_seq(
 
 export function $opt_seq(
   input: Array<
-    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: InputNodeExpr]
+    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: RuleExpr]
   >
 ): Seq {
   return $opt($seq(input)) as Seq;
 }
 
 // seq child builder
-export function $param(key: string, node: InputNodeExpr): SeqChildParams {
+export function $param(key: string, node: RuleExpr): SeqChildParams {
   return { ...toNode(node), key } as SeqChildParams;
 }
 
-export function $skip(input: InputNodeExpr): SeqChildRule {
+export function $skip(input: RuleExpr): SeqChildRule {
   return { ...toNode(input), skip: true } as SeqChildRule;
 }
 
-export function $skip_opt(input: InputNodeExpr): SeqChildRule {
+export function $skip_opt(input: RuleExpr): SeqChildRule {
   return { ...toNode(input), skip: true, opt: true } as SeqChildRule;
 }
 
-export function $opt(input: InputNodeExpr): SeqChildRule {
+export function $opt(input: RuleExpr): SeqChildRule {
   return { ...toNode(input), opt: true } as SeqChildRule;
 }
 
-export function $not(children: InputNodeExpr[], reshape?: Reshape): Not {
+export function $not(children: RuleExpr[], reshape?: Reshape): Not {
   const childNodes = children.map(toNode);
   return {
     t: RULE_NOT,
-    patterns: childNodes,
+    c: childNodes,
     reshape,
-    id: genId(),
+    u: genId(),
   } as Not;
 }
 
 // TODO: Impl head tables
-
 // function findFirstNonOptionalRule(seq: Seq): Rule | undefined {
 //   if (seq.kind === SEQ) {
 //     for (const child of seq.children) {
@@ -271,10 +272,7 @@ export function $not(children: InputNodeExpr[], reshape?: Reshape): Not {
 //   }
 // }
 
-export function $or(
-  patterns: Array<InputNodeExpr>,
-  reshape?: Reshape
-): Or | Rule {
+export function $or(patterns: Array<RuleExpr>, reshape?: Reshape): Or | Rule {
   if (patterns.length === 1) {
     return toNode(patterns[0]);
   }
@@ -285,23 +283,23 @@ export function $or(
   return {
     t: RULE_OR,
     // heads: [],
-    patterns: builtPatterns,
+    c: builtPatterns,
     reshape,
-    id: genId(),
+    u: genId(),
   } as Or;
 }
 
 export function $repeat<T = any, U = T, R = T[]>(
-  pattern: InputNodeExpr,
+  pattern: RuleExpr,
   reshapeEach?: (results: T[], ctx: ParseContext) => U,
   reshape?: (results: U[], ctx: ParseContext) => R
 ): Repeat<T, U, R> {
   return {
-    id: genId(),
+    u: genId(),
     t: RULE_REPEAT,
-    pattern: toNode(pattern),
-    reshapeEach,
-    reshape,
+    c: toNode(pattern),
+    e: reshapeEach,
+    r: reshape,
   };
 }
 
@@ -311,10 +309,10 @@ export function $token<T = string>(
   reshape?: (raw: string) => T
 ): Token<T> {
   return {
-    id: genId(),
+    u: genId(),
     t: RULE_TOKEN,
-    expr,
-    reshape,
+    c: expr,
+    r: reshape,
   };
 }
 
@@ -324,10 +322,10 @@ export function $regex<T = string>(
   reshape?: (raw: string) => T
 ): Regex<T> {
   return {
-    id: genId(),
+    u: genId(),
     t: RULE_REGEX,
-    expr,
-    reshape,
+    c: expr,
+    r: reshape,
   };
 }
 
@@ -338,15 +336,15 @@ export function $r(strings: TemplateStringsArray): Regex {
 
 export function $eof(): Eof {
   return {
-    id: genId(),
+    u: genId(),
     t: RULE_EOF,
   };
 }
 
 export function $atom(parse: InternalParser): Atom {
   return {
-    id: genId(),
+    u: genId(),
     t: RULE_ATOM,
-    parse: parse,
+    c: parse,
   };
 }

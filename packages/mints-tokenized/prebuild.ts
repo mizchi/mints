@@ -1,10 +1,8 @@
-import type { Regex, SeqChildRule, Token } from "../pargen-tokenized/src/types";
+import type { SeqChildRule } from "../pargen-tokenized/src/types";
 
 export type u8 = number;
 
-// 0
 export type SerializedEof = [];
-// 1 byte
 export type E_Atom = [funcPtr: u8];
 export type E_Any = [len: u8];
 export type E_Token = [stringPtr: u8];
@@ -14,16 +12,13 @@ export type SerializedNot = [childrenPtr: u8];
 export type E_Seq = [childrenPtr: u8];
 export type SerializedSeqObject = [childrenPtr: u8];
 export type E_OR = [childPtr: u8];
-export type SerializedRepeat = [patternPtr: u8];
-
-// TODO: Handle Pattern ptr
-// , reshapeEachPtr: u8
+export type E_Repeat = [patternPtr: u8];
 
 export type EncodedRule =
   | E_Seq
   | E_Token
   | E_OR
-  | SerializedRepeat
+  | E_Repeat
   | SerializedRef
   | SerializedEof
   | SerializedNot
@@ -32,12 +27,9 @@ export type EncodedRule =
   | E_Atom
   | SerializedSeqObject
   | E_Regex;
-import * as grammar from "./src/grammar";
-// touch to make sure the file is generated
-Object.keys(grammar);
 
 import { $dump } from "../pargen-tokenized/src/builder";
-import type { Rule, Seq } from "../pargen-tokenized/src/types";
+import type { Rule } from "../pargen-tokenized/src/types";
 import {
   RULE_ANY,
   RULE_ATOM,
@@ -51,6 +43,7 @@ import {
   RULE_SEQ_OBJECT,
   RULE_TOKEN,
 } from "../pargen-tokenized/src/constants";
+
 import ohash from "object-hash";
 
 type E_ElementSizes = [
@@ -98,6 +91,10 @@ const COUNT_ORDER = [
   RULE_REPEAT,
 ] as const;
 
+require("./src/grammar");
+// import * as grammar from "./src/grammar";
+// Object.keys(grammar);
+
 const CIDS_ORDER = [RULE_SEQ, RULE_SEQ_OBJECT, RULE_OR, RULE_NOT] as const;
 
 class Encoder {
@@ -122,10 +119,7 @@ class Encoder {
   };
 
   #encodedRules: EncodedRule[] = [];
-
   #cachedRules = new Map<string, u8>();
-
-  // #reshapeMap = new Map<number, number>();
   #usageCounter = new Map<number, number>();
 
   constructor() {
@@ -157,8 +151,6 @@ class Encoder {
     }).flat();
 
     const elementSizes: E_ElementSizes = [
-      // this.#funcs.length,
-      // this.#strings.length,
       seq_cids_count,
       seqo_cids_count,
       or_cids_count,
@@ -172,11 +164,11 @@ class Encoder {
       ...header,
       // rules: 1 byte
       ...this.#encodedRules.flat(),
-      // flags: 2
+      // flags: 2 bytes
       ...this.#flags_list.flat(),
-      // keys: 2
+      // keys: 2 bytes
       ...this.#key_list.flat(),
-      // pop: 2
+      // pop: 2 bytes
       ...this.#pop_list.flat(),
       // children ids
       ...e_cids_body,
@@ -189,102 +181,51 @@ class Encoder {
         throw new Error("buffer overflow");
       }
     }
-    // console.log("header", header);
-    console.log("buf", buf);
     return new Uint8Array(buf);
   }
 
-  #addSeqChildParams(rulePtr: number, child: SeqChildRule) {
-    const flags =
-      (child.opt ? 0b001 : 0) +
-      (child.skip ? 0b010 : 0) +
-      (child.push ? 0b100 : 0);
-    if (flags > 0) this.#flags_list.push([rulePtr, flags]);
-    if (child.key) this.#key_list.push([rulePtr, this.#addString(child.key)]);
-    if (child.pop) this.#pop_list.push([rulePtr, this.#addFunc(child.pop)]);
-  }
-
   public registerRule(rule: Rule): number {
-    switch (rule.kind) {
-      case RULE_TOKEN: {
-        const s = [this.#addString(rule.expr)] as E_Token;
-        return this.#addRule(rule, s);
+    switch (rule.t) {
+      case RULE_TOKEN:
+      case RULE_REGEX:
+      case RULE_ATOM:
+      case RULE_REF:
+      case RULE_ANY:
+        return this.#addRule(rule, [rule.c] as EncodedRule);
+      case RULE_NOT:
+      case RULE_OR: {
+        const cidsPtr = this.#addChildren(
+          rule.t,
+          rule.c.map(this.registerRule.bind(this))
+        );
+        return this.#addRule(rule, [cidsPtr] as EncodedRule);
       }
-      case RULE_REGEX: {
-        const s = [this.#addString(rule.expr.toString())] as E_Regex;
-        return this.#addRule(rule, s);
-      }
-      case RULE_SEQ: {
-        const childrenIds = rule.children.map((child) => {
+      case RULE_SEQ:
+      case RULE_SEQ_OBJECT: {
+        const cids = rule.c.map((child) => {
           const rulePtr = this.registerRule(child as Rule);
-          this.#addSeqChildParams(rulePtr, child as SeqChildRule);
+          this.#addSeqChildParams(rulePtr, child);
           return rulePtr;
         });
-        const childrenPtr = this.#addChildren(RULE_SEQ, childrenIds);
-        const s = [childrenPtr] as E_Seq;
-        const rulePtr = this.#addRule(rule, s);
-        return rulePtr;
-      }
-      case RULE_SEQ_OBJECT: {
-        const s = [
-          this.#addChildren(
-            RULE_SEQ_OBJECT,
-            rule.children.map((child) => {
-              const rulePtr = this.registerRule(child as Rule);
-              this.#addSeqChildParams(rulePtr, child as SeqChildRule);
-              return rulePtr;
-            })
-          ),
-        ] as SerializedSeqObject;
-        return this.#addRule(rule, s);
-      }
-      case RULE_ANY: {
-        const s = [rule.len] as E_Any;
+        const s = [this.#addChildren(rule.t, cids)] as EncodedRule;
         return this.#addRule(rule, s);
       }
       case RULE_REPEAT: {
-        const childPtr = this.registerRule(rule.pattern as Rule);
-        // TODO: reshapeEach
-        const s = [childPtr] as SerializedRepeat;
-        const rulePtr = this.#addRule(rule, s);
-
-        if (rule.reshapeEach) {
-          this.#reshape_each_list.push([
-            rulePtr,
-            this.#addFunc(rule.reshapeEach),
-          ]);
-        }
+        const childPtr = this.registerRule(rule.c);
+        const rulePtr = this.#addRule(rule, [childPtr] as E_Repeat);
+        if (rule.e)
+          this.#reshape_each_list.push([rulePtr, this.#addFunc(rule.e)]);
         return rulePtr;
-      }
-      case RULE_OR: {
-        const children = rule.patterns.map((p) => this.registerRule(p));
-        const childrenPtr = this.#addChildren(RULE_OR, children);
-        const s = [childrenPtr] as E_OR;
-        return this.#addRule(rule, s);
-      }
-      case RULE_ATOM: {
-        const s = [this.#addFunc(rule.parse)] as E_Atom;
-        return this.#addRule(rule, s);
-      }
-      case RULE_REF: {
-        const s = [rule.ref] as SerializedRef;
-        return this.#addRule(rule, s);
-      }
-      case RULE_NOT: {
-        const children = rule.patterns.map((p) => this.registerRule(p));
-        const childrenPtr = this.#addChildren(RULE_NOT, children);
-        const s = [childrenPtr] as SerializedNot;
-        return this.#addRule(rule, s);
       }
       case RULE_EOF:
       default: {
-        throw new Error(`Unsupported node kind: ${rule.kind}`);
+        throw new Error(`Unsupported node kind: ${rule.t}`);
       }
     }
   }
 
   #incrementUsage(rule: Rule) {
-    this.#usageCounter.set(rule.kind, this.#usageCounter.get(rule.kind)! + 1);
+    this.#usageCounter.set(rule.t, this.#usageCounter.get(rule.t)! + 1);
   }
 
   #addRule(rule: Rule, encoded: EncodedRule): u8 {
@@ -292,9 +233,11 @@ class Encoder {
     if (this.#cachedRules.has(hash)) {
       return this.#cachedRules.get(hash)!;
     }
-
-    if (Math.max(...encoded) > 255) throw new Error("too many rules");
-
+    if (Math.max(...encoded) > 255) {
+      console.log("or", this.#cids[RULE_OR].length);
+      console.log("seq", this.#cids[RULE_SEQ].length);
+      throw new Error(`too many rules: ${JSON.stringify(encoded)}`);
+    }
     const rulePtr = this.#encodedRules.length;
 
     // update cache
@@ -304,6 +247,23 @@ class Encoder {
     this.#reshape_list.push([rulePtr, this.#addFunc((rule as any).reshape)]);
     this.#incrementUsage(rule);
     return rulePtr;
+  }
+
+  #addSeqChildParams(rulePtr: number, child: SeqChildRule) {
+    const OPT_MASK = 0b00001;
+    const SKIP_MASK = 0b00010;
+    const KEY_MASK = 0b00100;
+    const PUSH_MASK = 0b01000;
+    const POP_MASK = 0b10000;
+    const flags =
+      (child.opt ? OPT_MASK : 0) +
+      (child.skip ? SKIP_MASK : 0) +
+      (child.push ? PUSH_MASK : 0) +
+      (child.pop ? POP_MASK : 0) +
+      (child.key ? KEY_MASK : 0);
+    if (flags > 0) this.#flags_list.push([rulePtr, flags]);
+    if (child.key) this.#key_list.push([rulePtr, this.#addString(child.key)]);
+    if (child.pop) this.#pop_list.push([rulePtr, this.#addFunc(child.pop)]);
   }
 
   #addString(s: string | null | void) {
@@ -329,10 +289,10 @@ class Encoder {
       | typeof RULE_NOT,
     childrenIds: number[]
   ) {
-    const childrenPtr = this.#cids[kind].length;
+    const cidsPtr = this.#cids[kind].length;
     this.#cids[kind].push(childrenIds);
     if (childrenIds.length > 255) throw new Error("too many children");
-    return childrenPtr;
+    return cidsPtr;
   }
 }
 
@@ -464,9 +424,7 @@ const rawRules = $dump();
 // console.log("dump", dumppedRaw + "bytes");
 // console.log("dump:deflate", zlib.deflateSync(dumppedRaw).length / 1024 + "kb");
 
-const sortedRules = Object.entries(rawRules).sort(
-  ([, a], [, b]) => a.kind - b.kind
-);
+const sortedRules = Object.entries(rawRules).sort(([, a], [, b]) => a.t - b.t);
 
 // console.log(
 //   "sorted:",

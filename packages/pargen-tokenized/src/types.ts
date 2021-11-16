@@ -24,39 +24,39 @@ import type {
 } from "./constants";
 
 export type RuleBase = {
-  id: number;
+  u: number;
   t: number;
 };
 
 export type Atom = {
-  id: number;
+  u: number;
   t: typeof RULE_ATOM;
-  parse: InternalParser;
+  c: InternalParser;
 };
 
 export type Any<T = any> = {
-  id: number;
+  u: number;
   t: typeof RULE_ANY;
-  len: number;
-  reshape?: (tokens: string[]) => T;
+  c: number;
+  r?: (tokens: string[]) => T;
 };
 
 export type Eof = {
-  id: number;
+  u: number;
   t: typeof RULE_EOF;
 };
 
 export type Not = {
-  id: number;
+  u: number;
   t: typeof RULE_NOT;
-  patterns: Rule[];
+  c: Rule[];
 };
 
 export type SeqChildParams = {
-  key?: string;
   opt?: boolean;
   skip?: boolean;
   push?: boolean;
+  key?: string;
   pop?: (
     a: ParseSuccess["results"],
     b: ParseSuccess["results"],
@@ -67,52 +67,52 @@ export type SeqChildParams = {
 export type SeqChildRule = RuleBase & SeqChildParams;
 
 export type Seq<T = string, U = string> = {
-  id: number;
+  u: number;
   t: typeof RULE_SEQ;
-  children: SeqChildRule[];
-  reshape?: (results: T[], ctx: ParseContext) => U;
+  c: SeqChildRule[];
+  r?: (results: T[], ctx: ParseContext) => U;
 };
 
 export type SeqObject<T = any, U = any> = {
+  u: number;
   t: typeof RULE_SEQ_OBJECT;
-  id: number;
-  children: SeqChildRule[];
-  reshape?: (results: T, ctx: ParseContext) => U;
+  c: SeqChildRule[];
+  r?: (results: T, ctx: ParseContext) => U;
 };
 
 export type Ref<T = any, U = any> = {
-  id: number;
+  u: number;
   t: typeof RULE_REF;
-  ref: number;
-  reshape?: (results: T, ctx: ParseContext) => U;
+  c: number;
+  r?: (results: T, ctx: ParseContext) => U;
 };
 
 export type Repeat<T = string, U = T, R = U[]> = {
+  u: number;
   t: typeof RULE_REPEAT;
-  id: number;
-  pattern: Rule;
-  reshapeEach?: (results: T[], ctx: ParseContext) => U;
-  reshape?: (results: U[], ctx: ParseContext) => R;
+  c: Rule;
+  e?: (results: T[], ctx: ParseContext) => U;
+  r?: (results: U[], ctx: ParseContext) => R;
 };
 
 export type Or = {
-  id: number;
+  u: number;
   t: typeof RULE_OR;
-  patterns: Array<Seq | Token | Ref | Regex>;
+  c: Array<Seq | Token | Ref | Regex>;
 };
 
 export type Token<T = string> = {
-  id: number;
+  u: number;
   t: typeof RULE_TOKEN;
-  expr: string;
-  reshape?: (raw: string) => T;
+  c: string;
+  r?: (raw: string) => T;
 };
 
 export type Regex<T = string> = {
-  id: number;
+  u: number;
   t: typeof RULE_REGEX;
-  expr: string | RegExp;
-  reshape?: (raw: string) => T;
+  c: string | RegExp;
+  r?: (raw: string) => T;
 };
 
 export type Rule =
@@ -180,7 +180,7 @@ export type RootParser = (
   pos?: number
 ) => ParseSuccess | (ParseError & { tokens: string[] });
 
-export type InputNodeExpr = Rule | string | number;
+export type RuleExpr = Rule | string | number;
 
 export type DefinitionMap = Map<number, Rule>;
 

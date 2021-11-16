@@ -76,7 +76,7 @@ export function compileFragment(
   const internalParser = compileFragmentInternal(rule, compiler, rootId);
   const parser: InternalParser = (ctx, pos) => {
     // use cached result
-    const cacheKey = pos + "@" + rule.id;
+    const cacheKey = pos + "@" + rule.u;
     let parsed = ctx.cache.get(cacheKey);
     if (!parsed) {
       parsed = internalParser(ctx, pos);
@@ -100,14 +100,14 @@ function compileFragmentInternal(
   switch (rule.t) {
     // generic rule
     case RULE_ATOM: {
-      return (ctx, pos) => rule.parse(ctx, pos);
+      return (ctx, pos) => rule.c(ctx, pos);
     }
     case RULE_TOKEN: {
-      let expr = rule.expr;
+      let expr = rule.c;
       return (ctx, pos) => {
         const token = ctx.tokens[pos];
         if (token === expr) {
-          return success(pos, 1, [rule.reshape ? rule.reshape(token) : pos]);
+          return success(pos, 1, [rule.r ? rule.r(token) : pos]);
         } else {
           return fail(pos, rootId, {
             code: CODE_TOKEN_UNMATCH,
@@ -118,12 +118,12 @@ function compileFragmentInternal(
       };
     }
     case RULE_REGEX: {
-      let re = rule.expr instanceof RegExp ? rule.expr : new RegExp(rule.expr);
+      let re = rule.c instanceof RegExp ? rule.c : new RegExp(rule.c);
       return (ctx, pos) => {
         const token = ctx.tokens[pos];
         const matched = re.test(token);
         if (matched) {
-          return success(pos, 1, [rule.reshape ? rule.reshape(token) : pos]);
+          return success(pos, 1, [rule.r ? rule.r(token) : pos]);
         } else {
           return fail(pos, rootId, {
             code: CODE_REGEX_UNMATCH,
@@ -149,15 +149,15 @@ function compileFragmentInternal(
       return (ctx, pos) => {
         return success(
           pos,
-          rule.len,
-          rule.reshape
-            ? [rule.reshape(ctx.tokens.slice(pos, pos + rule.len))]
-            : [...Array(rule.len).keys()].map((n) => n + pos)
+          rule.c,
+          rule.r
+            ? [rule.r(ctx.tokens.slice(pos, pos + rule.c))]
+            : [...Array(rule.c).keys()].map((n) => n + pos)
         );
       };
     }
     case RULE_NOT: {
-      const parsers = rule.patterns.map((pat) =>
+      const parsers = rule.c.map((pat) =>
         compileFragment(pat, compiler, rootId)
       );
       return (ctx, pos) => {
@@ -178,12 +178,12 @@ function compileFragmentInternal(
     }
     case RULE_REF: {
       return (ctx, pos) => {
-        const resolvedRule = compiler.parsers[rule.ref];
+        const resolvedRule = compiler.parsers[rule.c];
         return resolvedRule(ctx, pos);
       };
     }
     case RULE_SEQ_OBJECT: {
-      const parsers = rule.children.map((c) => {
+      const parsers = rule.c.map((c) => {
         const parse = compileFragment(c as Rule, compiler, rootId);
         return { parse, opt: c.opt, key: c.key, push: c.push, pop: c.pop };
       });
@@ -226,13 +226,13 @@ function compileFragmentInternal(
           }
           cursor += parsed.len;
         }
-        if (rule.reshape) result = rule.reshape(result, ctx);
+        if (rule.r) result = rule.r(result, ctx);
         return success(pos, cursor - pos, [result]);
       };
     }
 
     case RULE_SEQ: {
-      const parsers = rule.children.map((c) => {
+      const parsers = rule.c.map((c) => {
         const parse = compileFragment(c as Rule, compiler, rootId);
         return { parse, skip: c.skip, opt: c.opt, push: c.push, pop: c.pop };
       });
@@ -272,15 +272,15 @@ function compileFragmentInternal(
           }
           cursor += parsed.len;
         }
-        if (rule.reshape) {
+        if (rule.r) {
           const resolvedTokens = resolveTokens(ctx.tokens, results);
-          results = rule.reshape(resolvedTokens, ctx) as any;
+          results = rule.r(resolvedTokens, ctx) as any;
         }
         return success(pos, cursor - pos, results);
       };
     }
     case RULE_OR: {
-      const compiledPatterns = rule.patterns.map((p) => {
+      const compiledPatterns = rule.c.map((p) => {
         return {
           parse: compileFragment(p, compiler, rootId),
           node: p,
@@ -304,7 +304,7 @@ function compileFragmentInternal(
     }
 
     case RULE_REPEAT: {
-      const parser = compileFragment(rule.pattern, compiler, rootId);
+      const parser = compileFragment(rule.c, compiler, rootId);
       return (ctx, pos) => {
         const results: (string | number | any)[] = [];
         let cursor = pos;
@@ -312,17 +312,17 @@ function compileFragmentInternal(
           const parseResult = parser(ctx, cursor);
           if (parseResult.error === true) break;
           if (parseResult.len === 0) throw new Error(`ZeroRepeat`);
-          if (rule.reshapeEach) {
+          if (rule.e) {
             const tokens = resolveTokens(ctx.tokens, parseResult.results);
-            results.push([rule.reshapeEach(tokens, ctx)]);
+            results.push([rule.e(tokens, ctx)]);
           } else {
             results.push(...parseResult.results);
           }
           cursor += parseResult.len;
         }
-        if (rule.reshape) {
+        if (rule.r) {
           return success(pos, cursor - pos, [
-            rule.reshape(resolveTokens(ctx.tokens, results), ctx),
+            rule.r(resolveTokens(ctx.tokens, results), ctx),
           ]);
         }
         return success(pos, cursor - pos, results);
