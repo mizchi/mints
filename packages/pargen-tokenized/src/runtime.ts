@@ -124,7 +124,7 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
       // return (ctx, pos) => {
       const ended = pos === ctx.tokens.length;
       if (ended) {
-        return success(pos, 1, []);
+        return success(pos, 0, []);
       } else {
         return fail(pos, {
           code: CODE_EOF_UNMATCH,
@@ -286,21 +286,22 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
     }
 
     case RULE_REPEAT: {
-      // return (ctx, pos) => {
       const parser = ctx.parsers[rule.c as number];
       let results: (string | number | any)[] = [];
       let cursor = pos;
       while (cursor < ctx.tokens.length) {
-        const parseResult = parser(ctx, cursor);
-        if (parseResult.error === true) break;
-        if (parseResult.len === 0) throw new Error(`ZeroRepeat`);
+        const parsed = parser(ctx, cursor);
+        console.log("run-repeat", cursor, parsed);
+
+        if (parsed.error === true) break;
+        if (parsed.len === 0) throw new Error(`ZeroRepeat`);
         if (rule.e) {
-          const tokens = resolveTokens(ctx.tokens, parseResult.results);
+          const tokens = resolveTokens(ctx.tokens, parsed.results);
           results.push([rule.e(tokens, ctx)]);
         } else {
-          results.push(...parseResult.results);
+          results.push(...parsed.results);
         }
-        cursor += parseResult.len;
+        cursor += parsed.len;
       }
       if (rule.r) {
         results = rule.r(resolveTokens(ctx.tokens, results), ctx);
