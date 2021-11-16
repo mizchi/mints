@@ -128,6 +128,28 @@ export type Rule =
   | Regex
   | Any;
 
+export type O_Token = Omit<Token, "c"> & { c: number };
+export type O_Regex = Omit<Regex, "c"> & { c: number };
+
+export type O_Repeat = Omit<Repeat, "c"> & { c: number };
+export type O_Seq = Omit<Seq, "c"> & { c: number[] };
+export type O_SeqObject = Omit<SeqObject, "c"> & { c: number[] };
+export type O_Not = Omit<Not, "c"> & { c: number[] };
+export type O_Or = Omit<Or, "c"> & { c: number[] };
+
+export type O_Rule =
+  | O_Seq
+  | O_SeqObject
+  | O_Or
+  | O_Not
+  | O_Repeat
+  | O_Token
+  | O_Regex
+  | Ref
+  | Eof
+  | Atom
+  | Any;
+
 // ==== public interface
 export type RootCompilerOptions = {
   end?: boolean;
@@ -156,11 +178,11 @@ export type ParserMap = Map<number, InternalParser>;
 
 export type ParseContext = {
   tokens: string[];
+  strings: string[];
   cache: Map<string, ParseResult>;
   currentError: ParseError | null;
-
   refs: number[]; // ref index to rule index
-  rules: Rule[];
+  rules: O_Rule[];
   parsers: InternalParser[];
 };
 

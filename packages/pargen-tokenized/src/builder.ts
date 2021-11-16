@@ -16,6 +16,8 @@ import type {
   Flags,
   SeqObject,
   Any,
+  O_Rule,
+  O_Token,
 } from "./types";
 
 import {
@@ -59,37 +61,49 @@ export const toNode = (input: RuleExpr): Rule => {
 const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
-function compileToRules(rawRules: Rule[]): [Rule[], number[]] {
-  const builtRules: Rule[] = [];
+function compileToRules(rawRules: Rule[]): [O_Rule[], number[], string[]] {
+  const builtRules: O_Rule[] = [];
+  const strings: string[] = [];
   function _compile(rule: Rule): number {
     switch (rule.t) {
+      case RULE_REGEX:
+      case RULE_TOKEN: {
+        strings.push(rule.c);
+        builtRules.push({ ...rule, c: strings.length - 1 } as O_Rule);
+        return builtRules.length - 1;
+      }
       case RULE_REPEAT: {
         rule = { ...rule, c: _compile(rule.c as Rule) };
-        break;
+        return builtRules.length - 1;
       }
       case RULE_OR:
       case RULE_SEQ:
       case RULE_SEQ_OBJECT:
       case RULE_NOT: {
-        rule = { ...rule, c: (rule.c as Rule[]).map(_compile) };
+        builtRules.push({
+          ...rule,
+          c: (rule.c as Rule[]).map(_compile),
+        } as O_Rule);
+        return builtRules.length - 1;
+      }
+      default: {
+        builtRules.push(rule as O_Rule);
+        return builtRules.length - 1;
       }
     }
-    const id = builtRules.length;
-    builtRules.push(rule);
-    return id;
   }
 
   const refs = rawRules.map(_compile);
-  return [builtRules, refs];
+  return [builtRules, refs, strings];
 }
 
 export const $close = () => {
   const defs = buildDefs();
-  const compiled = compileToRules(defs);
+  return compileToRules(defs);
   // __registered.length = 0;
   // __tokenCache.clear();
   // console.log("========== close", defs.length, compiled.length);
-  return compiled;
+  // return compiled;
 };
 
 export const $dump = () => {

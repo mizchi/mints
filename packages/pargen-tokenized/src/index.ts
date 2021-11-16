@@ -1,12 +1,17 @@
 // import { ParseContext } from "./../../pargen/src/types";
-import type { ParseResult, RootCompiler, RootParser } from "./types";
+import type {
+  ParseContext,
+  ParseResult,
+  RootCompiler,
+  RootParser,
+} from "./types";
 
 import { compileFragment, success } from "./runtime";
 
 export function createContext() {
   const rootCompiler: RootCompiler = (rule) => {
     const entryRefId = $def(() => $seq([toNode(rule), $eof()]));
-    const [rules, refs] = $close();
+    const [rules, refs, strings] = $close();
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
@@ -15,12 +20,12 @@ export function createContext() {
         cache,
         refs,
         rules,
+        strings,
         parsers: rules.map(compileFragment),
-      };
+      } as ParseContext;
       const rootResult = ctx.parsers[ctx.refs[entryRefId]](ctx, 0);
       if (rootResult.error && ctx.currentError) {
-        // @ts-ignore
-        return { ...ctx.currentError, tokens };
+        return { ...ctx.currentError, tokens } as any;
       }
       return rootResult;
     };

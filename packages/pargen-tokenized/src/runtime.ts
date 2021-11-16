@@ -21,6 +21,7 @@ import {
 } from "./constants";
 import {
   InternalParser,
+  O_Rule,
   ParseContext,
   ParseError,
   ParseErrorData,
@@ -67,7 +68,7 @@ export function fail<ErrorData extends ParseErrorData>(
 }
 
 // parse with cache
-export function compileFragment(rule: Rule): InternalParser {
+export function compileFragment(rule: O_Rule): InternalParser {
   // console.log("compile", rule);
   const parser: InternalParser = (ctx, pos) => {
     // use cached result
@@ -86,13 +87,13 @@ export function compileFragment(rule: Rule): InternalParser {
   return parser;
 }
 
-function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
+function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
   switch (rule.t) {
     // generic rule
     case RULE_ATOM:
       return rule.c(ctx, pos);
     case RULE_TOKEN: {
-      let expect = rule.c;
+      let expect = ctx.strings[rule.c];
       const token = ctx.tokens[pos];
       if (token === expect) {
         return success(pos, 1, [rule.r ? rule.r(token) : pos]);
