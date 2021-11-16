@@ -144,7 +144,8 @@ export type O_Rule =
   | O_Not
   | O_Repeat
   | O_Token
-  | O_Regex
+  | Regex
+  // | O_Regex
   | Ref
   | Eof
   | Atom

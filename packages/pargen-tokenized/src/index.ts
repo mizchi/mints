@@ -82,6 +82,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   ) => {
     const parsed = parse(tokens);
     if (parsed.error) {
+      console.error(parsed);
       throw new Error("Expect Parse Success");
     }
     // @ts-ignore
@@ -277,7 +278,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   test("repeat", () => {
     const compile = createContext();
     const parse = compile($repeat("a"));
-    expectSuccess(parse, [], "");
+    // expectSuccess(parse, [], "");
     expectSuccess(parse, ["a"], "a");
     expectSuccess(parse, ["a", "a", "a"], "aaa");
     // expectSuccess(parse, ["b"], "");

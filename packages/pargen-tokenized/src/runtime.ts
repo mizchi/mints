@@ -94,6 +94,7 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
       return rule.c(ctx, pos);
     case RULE_TOKEN: {
       let expect = ctx.strings[rule.c];
+      // console.log("expect", expect, rule.c, ctx.strings);
       const token = ctx.tokens[pos];
       if (token === expect) {
         return success(pos, 1, [rule.r ? rule.r(token) : pos]);

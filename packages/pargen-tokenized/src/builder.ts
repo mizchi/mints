@@ -18,6 +18,7 @@ import type {
   Any,
   O_Rule,
   O_Token,
+  O_Repeat,
 } from "./types";
 
 import {
@@ -66,31 +67,35 @@ function compileToRules(rawRules: Rule[]): [O_Rule[], number[], string[]] {
   const strings: string[] = [];
   function _compile(rule: Rule): number {
     switch (rule.t) {
-      case RULE_REGEX:
       case RULE_TOKEN: {
-        strings.push(rule.c);
-        builtRules.push({ ...rule, c: strings.length - 1 } as O_Rule);
-        return builtRules.length - 1;
+        let id;
+        const at = strings.indexOf(rule.c);
+        if (at > -1) {
+          id = at;
+        } else {
+          id = strings.length;
+          strings.push(rule.c);
+        }
+        rule = { ...rule, c: id } as O_Token as any;
+        break;
       }
       case RULE_REPEAT: {
-        rule = { ...rule, c: _compile(rule.c as Rule) };
-        return builtRules.length - 1;
+        rule = { ...rule, c: _compile(rule.c as Rule) } as O_Repeat;
+        break;
       }
       case RULE_OR:
       case RULE_SEQ:
       case RULE_SEQ_OBJECT:
       case RULE_NOT: {
-        builtRules.push({
+        rule = {
           ...rule,
           c: (rule.c as Rule[]).map(_compile),
-        } as O_Rule);
-        return builtRules.length - 1;
-      }
-      default: {
-        builtRules.push(rule as O_Rule);
-        return builtRules.length - 1;
+        } as O_Rule as any;
       }
     }
+    const id = builtRules.length;
+    builtRules.push(rule as O_Rule);
+    return id;
   }
 
   const refs = rawRules.map(_compile);
@@ -99,11 +104,11 @@ function compileToRules(rawRules: Rule[]): [O_Rule[], number[], string[]] {
 
 export const $close = () => {
   const defs = buildDefs();
-  return compileToRules(defs);
+  const compiled = compileToRules(defs);
   // __registered.length = 0;
   // __tokenCache.clear();
   // console.log("========== close", defs.length, compiled.length);
-  // return compiled;
+  return compiled;
 };
 
 export const $dump = () => {
