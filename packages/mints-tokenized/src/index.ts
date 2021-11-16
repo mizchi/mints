@@ -211,13 +211,13 @@ if (process.env.NODE_ENV === "test") {
     // expectError(parse, [`class{f(a={a = 1}){}}`]);
   });
 
-  test("jsx: no-pragma", () => {
-    const code = `const el = <div>1</div>`;
-    const result = transform(code);
-    is(result, {
-      result: `const el=React.createElement("div",{},"1")`,
-    });
-  });
+  // test("jsx: no-pragma", () => {
+  //   const code = `const el = <div>1</div>`;
+  //   const result = transform(code);
+  //   is(result, {
+  //     result: `const el=React.createElement("div",{},"1")`,
+  //   });
+  // });
 
   // test("jsx pragma", () => {
   //   const code = `/* @jsx h */\nconst el = <div></div>`;

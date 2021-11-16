@@ -36,15 +36,6 @@ let cnt = 2;
 
 const genId = () => cnt++;
 
-export function createRef(refId: string | number, reshape?: Reshape): Ref {
-  return {
-    u: genId(),
-    t: RULE_REF,
-    c: refId,
-    r: reshape,
-  } as Ref;
-}
-
 const __tokenCache = new Map<string, Token>();
 export const toNode = (input: RuleExpr): Rule => {
   if (typeof input === "object") {
@@ -68,9 +59,8 @@ export const toNode = (input: RuleExpr): Rule => {
 const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
-function compileToRules(defs: Rule[]): [Rule[], number[]] {
+function compileToRules(rawRules: Rule[]): [Rule[], number[]] {
   const builtRules: Rule[] = [];
-
   function _compile(rule: Rule): number {
     switch (rule.t) {
       case RULE_REPEAT: {
@@ -89,8 +79,8 @@ function compileToRules(defs: Rule[]): [Rule[], number[]] {
     return id;
   }
 
-  const refMap = defs.map(_compile);
-  return [builtRules, refMap];
+  const refs = rawRules.map(_compile);
+  return [builtRules, refs];
 }
 
 export const $close = () => {
@@ -98,7 +88,7 @@ export const $close = () => {
   const compiled = compileToRules(defs);
   // __registered.length = 0;
   // __tokenCache.clear();
-  console.log("========== close", defs.length, compiled.length);
+  // console.log("========== close", defs.length, compiled.length);
   return compiled;
 };
 

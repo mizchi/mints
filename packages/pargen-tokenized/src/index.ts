@@ -8,7 +8,7 @@ const isNumber = (x: any): x is number => typeof x === "number";
 export function createContext() {
   const rootCompiler: RootCompiler = (rule) => {
     const entryRefId = $def(() =>
-      $seq([isNumber(rule) ? createRef(rule) : rule, $eof()])
+      $seq([isNumber(rule) ? $ref(rule) : rule, $eof()])
     );
     const [rules, refs] = $close();
 
@@ -61,7 +61,6 @@ import {
   $skip,
   $skip_opt,
   $token,
-  createRef,
   toNode,
 } from "./builder";
 import {
@@ -389,8 +388,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
   });
 
-  test("reuse recursive with suffix", () => {
-    // const Paren = 1000;
+  test("ref", () => {
     const compile = createContext();
     const paren = $def(() =>
       $seq([
