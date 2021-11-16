@@ -83,15 +83,19 @@ import {
 } from "./constants";
 import { config } from "./ctx";
 
-const whitespace = $def(() => $any(0, () => " "));
+const thisKeyword = K_THIS;
+const importKeyword = K_IMPORT;
 const plusPlus = $seq(["+", "+"]);
 const minusMinus = $seq(["-", "-"]);
+const dotDotDot = $def(() => $seq([".", ".", "."]));
 
 const reservedWordsByLength: Map<number, string[]> = new Map();
 for (const word of [...CONTROL_TOKENS, ...RESERVED_WORDS]) {
   const words = reservedWordsByLength.get(word.length) ?? [];
   reservedWordsByLength.set(word.length, [...words, word].sort());
 }
+
+const whitespace = $def(() => $any(0, () => " "));
 
 const identifier = $def(() =>
   $atom((ctx, pos) => {
@@ -112,10 +116,6 @@ const identifier = $def(() =>
     return success(pos, 1, [pos]);
   })
 );
-
-const thisKeyword = K_THIS;
-const importKeyword = K_IMPORT;
-const dotDotDot = $def(() => $seq([".", ".", "."]));
 
 const typeDeclareParameter = $def(() =>
   $seq([
@@ -552,7 +552,7 @@ const classConstructor = $def(() =>
       let bodyIntro = "";
       let args: string[] = [];
       for (const arg of argList) {
-        console.log("arg", JSON.stringify(arg));
+        // console.log("arg", JSON.stringify(arg));
         if (arg.init) bodyIntro += `this.${arg.init}=${arg.init};`;
         args.push(arg.code);
       }
@@ -1384,8 +1384,8 @@ const isMain = require.main === module;
 import { compile as compileRaw } from "./ctx";
 import { fail, success } from "../../pargen-tokenized/src/runtime";
 import { CODE_SEQ_STOP } from "../../pargen-tokenized/src/constants";
-// import { formatError } from "../benchmark/cases/example1";
-if (process.env.NODE_ENV === "test" && isMain) {
+
+if (process.env.NODE_ENV === "test") {
   const compile = (
     inputRule: Rule | number
   ): ((input: string) => string | ParseError) => {
@@ -1422,8 +1422,12 @@ if (process.env.NODE_ENV === "test" && isMain) {
       throw new Error("Unexpected Success:" + JSON.stringify(parsed));
   };
 
+  // preloading
+  // compile(program);
+
   test("identifier", () => {
     const parse = compile(identifier);
+    console.log("ident", identifier);
 
     expectSuccess(parse, "a");
     expectSuccess(parse, "Aaa");
@@ -2196,5 +2200,5 @@ if (process.env.NODE_ENV === "test" && isMain) {
   //     });
   // });
 
-  run({ stopOnFail: true, stub: false, isMain });
+  run({ stopOnFail: true, stub: true, isMain });
 }

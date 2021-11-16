@@ -3,22 +3,13 @@ import type { ParseResult, RootCompiler, RootParser } from "./types";
 
 import { compileFragment, success } from "./runtime";
 
-const isNumber = (x: any): x is number => typeof x === "number";
-
 export function createContext() {
   const rootCompiler: RootCompiler = (rule) => {
-    const entryRefId = $def(() =>
-      $seq([isNumber(rule) ? $ref(rule) : rule, $eof()])
-    );
+    const entryRefId = $def(() => $seq([toNode(rule), $eof()]));
     const [rules, refs] = $close();
-
-    const rootParser: RootParser = (
-      tokens: string[],
-      entry: number = entryRefId
-    ) => {
+    const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
-        root: -1,
         tokens,
         currentError: null,
         cache,
@@ -26,10 +17,7 @@ export function createContext() {
         rules,
         parsers: rules.map(compileFragment),
       };
-      // console.log("parse start", entryRefId, ctx.rules[ctx.refs[entryRefId]]);
-      // console.log("entry", entry, ctx.rules[entry], entryRefId);
-      const rootResult = ctx.parsers[ctx.refs[entry]](ctx, 0);
-      // console.log("ret", rootResult);
+      const rootResult = ctx.parsers[ctx.refs[entryRefId]](ctx, 0);
       if (rootResult.error && ctx.currentError) {
         // @ts-ignore
         return { ...ctx.currentError, tokens };

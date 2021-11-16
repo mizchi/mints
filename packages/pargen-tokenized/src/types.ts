@@ -155,7 +155,6 @@ export type Compiler = {
 export type ParserMap = Map<number, InternalParser>;
 
 export type ParseContext = {
-  root: number | string;
   tokens: string[];
   cache: Map<string, ParseResult>;
   currentError: ParseError | null;
