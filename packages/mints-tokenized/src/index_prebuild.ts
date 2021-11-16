@@ -2,6 +2,7 @@
 import { compile } from "./ctx";
 import { parseTokens } from "./tokenizer";
 
+// @ts-ignore
 const parse = compile(line);
 
 export function processLine(tokens: string[]): string {

@@ -1,5 +1,5 @@
 import { createContext } from "../../pargen-tokenized/src/index";
-const { compile } = createContext({});
+const compile = createContext();
 
 const defaultJsx = "React.createElement";
 const defaultJsxFragment = "React.Fragment";

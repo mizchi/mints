@@ -7,14 +7,18 @@ const isNumber = (x: any): x is number => typeof x === "number";
 
 export function createContext() {
   const rootCompiler: RootCompiler = (rule) => {
-    let entry = isNumber(rule) ? createRef(rule) : rule;
-    const entryRefId = $def(() => $seq([entry, $eof()]));
+    const entryRefId = $def(() =>
+      $seq([isNumber(rule) ? createRef(rule) : rule, $eof()])
+    );
     const [rules, refs] = $close();
 
-    const rootParser: RootParser = (tokens: string[]) => {
+    const rootParser: RootParser = (
+      tokens: string[],
+      entry: number = entryRefId
+    ) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
-        root: entry.u,
+        root: -1,
         tokens,
         currentError: null,
         cache,
@@ -22,9 +26,10 @@ export function createContext() {
         rules,
         parsers: rules.map(compileFragment),
       };
-
       // console.log("parse start", entryRefId, ctx.rules[ctx.refs[entryRefId]]);
-      const rootResult = ctx.parsers[ctx.refs[entryRefId]](ctx, 0);
+      // console.log("entry", entry, ctx.rules[entry], entryRefId);
+      const rootResult = ctx.parsers[ctx.refs[entry]](ctx, 0);
+      // console.log("ret", rootResult);
       if (rootResult.error && ctx.currentError) {
         // @ts-ignore
         return { ...ctx.currentError, tokens };
@@ -57,9 +62,9 @@ import {
   $skip_opt,
   $token,
   createRef,
+  toNode,
 } from "./builder";
 import {
-  CODE_EOF_UNMATCH,
   CODE_OR_UNMATCH_ALL,
   CODE_SEQ_STOP,
   CODE_SEQ_UNMATCH_STACK,

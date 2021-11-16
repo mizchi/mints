@@ -2,6 +2,7 @@ import type { ParseError } from "./../../pargen-tokenized/src/types";
 import {
   $any,
   $atom,
+  $close,
   $def,
   $eof,
   $not,
@@ -98,22 +99,22 @@ const identifier = $def(() =>
     const errorData = { code: "IdentifierError", token } as any;
     const len = Array.from(token).length;
     const charCode = token.charCodeAt(0);
-    if (len === 0) return fail(pos, -1, errorData);
+    if (len === 0) return fail(pos, errorData);
     const words = reservedWordsByLength.get(len);
     if (len === 1 && charCode > 127) {
       // Nothing
     } else {
-      if (words?.includes(token)) return fail(pos, -1, errorData);
+      if (words?.includes(token)) return fail(pos, errorData);
     }
     if (48 <= charCode && charCode <= 57) {
-      return fail(pos, -1, errorData);
+      return fail(pos, errorData);
     }
     return success(pos, 1, [pos]);
   })
 );
 
-const thisKeyword = $token(K_THIS);
-const importKeyword = $token(K_IMPORT);
+const thisKeyword = K_THIS;
+const importKeyword = K_IMPORT;
 const dotDotDot = $def(() => $seq([".", ".", "."]));
 
 const typeDeclareParameter = $def(() =>
@@ -1119,7 +1120,7 @@ const jsxText = $def(() =>
       i++;
     }
     if (results.length === 0) {
-      return fail(pos, -1, {} as any);
+      return fail(pos, {} as any);
     }
     return success(pos, i, ['"' + results.join(" ") + '"']);
   })
@@ -1384,14 +1385,11 @@ import { compile as compileRaw } from "./ctx";
 import { fail, success } from "../../pargen-tokenized/src/runtime";
 import { CODE_SEQ_STOP } from "../../pargen-tokenized/src/constants";
 // import { formatError } from "../benchmark/cases/example1";
-if (process.env.NODE_ENV === "test") {
+if (process.env.NODE_ENV === "test" && isMain) {
   const compile = (
-    inputRule: Rule | number,
-    end: boolean = true
+    inputRule: Rule | number
   ): ((input: string) => string | ParseError) => {
-    const parser = end
-      ? compileRaw($seq([inputRule, $eof()]))
-      : compileRaw(inputRule);
+    const parser = compileRaw(inputRule);
     const wrappedParser = (input: string) => {
       let tokens: string[] = [];
       for (const next of parseTokens(input)) {
@@ -1426,6 +1424,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("identifier", () => {
     const parse = compile(identifier);
+
     expectSuccess(parse, "a");
     expectSuccess(parse, "Aaa");
     expectSuccess(parse, "doc");
@@ -1455,12 +1454,6 @@ if (process.env.NODE_ENV === "test") {
     });
   });
 
-  test("this", () => {
-    const parse = compile(thisKeyword);
-    expectSuccess(parse, "this");
-    expectFail(parse, "thisx");
-  });
-
   test("template", () => {
     const parse = compile(templateLiteral);
     expectSuccess(parse, "``");
@@ -1470,6 +1463,7 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "`a${a}`");
     expectSuccess(parse, "`${a}_${b}_c`");
   });
+
   test("RegExp", () => {
     const parse = compile(regexpLiteral);
     expectSuccessList(parse, [
@@ -1508,54 +1502,54 @@ if (process.env.NODE_ENV === "test") {
     expectFail(parse, "0xg");
   });
 
-  test("array", () => {
-    const parse = compile(arrayLiteral);
-    expectSuccess(parse, "[]");
-    expectFail(parse, "[");
-    expectFail(parse, "]");
-    expectSuccess(parse, "[   ]", "[]");
-    expectSuccess(parse, "[a]", "[a]");
-    expectSuccess(parse, "[a,a]");
-    expectSuccess(parse, "[,]");
-    expectSuccess(parse, "[,,,]");
-    expectSuccess(parse, "[a,,a,]");
-    expectSuccess(parse, "[[],[]]");
-    expectFail(parse, "[[],[]");
-    expectFail(parse, "[]]");
-    expectSuccess(parse, "[...a]");
-    expectSuccess(parse, "[...a,a]");
-    expectSuccess(parse, "[...a,...a]");
-    expectSuccess(parse, "[...a,...a,]");
-    expectFail(parse, "[..a]");
-  });
+  // test("array", () => {
+  //   const parse = compile(arrayLiteral);
+  //   expectSuccess(parse, "[]");
+  //   expectFail(parse, "[");
+  //   expectFail(parse, "]");
+  //   expectSuccess(parse, "[   ]", "[]");
+  //   expectSuccess(parse, "[a]", "[a]");
+  //   expectSuccess(parse, "[a,a]");
+  //   expectSuccess(parse, "[,]");
+  //   expectSuccess(parse, "[,,,]");
+  //   expectSuccess(parse, "[a,,a,]");
+  //   expectSuccess(parse, "[[],[]]");
+  //   expectFail(parse, "[[],[]");
+  //   expectFail(parse, "[]]");
+  //   expectSuccess(parse, "[...a]");
+  //   expectSuccess(parse, "[...a,a]");
+  //   expectSuccess(parse, "[...a,...a]");
+  //   expectSuccess(parse, "[...a,...a,]");
+  //   expectFail(parse, "[..a]");
+  // });
 
-  test("object", () => {
-    const parse = compile(objectLiteral);
-    expectSuccess(parse, "{}");
-    expectSuccess(parse, "{a:1}");
-    expectSuccess(parse, "{a:1,}");
-    expectSuccess(parse, "{'a':1}");
-    expectSuccess(parse, '{"a":1}');
-    expectSuccess(parse, "{a:1,b:2}");
-    expectSuccess(parse, "{a:1,b:2,}");
-    expectSuccess(parse, "{a}");
-    expectSuccess(parse, "{a,}");
-    expectSuccess(parse, "{a,b}");
-    expectSuccess(parse, "{[a]:1}");
-    expectFail(parse, "{");
-    expectFail(parse, "}");
-    expectFail(parse, "{a:}");
-    expectFail(parse, "{[a]}");
-    expectFail(parse, "{'a'}");
-    expectFail(parse, "{,}");
-    expectSuccess(parse, "{a:{}}");
-    expectSuccess(parse, "{a:{b:{c:1}}}");
-    expectFail(parse, "{a:{}");
-    expectFail(parse, "{a:{}}}");
-    expectSuccess(parse, "{a(){}}");
-    expectSuccess(parse, "{a(b){1;}}");
-    expectSuccess(parse, "{a(b=1,c=2){1;}}");
-  });
+  // test("object", () => {
+  //   const parse = compile(objectLiteral);
+  //   expectSuccess(parse, "{}");
+  //   expectSuccess(parse, "{a:1}");
+  //   expectSuccess(parse, "{a:1,}");
+  //   expectSuccess(parse, "{'a':1}");
+  //   expectSuccess(parse, '{"a":1}');
+  //   expectSuccess(parse, "{a:1,b:2}");
+  //   expectSuccess(parse, "{a:1,b:2,}");
+  //   expectSuccess(parse, "{a}");
+  //   expectSuccess(parse, "{a,}");
+  //   expectSuccess(parse, "{a,b}");
+  //   expectSuccess(parse, "{[a]:1}");
+  //   expectFail(parse, "{");
+  //   expectFail(parse, "}");
+  //   expectFail(parse, "{a:}");
+  //   expectFail(parse, "{[a]}");
+  //   expectFail(parse, "{'a'}");
+  //   expectFail(parse, "{,}");
+  //   expectSuccess(parse, "{a:{}}");
+  //   expectSuccess(parse, "{a:{b:{c:1}}}");
+  //   expectFail(parse, "{a:{}");
+  //   expectFail(parse, "{a:{}}}");
+  //   expectSuccess(parse, "{a(){}}");
+  //   expectSuccess(parse, "{a(b){1;}}");
+  //   expectSuccess(parse, "{a(b=1,c=2){1;}}");
+  // });
 
   test("paren", () => {
     const parse = compile(paren);
@@ -1817,14 +1811,15 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("return", () => {
-    const parse = compile(returnLikeStmt, false);
+    const parse = compile(returnLikeStmt);
     expectSuccess(parse, "return", "return");
     expectSuccess(parse, "return ret");
     expectSuccess(parse, "yield 1");
     expectSuccess(parse, "yield ret");
   });
+
   test("throw", () => {
-    const parse = compile(throwStmt, true);
+    const parse = compile(throwStmt);
     expectSuccess(parse, "throw 1");
     expectSuccess(parse, "throw new Error()");
     expectSuccess(parse, "throw new Error('xxx')");
@@ -2201,5 +2196,5 @@ if (process.env.NODE_ENV === "test") {
   //     });
   // });
 
-  run({ stopOnFail: true, stub: true, isMain });
+  run({ stopOnFail: true, stub: false, isMain });
 }

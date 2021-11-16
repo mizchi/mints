@@ -33,6 +33,7 @@ import {
 } from "./constants";
 
 let cnt = 2;
+
 const genId = () => cnt++;
 
 export function createRef(refId: string | number, reshape?: Reshape): Ref {
@@ -45,7 +46,7 @@ export function createRef(refId: string | number, reshape?: Reshape): Ref {
 }
 
 const __tokenCache = new Map<string, Token>();
-const toNode = (input: RuleExpr): Rule => {
+export const toNode = (input: RuleExpr): Rule => {
   if (typeof input === "object") {
     return input;
   }
@@ -68,19 +69,19 @@ const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
 function compileToRules(defs: Rule[]): [Rule[], number[]] {
-  // const defsMap = new Array(defs.length).fill(-1);
   const builtRules: Rule[] = [];
+
   function _compile(rule: Rule): number {
     switch (rule.t) {
       case RULE_REPEAT: {
-        rule.c = _compile(rule.c as Rule);
+        rule = { ...rule, c: _compile(rule.c as Rule) };
         break;
       }
       case RULE_OR:
       case RULE_SEQ:
       case RULE_SEQ_OBJECT:
       case RULE_NOT: {
-        rule.c = (rule.c as Rule[]).map(_compile);
+        rule = { ...rule, c: (rule.c as Rule[]).map(_compile) };
       }
     }
     const id = builtRules.length;
@@ -95,8 +96,9 @@ function compileToRules(defs: Rule[]): [Rule[], number[]] {
 export const $close = () => {
   const defs = buildDefs();
   const compiled = compileToRules(defs);
-  __registered.length = 0;
-  __tokenCache.clear();
+  // __registered.length = 0;
+  // __tokenCache.clear();
+  console.log("========== close", defs.length, compiled.length);
   return compiled;
 };
 

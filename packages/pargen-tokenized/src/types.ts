@@ -139,7 +139,8 @@ export type RootCompiler = (
 
 export type RootParser = (
   tokens: string[],
-  pos?: number
+  pos?: number,
+  entryRef?: number
 ) => ParseSuccess | (ParseError & { tokens: string[] });
 
 export type RuleExpr = Rule | string | number;

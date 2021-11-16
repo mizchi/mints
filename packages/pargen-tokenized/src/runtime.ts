@@ -93,7 +93,6 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
       return rule.c(ctx, pos);
     case RULE_TOKEN: {
       let expect = rule.c;
-      // return (ctx, pos) => {
       const token = ctx.tokens[pos];
       if (token === expect) {
         return success(pos, 1, [rule.r ? rule.r(token) : pos]);
@@ -104,7 +103,6 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
           got: token,
         });
       }
-      // };
     }
     case RULE_REGEX: {
       let re = rule.c instanceof RegExp ? rule.c : new RegExp(rule.c);
@@ -121,7 +119,6 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
       }
     }
     case RULE_EOF: {
-      // return (ctx, pos) => {
       const ended = pos === ctx.tokens.length;
       if (ended) {
         return success(pos, 0, []);
@@ -130,10 +127,8 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
           code: CODE_EOF_UNMATCH,
         });
       }
-      // };
     }
     case RULE_ANY: {
-      // return (ctx, pos) => {
       return success(
         pos,
         rule.c,
@@ -141,10 +136,8 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
           ? [rule.r(ctx.tokens.slice(pos, pos + rule.c))]
           : [...Array(rule.c).keys()].map((n) => n + pos)
       );
-      // };
     }
     case RULE_NOT: {
-      // return (ctx, pos) => {
       for (const ruleId of rule.c as number[]) {
         const parse = ctx.parsers[ruleId];
         const result = parse(ctx, pos);
@@ -157,18 +150,17 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
           });
         }
       }
-      // all parser does not match. it's correct
       return success(pos, 0, []);
-      // };
     }
     case RULE_REF: {
-      // return (ctx, pos) => {
-      const parse = ctx.parsers[ctx.refs[rule.c]];
+      const rid = ctx.refs[rule.c];
+      const parse = ctx.parsers[rid];
+      if (parse == null) {
+        console.log("ctx", ctx);
+      }
       return parse(ctx, pos);
-      // };
     }
     case RULE_SEQ_OBJECT: {
-      // return (ctx, pos) => {
       let cursor = pos;
       let result: any = {};
       const capturedStack: ParseSuccess[] = [];
@@ -213,11 +205,9 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
       }
       if (rule.r) result = rule.r(result, ctx);
       return success(pos, cursor - pos, [result]);
-      // };
     }
 
     case RULE_SEQ: {
-      // return (ctx, pos) => {
       let cursor = pos;
       let results: any[] = [];
       let capturedStack: ParseSuccess[] = [];
@@ -264,13 +254,17 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
         results = rule.r(resolvedTokens, ctx) as any;
       }
       return success(pos, cursor - pos, results);
-      // };
     }
     case RULE_OR: {
-      // return (ctx, pos) => {
       const errors: ParseError[] = [];
-      for (const next of rule.c as number[]) {
-        const parse = ctx.parsers[next];
+      for (const idx of rule.c as number[]) {
+        const parse = ctx.parsers[idx];
+        // console.log("ctx parsers!", ctx.rules[idx]);
+        if (typeof ctx.rules[idx] === "number") {
+          console.log("invalid", rule.c, idx, ctx.rules[idx]);
+          throw new Error("stop");
+        }
+
         const parsed = parse(ctx, pos);
         if (parsed.error === true) {
           errors.push(parsed);
@@ -282,7 +276,6 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
         code: CODE_OR_UNMATCH_ALL,
         errors,
       });
-      // };
     }
 
     case RULE_REPEAT: {
@@ -291,8 +284,6 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
       let cursor = pos;
       while (cursor < ctx.tokens.length) {
         const parsed = parser(ctx, cursor);
-        console.log("run-repeat", cursor, parsed);
-
         if (parsed.error === true) break;
         if (parsed.len === 0) throw new Error(`ZeroRepeat`);
         if (rule.e) {
@@ -310,6 +301,8 @@ function _parse(rule: Rule, ctx: ParseContext, pos: number): ParseResult {
       // };
     }
   }
+  // @ts-ignore
+  throw new Error(`Unknown rule type ${rule}`);
 }
 
 // export function walkRule(rule: Rule, visitor: (node: Rule) => void) {

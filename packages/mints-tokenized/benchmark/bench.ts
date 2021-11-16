@@ -96,9 +96,12 @@ export async function main() {
   // check mints can parse all
   console.log("=== mints-check");
   for (const target of targets) {
-    mints(target);
+    const out = mints(target);
     console.log("pass", JSON.stringify(target.slice(0, 10)) + "...");
+    // console.log("output", out);
   }
+  // throw "stop";
+
   console.log("=== perf start");
   for (const code of targets) {
     const caseName = "example:" + targets.indexOf(code);

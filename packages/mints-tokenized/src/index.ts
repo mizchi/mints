@@ -64,6 +64,7 @@ if (process.env.NODE_ENV === "test") {
   };
 
   const now = Date.now();
+
   test("multiline", () => {
     is(transform(`1;`), "1;");
     is(transform(`debugger;debugger;`), "debugger;debugger;");
@@ -72,13 +73,14 @@ if (process.env.NODE_ENV === "test") {
     is(transform(`x=class{};function f(){}`), "x=class{};function f(){}");
     is(
       transform(`class{
-      a = 1;
-      b = 2;
-      c = 3;
-    }`),
+        a = 1;
+        b = 2;
+        c = 3;
+      }`),
       "class{a=1;b=2;c=3;}"
     );
   });
+
   test("multiline program control", () => {
     // is(transform(`1;2;3;`), "1;2;3;");
     console.log([...parseTokens(`input.replace(/[ ]{1,}/gmu, '');`)]);
@@ -139,14 +141,14 @@ if (process.env.NODE_ENV === "test") {
       // `throw new Error();`,
       `function a(_){}`,
       `class X{
-              public foo(x, {}: {} = {}){}
-            }`,
+                public foo(x, {}: {} = {}){}
+              }`,
       `class X{
-              foo(x,){}
-            }`,
+                foo(x,){}
+              }`,
       `class X{
-        public async foobar(x, {}: {} = {}){}
-      }`,
+          public async foobar(x, {}: {} = {}){}
+        }`,
       `({...a, ...b});`,
       `f({\n });`,
       `function f(a={\n }){}`,
@@ -177,9 +179,9 @@ if (process.env.NODE_ENV === "test") {
       `f(a=>g);`,
       `f(()=>\ng);`,
       `if (process.env.NODE_ENV === "test") {
-            // xxx
-            }
-            `,
+              // xxx
+              }
+              `,
       `importS;`,
       `[...XS,...YS,];`,
       `(x: number, y?: number) => {};`,
@@ -191,16 +193,16 @@ if (process.env.NODE_ENV === "test") {
       `switch(1){case a:1;1;case b:2;2;default: 1}`,
       `switch(1){case a:{};case 1:break;default: 1;break;}`,
       `switch (1 as number) {
-              case 1:
-                try {} catch (error) {}
-              case 2:
-            }`,
+                case 1:
+                  try {} catch (error) {}
+                case 2:
+              }`,
       `f(''+\n'b');`,
       `input.replace(/[ ]{1,}/gmu, '');`,
       `throw new Error('xxx');`,
       `function e(i) { b
-.replace(/{\\n1,}/gmu, (text) => \`@N\${text.length}}\`);
-}`,
+  .replace(/{\\n1,}/gmu, (text) => \`@N\${text.length}}\`);
+  }`,
     ]);
     is(
       transform(`enum X { a = "foo", b = "bar" }`),
@@ -209,13 +211,13 @@ if (process.env.NODE_ENV === "test") {
     // expectError(parse, [`class{f(a={a = 1}){}}`]);
   });
 
-  // test("jsx: no-pragma", () => {
-  //   const code = `const el = <div>1</div>`;
-  //   const result = transform(code);
-  //   is(result, {
-  //     result: `const el=React.createElement("div",{},"1")`,
-  //   });
-  // });
+  test("jsx: no-pragma", () => {
+    const code = `const el = <div>1</div>`;
+    const result = transform(code);
+    is(result, {
+      result: `const el=React.createElement("div",{},"1")`,
+    });
+  });
 
   // test("jsx pragma", () => {
   //   const code = `/* @jsx h */\nconst el = <div></div>`;
