@@ -38,6 +38,7 @@ const resolveToken = (tokens: string[], result: any) => {
   }
   return result;
 };
+
 const resolveTokens = (tokens: string[], results: any[]) =>
   results.map((r) => resolveToken(tokens, r));
 
@@ -99,19 +100,18 @@ function compileFragmentInternal(
 ): InternalParser {
   switch (rule.t) {
     // generic rule
-    case RULE_ATOM: {
+    case RULE_ATOM:
       return (ctx, pos) => rule.c(ctx, pos);
-    }
     case RULE_TOKEN: {
-      let expr = rule.c;
+      let expect = rule.c;
       return (ctx, pos) => {
         const token = ctx.tokens[pos];
-        if (token === expr) {
+        if (token === expect) {
           return success(pos, 1, [rule.r ? rule.r(token) : pos]);
         } else {
           return fail(pos, rootId, {
             code: CODE_TOKEN_UNMATCH,
-            expect: expr,
+            expect,
             got: token,
           });
         }
@@ -183,46 +183,48 @@ function compileFragmentInternal(
       };
     }
     case RULE_SEQ_OBJECT: {
-      const parsers = rule.c.map((c) => {
-        const parse = compileFragment(c as Rule, compiler, rootId);
-        return { parse, opt: c.opt, key: c.key, push: c.push, pop: c.pop };
-      });
+      const parsers = rule.c.map((c) =>
+        compileFragment(c as Rule, compiler, rootId)
+      );
       return (ctx, pos) => {
         let cursor = pos;
         let result: any = {};
         const capturedStack: ParseSuccess[] = [];
         for (let i = 0; i < parsers.length; i++) {
           const parser = parsers[i];
-          const parsed = parser.parse(ctx, cursor);
-          // check stack pop
+          const flags = rule.f[i];
+          const parsed = parser(ctx, cursor);
+
           if (parsed.error) {
-            if (parser.opt) continue;
+            if (flags?.opt) continue;
             return fail(cursor, rootId, {
               code: CODE_SEQ_STOP,
               childError: parsed,
               index: i,
             });
           }
-          if (parser.push) {
-            capturedStack.push(parsed);
-          }
-          if (parser.pop) {
-            const top = capturedStack.pop();
-            if (top == null) {
-              return fail(cursor, rootId, {
-                code: CODE_SEQ_NO_STACK_ON_POP,
-                index: i,
-              });
+          if (flags) {
+            if (flags.key) {
+              result[flags.key] = resolveTokens(ctx.tokens, parsed.results);
             }
-            if (!parser.pop(top.results, parsed.results, ctx)) {
-              return fail(cursor, rootId, {
-                code: CODE_SEQ_UNMATCH_STACK,
-                index: parsers.indexOf(parser),
-              });
+            if (flags.push) {
+              capturedStack.push(parsed);
             }
-          }
-          if (parser.key) {
-            result[parser.key] = resolveTokens(ctx.tokens, parsed.results);
+            if (flags.pop) {
+              const top = capturedStack.pop();
+              if (top == null) {
+                return fail(cursor, rootId, {
+                  code: CODE_SEQ_NO_STACK_ON_POP,
+                  index: i,
+                });
+              }
+              if (!flags.pop(top.results, parsed.results, ctx)) {
+                return fail(cursor, rootId, {
+                  code: CODE_SEQ_UNMATCH_STACK,
+                  index: i,
+                });
+              }
+            }
           }
           cursor += parsed.len;
         }
@@ -232,42 +234,47 @@ function compileFragmentInternal(
     }
 
     case RULE_SEQ: {
-      const parsers = rule.c.map((c) => {
-        const parse = compileFragment(c as Rule, compiler, rootId);
-        return { parse, skip: c.skip, opt: c.opt, push: c.push, pop: c.pop };
-      });
+      const parsers = rule.c.map((c) =>
+        compileFragment(c as Rule, compiler, rootId)
+      );
       return (ctx, pos) => {
         let cursor = pos;
         let results: any[] = [];
         let capturedStack: ParseSuccess[] = [];
+
         for (let i = 0; i < parsers.length; i++) {
-          let parser = parsers[i];
-          const parsed = parser.parse(ctx, cursor);
+          const parser = parsers[i];
+          const flags = rule.f[i];
+          const parsed = parser(ctx, cursor);
           if (parsed.error) {
-            if (parser.opt) continue;
+            if (flags && flags.opt) continue;
             return fail(cursor, rootId, {
               code: CODE_SEQ_STOP,
               childError: parsed,
               index: i,
             });
           }
-          if (parser.push) capturedStack.push(parsed);
-          if (parser.pop) {
-            const top = capturedStack.pop();
-            if (top == null) {
-              return fail(cursor, rootId, {
-                code: CODE_SEQ_NO_STACK_ON_POP,
-                index: i,
-              });
-            }
-            if (!parser.pop(top.results, parsed.results, ctx)) {
-              return fail(cursor, rootId, {
-                code: CODE_SEQ_UNMATCH_STACK,
-                index: i,
-              });
+
+          if (flags) {
+            if (flags.push) capturedStack.push(parsed);
+            if (flags.pop) {
+              const top = capturedStack.pop();
+              if (top == null) {
+                return fail(cursor, rootId, {
+                  code: CODE_SEQ_NO_STACK_ON_POP,
+                  index: i,
+                });
+              }
+              if (!flags.pop(top.results, parsed.results, ctx)) {
+                return fail(cursor, rootId, {
+                  code: CODE_SEQ_UNMATCH_STACK,
+                  index: i,
+                });
+              }
             }
           }
-          if (!parser.skip) {
+
+          if (flags == null || !flags.skip) {
             results.push(...parsed.results);
           }
           cursor += parsed.len;

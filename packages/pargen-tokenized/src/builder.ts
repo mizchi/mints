@@ -14,8 +14,7 @@ import type {
   Regex,
   InternalParser,
   ParseContext,
-  SeqChildRule,
-  SeqChildParams,
+  Flags,
   SeqObject,
   Any,
 } from "./types";
@@ -115,106 +114,102 @@ export function $any<T = string>(
   } as Any;
 }
 
-const toSeqChild = (
-  rule: Rule,
+const toFlags = (
   key?: string,
   opt?: boolean,
   skip?: boolean,
   push?: boolean,
   pop?: (a: any[], b: any[], ctx: ParseContext) => boolean
-): SeqChildRule => {
-  return { key, skip, opt, push, pop, ...rule };
+): Flags => {
+  return { key, skip, opt, push, pop };
 };
 
-type SeqChildInputNodeExpr = RuleExpr | SeqChildRule;
+type FlagsExpr = string | Flags;
+type RuleWithFlags = RuleExpr | [flags: FlagsExpr, rule: RuleExpr];
 
-const toSeqChildren = (
-  children: Array<
-    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: RuleExpr]
-  >
-): SeqChildRule[] => {
-  return children.map((child): SeqChildRule => {
+const toFlagsList = (children: Array<RuleWithFlags>): (Flags | null)[] => {
+  return children.map((child) => {
     if (Array.isArray(child)) {
-      const [params, child_] = child;
-      if (typeof params === "string") {
-        return toSeqChild(toNode(child_), params);
+      const [flagsExpr] = child;
+      if (typeof flagsExpr === "string") {
+        return toFlags(flagsExpr);
       } else {
-        return toSeqChild(
-          toNode(child_),
-          params.key,
-          params.opt,
-          params.skip,
-          params.push,
-          params.pop
+        return toFlags(
+          flagsExpr.key,
+          flagsExpr.opt,
+          flagsExpr.skip,
+          flagsExpr.push,
+          flagsExpr.pop
         );
       }
-    } else {
-      return toSeqChild(toNode(child as RuleExpr));
     }
+    return null;
   });
 };
 
 export function $seq<T = string, U = string>(
-  children: Array<
-    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: RuleExpr]
-  >,
+  children: Array<RuleWithFlags>,
   reshape?: (results: T[], ctx: ParseContext) => U
 ): Seq {
   return {
     u: genId(),
     t: RULE_SEQ,
-    c: toSeqChildren(children),
+    c: children.map((child) => {
+      if (child instanceof Array) {
+        return toNode(child[1]);
+      }
+      return toNode(child);
+    }),
+    f: toFlagsList(children),
     r: reshape,
   } as Seq;
 }
 
 export function $seqo<T = any, U = any>(
-  children: Array<
-    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: RuleExpr]
-  >,
+  children: Array<RuleWithFlags>,
   reshape?: (obj: T, ctx: ParseContext) => U
 ): SeqObject<T, U> {
   return {
     u: genId(),
     t: RULE_SEQ_OBJECT,
-    c: toSeqChildren(children),
+    c: children.map((child) =>
+      toNode(child instanceof Array ? child[1] : child)
+    ),
+    f: toFlagsList(children),
     r: reshape,
   } as SeqObject<T, U>;
 }
 
 export function $repeat_seq(
-  input: Array<
-    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: RuleExpr]
-  >,
+  input: Array<RuleWithFlags>,
   reshapeEach?: Reshape,
   reshape?: Reshape
 ): Repeat {
   return $repeat($seq(input), reshapeEach, reshape);
 }
 
-export function $opt_seq(
-  input: Array<
-    SeqChildInputNodeExpr | [params: string | SeqChildParams, ex: RuleExpr]
-  >
-): Seq {
-  return $opt($seq(input)) as Seq;
+export function $opt_seq(input: Array<RuleWithFlags>): [Flags, Rule] {
+  return [{ opt: true }, $seq(input)];
+
+  // return $opt($seq(input)) as Seq;
 }
 
 // seq child builder
-export function $param(key: string, node: RuleExpr): SeqChildParams {
-  return { ...toNode(node), key } as SeqChildParams;
+// export function $param(key: string, node: RuleExpr): Flags {
+//   return { ...toNode(node), key } as Flags;
+// }
+
+export function $skip(input: RuleExpr): [Flags, Rule] {
+  return [{ skip: true }, toNode(input)];
+  // return { ...toNode(input), skip: true } as SeqChildRule;
 }
 
-export function $skip(input: RuleExpr): SeqChildRule {
-  return { ...toNode(input), skip: true } as SeqChildRule;
+export function $skip_opt(input: RuleExpr): [Flags, Rule] {
+  return [{ skip: true, opt: true }, toNode(input)];
 }
 
-export function $skip_opt(input: RuleExpr): SeqChildRule {
-  return { ...toNode(input), skip: true, opt: true } as SeqChildRule;
-}
-
-export function $opt(input: RuleExpr): SeqChildRule {
-  return { ...toNode(input), opt: true } as SeqChildRule;
+export function $opt(input: RuleExpr): [Flags, Rule] {
+  return [{ opt: true }, toNode(input)];
 }
 
 export function $not(children: RuleExpr[], reshape?: Reshape): Not {

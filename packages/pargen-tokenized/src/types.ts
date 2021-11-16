@@ -52,7 +52,7 @@ export type Not = {
   c: Rule[];
 };
 
-export type SeqChildParams = {
+export type Flags = {
   opt?: boolean;
   skip?: boolean;
   push?: boolean;
@@ -64,19 +64,19 @@ export type SeqChildParams = {
   ) => boolean;
 };
 
-export type SeqChildRule = RuleBase & SeqChildParams;
-
 export type Seq<T = string, U = string> = {
   u: number;
   t: typeof RULE_SEQ;
-  c: SeqChildRule[];
+  c: Rule[];
+  f: (Flags | null)[];
   r?: (results: T[], ctx: ParseContext) => U;
 };
 
 export type SeqObject<T = any, U = any> = {
   u: number;
   t: typeof RULE_SEQ_OBJECT;
-  c: SeqChildRule[];
+  c: Rule[];
+  f: (Flags | null)[];
   r?: (results: T, ctx: ParseContext) => U;
 };
 
@@ -127,44 +127,6 @@ export type Rule =
   | Atom
   | Regex
   | Any;
-
-export type u8 = number;
-
-// 0
-export type SerializedEof = [];
-// 1 byte
-export type SerializedAtom = [funcPtr: u8];
-export type SerializedAny = [len: u8];
-export type SerializedToken = [stringPtr: u8];
-export type SerializedRegex = [stringPtr: u8];
-export type SerializedRef = [ref: u8];
-
-// 2 bytes
-export type SerializedNot = [childrenPtr1: u8];
-export type SerializedSeq = [childrenPtr1: u8];
-export type SerializedSeqObject = [childrenPtr1: u8];
-export type SerializedOr = [childPtr1: u8];
-
-// 3 bytes
-export type SerializedRepeat = [
-  patternPtr1: u8,
-  patternPtr2: u8,
-  reshapeEachPtr: u8
-];
-
-export type SerializedRule =
-  | SerializedSeq
-  | SerializedToken
-  | SerializedOr
-  | SerializedRepeat
-  | SerializedRef
-  | SerializedEof
-  | SerializedNot
-  | SerializedAtom
-  | SerializedAny
-  | SerializedAtom
-  | SerializedSeqObject
-  | SerializedRegex;
 
 // ==== public interface
 export type RootCompilerOptions = {
