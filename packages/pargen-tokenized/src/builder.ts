@@ -64,18 +64,18 @@ export const toNode = (input: RuleExpr): Rule => {
 const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
-function compileToRuntimeRules(rawRules: Rule[]): [
+function compileToRuntimeRules(
+  rawRules: Rule[]
+): [
   rules: O_Rule[],
   refs: number[],
   strings: string[],
   funcs: Function[],
-  reshapes: number[]
-  // flagsList: O_Flags[]
+  reshapes: { [key: number]: number }
 ] {
   const o_rules: O_Rule[] = [];
   const strings: string[] = [];
-  const reshapes: number[] = [];
-  // const flags_list: O_Flags[] = [];
+  const reshapes: { [key: number]: number } = {};
 
   const funcs: Function[] = [(x: any) => x];
 
@@ -158,11 +158,10 @@ function compileToRuntimeRules(rawRules: Rule[]): [
 export const $close = () => {
   const defs = buildDefs();
   const compiled = compileToRuntimeRules(defs);
-  // const x = JSON.stringify(compiled);
+  const x = JSON.stringify(compiled);
   // console.log(x);
-  // const zlib = require("zlib");
-  // console.log("__", zlib.deflateSync(new TextEncoder().encode(x)).byteLength);
-
+  const zlib = require("zlib");
+  console.log("__", zlib.deflateSync(new TextEncoder().encode(x)).byteLength);
   // __registered.length = 0;
   // __tokenCache.clear();
   // console.log("========== close", defs.length, compiled.length);
@@ -193,7 +192,6 @@ export function $any<T = string>(
   reshape?: (token: string) => T
 ): Any {
   return {
-    u: genId(),
     t: RULE_ANY,
     c: len,
     r: reshape,
@@ -238,7 +236,6 @@ export function $seq<T = string, U = string>(
   reshape?: (results: T[], ctx: ParseContext) => U
 ): Seq {
   return {
-    u: genId(),
     t: RULE_SEQ,
     c: children.map((child) => {
       if (child instanceof Array) {
@@ -256,7 +253,6 @@ export function $seqo<T = any, U = any>(
   reshape?: (obj: T, ctx: ParseContext) => U
 ): SeqObject<T, U> {
   return {
-    u: genId(),
     t: RULE_SEQ_OBJECT,
     c: children.map((child) =>
       toNode(child instanceof Array ? child[1] : child)

@@ -181,9 +181,9 @@ export type ParseContext = {
   cache: Map<string, ParseResult>;
   currentError: ParseError | null;
   refs: number[]; // ref index to rule index
-  reshapes: (number | void)[];
   rules: O_Rule[];
   funcs: Function[];
+  reshapes: { [key: number]: number };
   // flagsList: (O_Flags | void)[];
   parsers: InternalParser[];
 };
