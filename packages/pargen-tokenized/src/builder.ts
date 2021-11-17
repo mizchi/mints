@@ -76,7 +76,14 @@ function compileToRuntimeRules(rawRules: Rule[]): PrebuiltState {
     flagsList: {},
     keyList: {},
     popList: {},
+    cidsList: [],
   } as PrebuiltState;
+
+  function addCids(ptrs: number[]) {
+    const ptr = state.cidsList.length;
+    state.cidsList.push(ptrs);
+    return ptr;
+  }
 
   function addString(str: string) {
     const at = state.strings.indexOf(str);
@@ -121,9 +128,11 @@ function compileToRuntimeRules(rawRules: Rule[]): PrebuiltState {
       case RULE_SEQ_OBJECT:
       case RULE_OR:
       case RULE_NOT: {
+        const cids = (rule.c as Rule[]).map(addRule);
+        const cidsPtr = addCids(cids);
         rule = {
           ...rule,
-          c: (rule.c as Rule[]).map(addRule),
+          c: cidsPtr,
         } as O_Rule as any;
       }
     }
@@ -195,7 +204,6 @@ export function $def(nodeCreator: () => RuleExpr): number {
 
 export function $ref(refId: string | number, reshape?: Reshape): Ref {
   return {
-    u: genId(),
     t: RULE_REF,
     c: refId,
     r: reshape,
@@ -303,13 +311,11 @@ export function $opt(input: RuleExpr): [Flags, Rule] {
   return [{ opt: true }, toNode(input)];
 }
 
-export function $not(children: RuleExpr[], reshape?: Reshape): Not {
+export function $not(children: RuleExpr[]): Not {
   const childNodes = children.map(toNode);
   return {
     t: RULE_NOT,
     c: childNodes,
-    reshape,
-    u: genId(),
   } as Not;
 }
 
@@ -371,7 +377,6 @@ export function $or(patterns: Array<RuleExpr>, reshape?: Reshape): Or | Rule {
     // heads: [],
     c: builtPatterns,
     reshape,
-    u: genId(),
   } as Or;
 }
 

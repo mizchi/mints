@@ -12,6 +12,7 @@ export function createContext() {
   const rootCompiler: RootCompiler = (rule) => {
     const entryRefId = $def(() => $seq([toNode(rule), $eof()]));
     const s = $close();
+    console.log(s);
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {

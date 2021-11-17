@@ -155,7 +155,8 @@ function _parse(
       );
     }
     case RULE_NOT: {
-      for (const ruleId of rule.c as number[]) {
+      const childrenIds = ctx.cidsList[rule.c];
+      for (const ruleId of childrenIds) {
         const parse = ctx.parsers[ruleId];
         const result = parse(ctx, pos);
         if (result.error) {
@@ -182,9 +183,10 @@ function _parse(
       let result: any = {};
       const capturedStack: ParseSuccess[] = [];
       const flagsList = ctx.flagsList[rid];
+      const childrenIds = ctx.cidsList[rule.c];
 
-      for (let i = 0; i < rule.c.length; i++) {
-        const parser = ctx.parsers[rule.c[i]];
+      for (let i = 0; i < childrenIds.length; i++) {
+        const parser = ctx.parsers[childrenIds[i]];
         const flags = flagsList[i] ?? 0;
 
         const parsed = parser(ctx, cursor);
@@ -230,8 +232,10 @@ function _parse(
       let capturedStack: ParseSuccess[] = [];
       const flagsList = ctx.flagsList[rid];
 
-      for (let i = 0; i < rule.c.length; i++) {
-        const parser = ctx.parsers[rule.c[i] as number];
+      const childrenIds = ctx.cidsList[rule.c];
+
+      for (let i = 0; i < childrenIds.length; i++) {
+        const parser = ctx.parsers[childrenIds[i]];
         const flags = flagsList[i] ?? 0;
         const parsed = parser(ctx, cursor);
 
@@ -282,12 +286,10 @@ function _parse(
     }
     case RULE_OR: {
       const errors: ParseError[] = [];
-      for (const idx of rule.c as number[]) {
+      const childrenIds = ctx.cidsList[rule.c];
+
+      for (const idx of childrenIds) {
         const parse = ctx.parsers[idx];
-        if (typeof ctx.rules[idx] === "number") {
-          console.log("invalid", rule.c, idx, ctx.rules[idx]);
-          throw new Error("stop");
-        }
 
         const parsed = parse(ctx, pos);
         if (parsed.error === true) {

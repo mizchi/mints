@@ -74,7 +74,6 @@ export type SeqObject<T = any, U = any> = {
 };
 
 export type Ref<T = any, U = any> = {
-  u: number;
   t: typeof RULE_REF;
   c: number;
   r?: (results: T, ctx: ParseContext) => U;
@@ -123,15 +122,15 @@ export type O_Token = Omit<Token, "c" | "r"> & { c: number };
 export type O_Regex = Omit<Regex, "c" | "r"> & { c: number };
 export type O_Repeat = Omit<Repeat, "c" | "r" | "e"> & { c: number };
 export type O_Seq = Omit<Seq, "c" | "r" | "f"> & {
-  c: number[];
+  c: number;
 };
 
 export type O_SeqObject = Omit<SeqObject, "c" | "r" | "f"> & {
-  c: number[];
+  c: number;
 };
 
-export type O_Not = Omit<Not, "c"> & { c: number[] };
-export type O_Or = Omit<Or, "c"> & { c: number[] };
+export type O_Not = Omit<Not, "c"> & { c: number };
+export type O_Or = Omit<Or, "c"> & { c: number };
 
 export type O_Rule =
   | O_Seq
@@ -178,6 +177,8 @@ export type PrebuiltState = {
   refs: number[];
   strings: string[];
   funcs: Function[];
+
+  cidsList: Array<number[]>;
   reshapes: { [key: number]: number };
   reshapeEachs: { [key: number]: number };
   flagsList: { [key: number]: number[] };
