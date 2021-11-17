@@ -18,6 +18,11 @@ import {
   RULE_SEQ,
   RULE_SEQ_OBJECT,
   RULE_TOKEN,
+  OPT_MASK,
+  KEY_MASK,
+  PUSH_MASK,
+  POP_MASK,
+  SKIP_MASK,
 } from "./constants";
 import {
   InternalParser,
@@ -67,21 +72,18 @@ export function fail<ErrorData extends ParseErrorData>(
 }
 
 // parse with cache
-export function compileFragment(rule: O_Rule): InternalParser {
-  // console.log("compile", rule);
+export function compileFragment(rule: O_Rule, ridx: number): InternalParser {
   const parser: InternalParser = (ctx, pos) => {
-    // use cached result
     const cacheKey = pos + "@" + rule.u;
     let parsed = ctx.cache.get(cacheKey);
     if (!parsed) {
       parsed = _parse(rule, ctx, pos);
       if (!parsed.error) {
-        const ruleIdx = ctx.rules.indexOf(rule);
+        const ruleIdx = ridx;
         if (ruleIdx < 0) throw new Error("rule not found");
         const fnPtr = ctx.reshapes[ruleIdx];
         if (fnPtr != null) {
           const fn = ctx.funcs[fnPtr];
-          // console.log("has reshape", ruleIdx, fnPtr, fn, parsed);
           const resolved = resolveTokens(ctx.tokens, parsed.results);
           const reshaped = fn(resolved, ctx);
           parsed.results = Array.isArray(reshaped) ? reshaped : [reshaped];
@@ -175,13 +177,12 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
       let result: any = {};
       const capturedStack: ParseSuccess[] = [];
       for (let i = 0; i < rule.c.length; i++) {
-        const parser = ctx.parsers[rule.c[i] as number];
-
+        const parser = ctx.parsers[rule.c[i]];
         const flags = rule.f[i];
-        const parsed = parser(ctx, cursor);
 
+        const parsed = parser(ctx, cursor);
         if (parsed.error) {
-          if (flags?.opt) continue;
+          if (flags && OPT_MASK & flags[0]) continue;
           return fail(cursor, {
             code: CODE_SEQ_STOP,
             childError: parsed,
@@ -189,10 +190,14 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
           });
         }
         if (flags) {
-          if (flags.key)
-            result[flags.key] = resolveTokens(ctx.tokens, parsed.results);
-          if (flags.push) capturedStack.push(parsed);
-          if (flags.pop) {
+          if (flags[0] & KEY_MASK) {
+            const key = ctx.strings[flags[1]];
+            result[key] = resolveTokens(ctx.tokens, parsed.results);
+          }
+          if (flags[0] & PUSH_MASK) capturedStack.push(parsed);
+          if (flags[0] & POP_MASK) {
+            const popFn = ctx.funcs[flags[2]];
+
             const top = capturedStack.pop();
             if (top == null) {
               return fail(cursor, {
@@ -200,7 +205,7 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
                 index: i,
               });
             }
-            if (!flags.pop(top.results, parsed.results, ctx)) {
+            if (!popFn(top.results, parsed.results, ctx)) {
               return fail(cursor, {
                 code: CODE_SEQ_UNMATCH_STACK,
                 index: i,
@@ -223,7 +228,7 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
         const parsed = parser(ctx, cursor);
 
         if (parsed.error) {
-          if (flags && flags.opt) continue;
+          if (flags && flags[0] & OPT_MASK) continue;
           return fail(cursor, {
             code: CODE_SEQ_STOP,
             childError: parsed,
@@ -231,8 +236,9 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
           });
         }
         if (flags) {
-          if (flags.push) capturedStack.push(parsed);
-          if (flags.pop) {
+          if (flags[0] & PUSH_MASK) capturedStack.push(parsed);
+          if (flags[0] & POP_MASK) {
+            const popFn = ctx.funcs[flags[2]];
             const top = capturedStack.pop();
             if (top == null) {
               return fail(cursor, {
@@ -240,7 +246,7 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
                 index: i,
               });
             }
-            if (!flags.pop(top.results, parsed.results, ctx)) {
+            if (!popFn(top.results, parsed.results, ctx)) {
               return fail(cursor, {
                 code: CODE_SEQ_UNMATCH_STACK,
                 index: i,
@@ -248,7 +254,7 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
             }
           }
         }
-        if (flags == null || !flags.skip) {
+        if (!(flags && flags[0] & SKIP_MASK)) {
           results.push(...parsed.results);
         }
         cursor += parsed.len;
@@ -285,9 +291,10 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
         const parsed = parser(ctx, cursor);
         if (parsed.error === true) break;
         if (parsed.len === 0) throw new Error(`ZeroRepeat`);
-        if (rule.e) {
+        if (rule.e !== 0) {
           const tokens = resolveTokens(ctx.tokens, parsed.results);
-          results.push([rule.e(tokens, ctx)]);
+          const fn = ctx.funcs[rule.e];
+          results.push([fn(tokens, ctx)]);
         } else {
           results.push(...parsed.results);
         }

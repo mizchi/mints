@@ -19,9 +19,14 @@ import type {
   O_Rule,
   O_Token,
   O_Repeat,
+  O_Flags,
 } from "./types";
 
 import {
+  KEY_MASK,
+  OPT_MASK,
+  POP_MASK,
+  PUSH_MASK,
   RULE_ANY,
   RULE_ATOM,
   RULE_EOF,
@@ -33,6 +38,7 @@ import {
   RULE_SEQ,
   RULE_SEQ_OBJECT,
   RULE_TOKEN,
+  SKIP_MASK,
 } from "./constants";
 
 let cnt = 2;
@@ -58,18 +64,19 @@ export const toNode = (input: RuleExpr): Rule => {
 const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
-function compileToRuntimeRules(
-  rawRules: Rule[]
-): [
+function compileToRuntimeRules(rawRules: Rule[]): [
   rules: O_Rule[],
   refs: number[],
   strings: string[],
   funcs: Function[],
   reshapes: number[]
+  // flagsList: O_Flags[]
 ] {
   const o_rules: O_Rule[] = [];
   const strings: string[] = [];
   const reshapes: number[] = [];
+  // const flags_list: O_Flags[] = [];
+
   const funcs: Function[] = [(x: any) => x];
 
   function addString(str: string) {
@@ -86,6 +93,18 @@ function compileToRuntimeRules(
     return ptr;
   }
 
+  function addFlags(flags: Flags): O_Flags {
+    const encodedFlags =
+      (flags.opt ? OPT_MASK : 0) +
+      (flags.skip ? SKIP_MASK : 0) +
+      (flags.push ? PUSH_MASK : 0) +
+      (flags.pop ? POP_MASK : 0) +
+      (flags.key ? KEY_MASK : 0);
+    const strPtr = addString(flags.key ?? "");
+    const fnPopPtr = addFunc(flags.pop);
+    return [encodedFlags, strPtr, fnPopPtr];
+  }
+
   function addRule(rule: Rule): number {
     switch (rule.t) {
       case RULE_TOKEN: {
@@ -94,16 +113,15 @@ function compileToRuntimeRules(
         break;
       }
       case RULE_REPEAT: {
-        rule = { ...rule, c: addRule(rule.c as Rule) } as O_Repeat;
+        rule = {
+          ...rule,
+          c: addRule(rule.c as Rule),
+          e: addFunc(rule.e),
+        } as O_Repeat as any;
         break;
       }
-      case RULE_SEQ_OBJECT: {
-        // if (rule.e) {
-        //   rule = { ...rule, c: addRule(rule.c as Rule) } as O_Repeat;
-        // }
-        // handle seq child flags
-      }
       case RULE_SEQ:
+      case RULE_SEQ_OBJECT:
       case RULE_OR:
       case RULE_NOT: {
         rule = {
@@ -118,12 +136,19 @@ function compileToRuntimeRules(
     if (r) {
       const fnPtr = addFunc(r);
       reshapes[ptr] = fnPtr;
-      // rule = { ...rule, r: fnPtr } as O_Rule as any;
+    }
+
+    if ((rule as Seq | SeqObject).f) {
+      const newFlags = (rule as Seq | SeqObject).f.map((flags) => {
+        if (flags) return addFlags(flags);
+        return 0;
+      });
+      rule = { ...rule, f: newFlags } as O_Rule as any;
     }
     o_rules.push(rule as O_Rule);
+
     return ptr;
   }
-
   const refs = rawRules.map(addRule);
   return [o_rules, refs, strings, funcs, reshapes];
 }

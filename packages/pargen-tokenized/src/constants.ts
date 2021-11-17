@@ -35,3 +35,9 @@ export const CODE_SEQ_STACK_LEFT = 8;
 export const CODE_OR_UNMATCH_ALL = 9;
 export const CODE_REPEAT_RANGE = 10;
 export const CODE_ATOM_PARSE_ERROR = 11;
+
+export const OPT_MASK = 0b00001;
+export const SKIP_MASK = 0b00010;
+export const KEY_MASK = 0b00100;
+export const PUSH_MASK = 0b01000;
+export const POP_MASK = 0b10000;
