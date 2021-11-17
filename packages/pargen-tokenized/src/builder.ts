@@ -41,12 +41,8 @@ const genId = () => cnt++;
 
 const __tokenCache = new Map<string, Token>();
 export const toNode = (input: RuleExpr): Rule => {
-  if (typeof input === "object") {
-    return input;
-  }
-  if (typeof input === "number") {
-    return $ref(input);
-  }
+  if (typeof input === "object") return input;
+  if (typeof input === "number") return $ref(input);
   if (typeof input === "string") {
     if (__tokenCache.has(input)) {
       return __tokenCache.get(input)!;
@@ -74,7 +70,7 @@ function compileToRuntimeRules(
   const o_rules: O_Rule[] = [];
   const strings: string[] = [];
   const reshapes: number[] = [];
-  const funcs: Function[] = [];
+  const funcs: Function[] = [(x: any) => x];
 
   function addString(str: string) {
     const at = strings.indexOf(str);
@@ -101,10 +97,13 @@ function compileToRuntimeRules(
         rule = { ...rule, c: addRule(rule.c as Rule) } as O_Repeat;
         break;
       }
-      case RULE_SEQ:
       case RULE_SEQ_OBJECT: {
+        // if (rule.e) {
+        //   rule = { ...rule, c: addRule(rule.c as Rule) } as O_Repeat;
+        // }
         // handle seq child flags
       }
+      case RULE_SEQ:
       case RULE_OR:
       case RULE_NOT: {
         rule = {
