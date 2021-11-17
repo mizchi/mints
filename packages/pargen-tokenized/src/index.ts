@@ -12,14 +12,13 @@ export function createContext() {
   const rootCompiler: RootCompiler = (rule) => {
     const entryRefId = $def(() => $seq([toNode(rule), $eof()]));
     const s = $close();
-    console.log(s);
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
         tokens,
         currentError: null,
         cache,
-        parsers: s.rules.map(compileFragment),
+        parsers: s.rules.map((_, idx) => compileFragment(idx)),
         ...s,
       } as ParseContext;
       const rootResult = ctx.parsers[ctx.refs[entryRefId]](ctx, 0);
@@ -168,17 +167,17 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
   test("regex", () => {
     const compile = createContext();
-    const parse = compile($regex(/^\w+$/));
+    const parse = compile($regex(`^\\w+$`));
     expectSuccess(parse, ["abc"], "abc");
     expectFail(parse, [""]);
-    const parse2 = compile($regex(/^a$/));
+    const parse2 = compile($regex(`^a$`));
     expectFail(parse2, ["xa"]);
     expectSuccess(parse2, ["a"], "a");
   });
 
   test("regex with reshape", () => {
     const compile = createContext();
-    const parse = compile($regex(/^\w+$/, (token) => token + "_mod"));
+    const parse = compile($regex(`^\\w+$`, (token) => token + "_mod"));
     expectSuccess(parse, ["abc"], "abc_mod");
     expectFail(parse, [""]);
   });
@@ -498,14 +497,14 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const parser = compile(
       $seqo([
         "<",
-        [{ key: "key", push: true }, $regex(/^[a-z]+$/)],
+        [{ key: "key", push: true }, $regex(`^[a-z]+$`)],
         ">",
-        [{ key: "value" }, $regex(/^[a-z]+$/)],
+        [{ key: "value" }, $regex(`^[a-z]+$`)],
         "<",
         "/",
         [
           { pop: ([a], [b], { tokens }) => tokens[a] === tokens[b] },
-          $regex(/^[a-z]+$/),
+          $regex(`^[a-z]+$`),
         ],
         ">",
       ])

@@ -99,7 +99,7 @@ export type Token<T = string> = {
 
 export type Regex<T = string> = {
   t: typeof RULE_REGEX;
-  c: string | RegExp;
+  c: string;
   r?: (raw: string) => T;
 };
 
@@ -173,11 +173,12 @@ export type Compiler = {
 export type ParserMap = Map<number, InternalParser>;
 
 export type PrebuiltState = {
-  rules: O_Rule[];
+  rules: Array<Rule["t"]>;
+  values: Array<number>;
+  // rules: O_Rule[];
   refs: number[];
   strings: string[];
   funcs: Function[];
-
   cidsList: Array<number[]>;
   reshapes: { [key: number]: number };
   reshapeEachs: { [key: number]: number };

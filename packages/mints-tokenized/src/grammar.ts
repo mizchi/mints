@@ -375,17 +375,17 @@ const callArguments = $def(() =>
 
 const stringLiteral = $def(() =>
   $or([
-    $seq(["'", $opt($regex(/^[^']+$/u)), "'"]),
-    $seq(['"', $opt($regex(/^[^"]+$/u)), '"']),
+    $seq(["'", $opt($regex(`^[^']+$`)), "'"]),
+    $seq(['"', $opt($regex(`^[^"]+$`)), '"']),
   ])
 );
 
 const regexpLiteral = $def(() =>
-  $seq(["/", $regex(/^[^\/]+$/u), "/", $opt($regex(/^[gimsuy]+$/))])
+  $seq(["/", $regex(`^[^\/]+$`), "/", $opt($regex(`^[gimsuy]+$`))])
 );
 
 const templateExpressionStart = $token("${");
-const templateLiteralString = $def(() => $regex(/^[^`]+$/mu));
+const templateLiteralString = $def(() => $regex("^[^`]+$")); // TODO: mu
 const templateLiteral = $def(() =>
   $seq([
     "`",
@@ -400,13 +400,13 @@ const templateLiteral = $def(() =>
   ])
 );
 
-const digit = $regex(/^[1-9](_?\d)*$/);
-const digitWithSuffix = $regex(/^[1-9](_?\d)*(e[1-9]\d*)?$/);
+const digit = $regex(`^[1-9](_?\\d)*$`);
+const digitWithSuffix = $regex(`^[1-9](_?\\d)*(e[1-9]\\d*)?$`);
 const numberLiteral = $def(() =>
   $or([
-    $regex(/^0[bB][0-1]+$/),
-    $regex(/^0[oO][0-8]+$/),
-    $regex(/^0[xX][0-9a-f]+$/),
+    $regex(`^0[bB][0-1]+$`),
+    $regex(`^0[oO][0-8]+$`),
+    $regex(`^0[xX][0-9a-f]+$`),
     $seq([$or([digit, "0"]), ".", digitWithSuffix]),
     digitWithSuffix,
     "0",

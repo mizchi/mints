@@ -32,6 +32,7 @@ import {
   ParseErrorData,
   ParseResult,
   ParseSuccess,
+  Rule,
 } from "./types";
 
 const resolveToken = (tokens: string[], result: any) => {
@@ -72,12 +73,12 @@ export function fail<ErrorData extends ParseErrorData>(
 }
 
 // parse with cache
-export function compileFragment(rule: O_Rule, rid: number): InternalParser {
+export function compileFragment(rid: number): InternalParser {
   const parser: InternalParser = (ctx, pos) => {
     const cacheKey = pos + "@" + rid;
     let parsed = ctx.cache.get(cacheKey);
     if (!parsed) {
-      parsed = _parse(rule, ctx, pos, rid);
+      parsed = _parse(ctx, pos, rid);
       if (!parsed.error) {
         const ruleIdx = rid;
         if (ruleIdx < 0) throw new Error("rule not found");
@@ -100,18 +101,17 @@ export function compileFragment(rule: O_Rule, rid: number): InternalParser {
   return parser;
 }
 
-function _parse(
-  rule: O_Rule,
-  ctx: ParseContext,
-  pos: number,
-  rid: number
-): ParseResult {
-  switch (rule.t) {
-    // generic rule
-    case RULE_ATOM:
-      return rule.c(ctx, pos);
+function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
+  const ruleType = ctx.rules[rid];
+  const val = ctx.values[rid];
+
+  switch (ruleType) {
+    case RULE_ATOM: {
+      const fn = ctx.funcs[val];
+      return fn(ctx, pos);
+    }
     case RULE_TOKEN: {
-      const expect = ctx.strings[rule.c];
+      const expect = ctx.strings[val];
       const token = ctx.tokens[pos];
       if (token === expect) {
         return success(pos, 1, [pos]);
@@ -124,7 +124,8 @@ function _parse(
       }
     }
     case RULE_REGEX: {
-      let re = rule.c instanceof RegExp ? rule.c : new RegExp(rule.c);
+      const expect = ctx.strings[val];
+      let re = new RegExp(expect, "u");
       const token = ctx.tokens[pos];
       const matched = re.test(token);
       if (matched) {
@@ -150,12 +151,12 @@ function _parse(
     case RULE_ANY: {
       return success(
         pos,
-        rule.c,
-        [...Array(rule.c).keys()].map((n) => n + pos)
+        val,
+        [...Array(val).keys()].map((n) => n + pos)
       );
     }
     case RULE_NOT: {
-      const childrenIds = ctx.cidsList[rule.c];
+      const childrenIds = ctx.cidsList[val];
       for (const ruleId of childrenIds) {
         const parse = ctx.parsers[ruleId];
         const result = parse(ctx, pos);
@@ -171,7 +172,7 @@ function _parse(
       return success(pos, 0, []);
     }
     case RULE_REF: {
-      const rid = ctx.refs[rule.c];
+      const rid = ctx.refs[val];
       const parse = ctx.parsers[rid];
       if (parse == null) {
         console.log("ctx", ctx);
@@ -183,7 +184,7 @@ function _parse(
       let result: any = {};
       const capturedStack: ParseSuccess[] = [];
       const flagsList = ctx.flagsList[rid];
-      const childrenIds = ctx.cidsList[rule.c];
+      const childrenIds = ctx.cidsList[val];
 
       for (let i = 0; i < childrenIds.length; i++) {
         const parser = ctx.parsers[childrenIds[i]];
@@ -232,7 +233,7 @@ function _parse(
       let capturedStack: ParseSuccess[] = [];
       const flagsList = ctx.flagsList[rid];
 
-      const childrenIds = ctx.cidsList[rule.c];
+      const childrenIds = ctx.cidsList[val];
 
       for (let i = 0; i < childrenIds.length; i++) {
         const parser = ctx.parsers[childrenIds[i]];
@@ -286,7 +287,7 @@ function _parse(
     }
     case RULE_OR: {
       const errors: ParseError[] = [];
-      const childrenIds = ctx.cidsList[rule.c];
+      const childrenIds = ctx.cidsList[val];
 
       for (const idx of childrenIds) {
         const parse = ctx.parsers[idx];
@@ -305,7 +306,7 @@ function _parse(
     }
 
     case RULE_REPEAT: {
-      const parser = ctx.parsers[rule.c as number];
+      const parser = ctx.parsers[val];
       let results: (string | number | any)[] = [];
       let cursor = pos;
       while (cursor < ctx.tokens.length) {

@@ -16,10 +16,6 @@ import type {
   Flags,
   SeqObject,
   Any,
-  O_Rule,
-  O_Token,
-  O_Repeat,
-  O_Flags,
   PrebuiltState,
 } from "./types";
 
@@ -41,10 +37,6 @@ import {
   RULE_TOKEN,
   SKIP_MASK,
 } from "./constants";
-
-let cnt = 2;
-
-const genId = () => cnt++;
 
 const __tokenCache = new Map<string, Token>();
 export const toNode = (input: RuleExpr): Rule => {
@@ -68,6 +60,7 @@ const buildDefs = () => __registered.map((creator) => toNode(creator()));
 function compileToRuntimeRules(rawRules: Rule[]): PrebuiltState {
   const state = {
     rules: [],
+    values: [],
     refs: [],
     strings: [""],
     funcs: [() => {}],
@@ -111,17 +104,29 @@ function compileToRuntimeRules(rawRules: Rule[]): PrebuiltState {
 
   function addRule(ruleRaw: Rule): number {
     let rule = { ...ruleRaw };
+    let value: number = 0;
+
     switch (rule.t) {
+      case RULE_REF: {
+        value = rule.c;
+        break;
+      }
+      case RULE_ATOM: {
+        value = addFunc(rule.c);
+        break;
+      }
+      case RULE_ANY: {
+        value = rule.c;
+        break;
+      }
+      case RULE_REGEX:
       case RULE_TOKEN: {
         const strPtr = addString(rule.c as string);
-        rule = { ...rule, c: strPtr } as O_Token as any;
+        value = strPtr;
         break;
       }
       case RULE_REPEAT: {
-        rule = {
-          ...rule,
-          c: addRule(rule.c as Rule),
-        } as O_Repeat as any;
+        value = addRule(rule.c as Rule);
         break;
       }
       case RULE_SEQ:
@@ -130,12 +135,11 @@ function compileToRuntimeRules(rawRules: Rule[]): PrebuiltState {
       case RULE_NOT: {
         const cids = (rule.c as Rule[]).map(addRule);
         const cidsPtr = addCids(cids);
-        rule = {
-          ...rule,
-          c: cidsPtr,
-        } as O_Rule as any;
+        value = cidsPtr;
+        break;
       }
     }
+
     const rulePtr = state.rules.length;
     // @ts-ignore
     const r = rule.r as any;
@@ -170,7 +174,9 @@ function compileToRuntimeRules(rawRules: Rule[]): PrebuiltState {
       const fnPtr = addFunc(rule.e);
       state.reshapeEachs[rulePtr] = fnPtr;
     }
-    state.rules.push(rule as O_Rule);
+
+    state.rules.push(rule.t);
+    state.values.push(value);
     return rulePtr;
   }
   state.refs = rawRules.map(addRule);
@@ -405,7 +411,7 @@ export function $token<T = string>(
 }
 
 export function $regex<T = string>(
-  expr: string | RegExp,
+  expr: string,
   reshape?: (raw: string) => T
 ): Regex<T> {
   return {
