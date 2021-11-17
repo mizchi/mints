@@ -16,7 +16,7 @@ import type {
   Flags,
   SeqObject,
   Any,
-  PrebuiltState,
+  Snapshot,
 } from "./types";
 
 import {
@@ -57,7 +57,7 @@ export const toNode = (input: RuleExpr): Rule => {
 const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
-export function compileSnapshot(): PrebuiltState {
+export function compileSnapshot(): Snapshot {
   const state = {
     rules: [],
     values: [],
@@ -70,7 +70,7 @@ export function compileSnapshot(): PrebuiltState {
     keyList: {},
     popList: {},
     cidsList: [],
-  } as PrebuiltState;
+  } as Snapshot;
 
   function addCids(ptrs: number[]) {
     const ptr = state.cidsList.length;
@@ -184,8 +184,6 @@ export function compileSnapshot(): PrebuiltState {
   const rawRules = buildDefs();
   state.refs = rawRules.map(addRule);
   return state;
-
-  // return out;
 }
 
 export const $dump = () => {
@@ -291,8 +289,6 @@ export function $repeat_seq(
 
 export function $opt_seq(input: Array<RuleWithFlags>): [Flags, Rule] {
   return [{ opt: true }, $seq(input)];
-
-  // return $opt($seq(input)) as Seq;
 }
 
 export function $skip(input: RuleExpr): [Flags, Rule] {

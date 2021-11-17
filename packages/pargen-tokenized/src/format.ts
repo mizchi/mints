@@ -14,7 +14,6 @@ export function formatError(
 ): string {
   const prefix = "  ".repeat(depth) + `${err.pos}:`.padStart(3);
   if (err.code === CODE_NOT_INCORRECT_MATCH) {
-    // const formatted = formatError(tokens, err, depth + 1);
     return `${prefix}IncorrectMatch: ${JSON.stringify(
       err.matched.results,
       null,
