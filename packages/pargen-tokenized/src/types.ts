@@ -183,6 +183,7 @@ export type ParseContext = {
   cache: Map<string, ParseResult>;
   currentError: ParseError | null;
   refs: number[]; // ref index to rule index
+  reshapes: number[];
   rules: O_Rule[];
   funcs: Function[];
   parsers: InternalParser[];

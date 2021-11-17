@@ -62,35 +62,43 @@ export const toNode = (input: RuleExpr): Rule => {
 const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
-function compileToRules(
+function compileToRuntimeRules(
   rawRules: Rule[]
-): [O_Rule[], number[], string[], Function[]] {
+): [
+  rules: O_Rule[],
+  refs: number[],
+  strings: string[],
+  funcs: Function[],
+  reshapes: number[]
+] {
   const o_rules: O_Rule[] = [];
-  // const reshapes = new Map<number, Function>();
   const strings: string[] = [];
+  const reshapes: number[] = [];
   const funcs: Function[] = [];
 
-  function _compile(rule: Rule): number {
+  function addString(str: string) {
+    const at = strings.indexOf(str);
+    if (at > -1) return at;
+    const ptr = strings.length;
+    strings.push(str);
+    return ptr;
+  }
+  function addFunc(fn: Function | void) {
+    if (fn == null) return 0;
+    const ptr = funcs.length;
+    funcs.push(fn);
+    return ptr;
+  }
+
+  function addRule(rule: Rule): number {
     switch (rule.t) {
       case RULE_TOKEN: {
-        let id;
-        const at = strings.indexOf(rule.c);
-        if (at > -1) {
-          id = at;
-        } else {
-          id = strings.length;
-          strings.push(rule.c);
-        }
-
-        if (rule.r) {
-          funcs.push(rule.r);
-        }
-        rule = { ...rule, c: id } as O_Token as any;
-
+        const strPtr = addString(rule.c as string);
+        rule = { ...rule, c: strPtr } as O_Token as any;
         break;
       }
       case RULE_REPEAT: {
-        rule = { ...rule, c: _compile(rule.c as Rule) } as O_Repeat;
+        rule = { ...rule, c: addRule(rule.c as Rule) } as O_Repeat;
         break;
       }
       case RULE_SEQ:
@@ -101,31 +109,30 @@ function compileToRules(
       case RULE_NOT: {
         rule = {
           ...rule,
-          c: (rule.c as Rule[]).map(_compile),
+          c: (rule.c as Rule[]).map(addRule),
         } as O_Rule as any;
       }
     }
-    const id = o_rules.length;
+    const ptr = o_rules.length;
 
     // @ts-ignore
     const r = rule.r as any;
     if (r) {
-      let funcPtr = funcs.length;
-      funcs.push(r);
-      // rule = { ...rule, r: funcPtr } as any;
+      const fnPtr = addFunc(r);
+      reshapes[ptr] = fnPtr;
+      // rule = { ...rule, r: fnPtr } as O_Rule as any;
     }
-
     o_rules.push(rule as O_Rule);
-    return id;
+    return ptr;
   }
 
-  const refs = rawRules.map(_compile);
-  return [o_rules, refs, strings, funcs];
+  const refs = rawRules.map(addRule);
+  return [o_rules, refs, strings, funcs, reshapes];
 }
 
 export const $close = () => {
   const defs = buildDefs();
-  const compiled = compileToRules(defs);
+  const compiled = compileToRuntimeRules(defs);
   // __registered.length = 0;
   // __tokenCache.clear();
   // console.log("========== close", defs.length, compiled.length);
