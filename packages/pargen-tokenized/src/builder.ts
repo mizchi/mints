@@ -162,7 +162,9 @@ function compileToRuntimeRules(rawRules: Rule[]): PrebuiltState {
         ps.push(flags?.pop ? addFunc(flags.pop) : 0);
       }
 
-      state.flagsList[rulePtr] = fs;
+      if (fs.some((k) => k > 0)) {
+        state.flagsList[rulePtr] = fs;
+      }
       if (ks.some((k) => k > 0)) {
         state.keyList[rulePtr] = ks;
       }

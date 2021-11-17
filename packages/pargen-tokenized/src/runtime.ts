@@ -237,7 +237,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
 
       for (let i = 0; i < childrenIds.length; i++) {
         const parser = ctx.parsers[childrenIds[i]];
-        const flags = flagsList[i] ?? 0;
+        const flags = flagsList?.[i] ?? 0;
         const parsed = parser(ctx, cursor);
 
         if (parsed.error) {
