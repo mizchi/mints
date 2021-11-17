@@ -26,13 +26,11 @@ import {
 } from "./constants";
 import {
   InternalParser,
-  O_Rule,
   ParseContext,
   ParseError,
   ParseErrorData,
   ParseResult,
   ParseSuccess,
-  Rule,
 } from "./types";
 
 const resolveToken = (tokens: string[], result: any) => {

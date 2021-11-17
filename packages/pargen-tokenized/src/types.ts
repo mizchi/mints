@@ -116,36 +116,6 @@ export type Rule =
   | Regex
   | Any;
 
-export type O_Flags = [encodedFlags: number, strPtr: number, popPtr: number];
-
-export type O_Token = Omit<Token, "c" | "r"> & { c: number };
-export type O_Regex = Omit<Regex, "c" | "r"> & { c: number };
-export type O_Repeat = Omit<Repeat, "c" | "r" | "e"> & { c: number };
-export type O_Seq = Omit<Seq, "c" | "r" | "f"> & {
-  c: number;
-};
-
-export type O_SeqObject = Omit<SeqObject, "c" | "r" | "f"> & {
-  c: number;
-};
-
-export type O_Not = Omit<Not, "c"> & { c: number };
-export type O_Or = Omit<Or, "c"> & { c: number };
-
-export type O_Rule =
-  | O_Seq
-  | O_SeqObject
-  | O_Or
-  | O_Not
-  | O_Repeat
-  | O_Token
-  | Regex
-  // | O_Regex
-  | Ref
-  | Eof
-  | Atom
-  | Any;
-
 // ==== public interface
 export type RootCompilerOptions = {
   end?: boolean;
