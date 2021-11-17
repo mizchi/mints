@@ -1,12 +1,10 @@
-// import { ParseContext } from "./../../pargen/src/types";
 import type {
   ParseContext,
   ParseResult,
   RootCompiler,
   RootParser,
 } from "./types";
-
-import { compileFragment, success } from "./runtime";
+import { parseWithCache, success } from "./runtime";
 
 export function createContext() {
   const rootCompiler: RootCompiler = (rule) => {
@@ -19,10 +17,9 @@ export function createContext() {
         tokens,
         currentError: null,
         cache,
-        parsers: snapshot.rules.map((_, idx) => compileFragment(idx)),
         ...snapshot,
       } as ParseContext;
-      const rootResult = ctx.parsers[ctx.refs[entryRefId]](ctx, 0);
+      const rootResult = parseWithCache(ctx, 0, ctx.refs[entryRefId]);
       if (rootResult.error && ctx.currentError) {
         return { ...ctx.currentError, tokens } as any;
       }

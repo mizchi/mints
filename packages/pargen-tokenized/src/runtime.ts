@@ -25,7 +25,6 @@ import {
   SKIP_MASK,
 } from "./constants";
 import {
-  InternalParser,
   ParseContext,
   ParseError,
   ParseErrorData,
@@ -71,32 +70,33 @@ export function fail<ErrorData extends ParseErrorData>(
 }
 
 // parse with cache
-export function compileFragment(rid: number): InternalParser {
-  const parser: InternalParser = (ctx, pos) => {
-    const cacheKey = pos + "@" + rid;
-    let parsed = ctx.cache.get(cacheKey);
-    if (!parsed) {
-      parsed = _parse(ctx, pos, rid);
-      if (!parsed.error) {
-        const ruleIdx = rid;
-        if (ruleIdx < 0) throw new Error("rule not found");
-        const fnPtr = ctx.reshapes[ruleIdx];
-        if (fnPtr != null) {
-          const fn = ctx.funcs[fnPtr];
-          const resolved = resolveTokens(ctx.tokens, parsed.results);
-          const reshaped = fn(resolved, ctx);
-          parsed.results = Array.isArray(reshaped) ? reshaped : [reshaped];
-        }
+export function parseWithCache(
+  ctx: ParseContext,
+  pos: number,
+  rid: number
+): ParseResult {
+  const cacheKey = pos + "@" + rid;
+  let parsed = ctx.cache.get(cacheKey);
+  if (!parsed) {
+    parsed = _parse(ctx, pos, rid);
+    if (!parsed.error) {
+      const ruleIdx = rid;
+      if (ruleIdx < 0) throw new Error("rule not found");
+      const fnPtr = ctx.reshapes[ruleIdx];
+      if (fnPtr != null) {
+        const fn = ctx.funcs[fnPtr];
+        const resolved = resolveTokens(ctx.tokens, parsed.results);
+        const reshaped = fn(resolved, ctx);
+        parsed.results = Array.isArray(reshaped) ? reshaped : [reshaped];
       }
-      ctx.cache.set(cacheKey, parsed);
     }
-    if (parsed.error) {
-      if (!ctx.currentError) ctx.currentError = parsed;
-      if (parsed.pos >= ctx.currentError.pos) ctx.currentError = parsed;
-    }
-    return parsed;
-  };
-  return parser;
+    ctx.cache.set(cacheKey, parsed);
+  }
+  if (parsed.error) {
+    if (!ctx.currentError) ctx.currentError = parsed;
+    if (parsed.pos >= ctx.currentError.pos) ctx.currentError = parsed;
+  }
+  return parsed;
 }
 
 function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
@@ -156,8 +156,8 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
     case RULE_NOT: {
       const childrenIds = ctx.cidsList[val];
       for (const ruleId of childrenIds) {
-        const parse = ctx.parsers[ruleId];
-        const result = parse(ctx, pos);
+        const result = parseWithCache(ctx, pos, ruleId);
+
         if (result.error) {
           continue;
         } else {
@@ -171,11 +171,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
     }
     case RULE_REF: {
       const rid = ctx.refs[val];
-      const parse = ctx.parsers[rid];
-      if (parse == null) {
-        console.log("ctx", ctx);
-      }
-      return parse(ctx, pos);
+      return parseWithCache(ctx, pos, rid);
     }
     case RULE_SEQ_OBJECT: {
       let cursor = pos;
@@ -185,10 +181,10 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       const childrenIds = ctx.cidsList[val];
 
       for (let i = 0; i < childrenIds.length; i++) {
-        const parser = ctx.parsers[childrenIds[i]];
+        const crid = childrenIds[i];
         const flags = flagsList[i] ?? 0;
 
-        const parsed = parser(ctx, cursor);
+        const parsed = parseWithCache(ctx, cursor, crid);
         if (parsed.error) {
           if (OPT_MASK & flags) continue;
           return fail(cursor, {
@@ -234,9 +230,9 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       const childrenIds = ctx.cidsList[val];
 
       for (let i = 0; i < childrenIds.length; i++) {
-        const parser = ctx.parsers[childrenIds[i]];
+        const crid = childrenIds[i];
         const flags = flagsList?.[i] ?? 0;
-        const parsed = parser(ctx, cursor);
+        const parsed = parseWithCache(ctx, cursor, crid);
 
         if (parsed.error) {
           if (flags & OPT_MASK) continue;
@@ -288,9 +284,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       const childrenIds = ctx.cidsList[val];
 
       for (const idx of childrenIds) {
-        const parse = ctx.parsers[idx];
-
-        const parsed = parse(ctx, pos);
+        const parsed = parseWithCache(ctx, pos, idx);
         if (parsed.error === true) {
           errors.push(parsed);
           continue;
@@ -304,11 +298,10 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
     }
 
     case RULE_REPEAT: {
-      const parser = ctx.parsers[val];
       let results: (string | number | any)[] = [];
       let cursor = pos;
       while (cursor < ctx.tokens.length) {
-        const parsed = parser(ctx, cursor);
+        const parsed = parseWithCache(ctx, cursor, val);
         if (parsed.error === true) break;
         if (parsed.len === 0) throw new Error(`ZeroRepeat`);
 
