@@ -11,15 +11,16 @@ import { compileFragment, success } from "./runtime";
 export function createContext() {
   const rootCompiler: RootCompiler = (rule) => {
     const entryRefId = $def(() => $seq([toNode(rule), $eof()]));
-    const s = $close();
+    const snapshot = compileSnapshot();
+
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
         tokens,
         currentError: null,
         cache,
-        parsers: s.rules.map((_, idx) => compileFragment(idx)),
-        ...s,
+        parsers: snapshot.rules.map((_, idx) => compileFragment(idx)),
+        ...snapshot,
       } as ParseContext;
       const rootResult = ctx.parsers[ctx.refs[entryRefId]](ctx, 0);
       if (rootResult.error && ctx.currentError) {
@@ -37,7 +38,6 @@ import { is, run, test } from "@mizchi/test";
 import {
   $any,
   $atom,
-  $close,
   $def,
   $eof,
   $not,
@@ -52,6 +52,7 @@ import {
   $skip,
   $skip_opt,
   $token,
+  compileSnapshot,
   toNode,
 } from "./builder";
 import {

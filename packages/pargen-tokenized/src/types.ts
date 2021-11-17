@@ -172,7 +172,7 @@ export type Compiler = {
 
 export type ParserMap = Map<number, InternalParser>;
 
-export type PrebuiltState = {
+export type Snapshot = {
   rules: Array<Rule["t"]>;
   values: Array<number>;
   // rules: O_Rule[];
@@ -187,7 +187,7 @@ export type PrebuiltState = {
   popList: { [key: number]: number[] };
 };
 
-export type ParseContext = PrebuiltState & {
+export type ParseContext = Snapshot & {
   tokens: string[];
   strings: string[];
   cache: Map<string, ParseResult>;

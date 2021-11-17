@@ -57,7 +57,7 @@ export const toNode = (input: RuleExpr): Rule => {
 const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
-function compileToRuntimeRules(rawRules: Rule[]): PrebuiltState {
+export function compileSnapshot(): PrebuiltState {
   const state = {
     rules: [],
     values: [],
@@ -181,24 +181,12 @@ function compileToRuntimeRules(rawRules: Rule[]): PrebuiltState {
     state.values.push(value);
     return rulePtr;
   }
+  const rawRules = buildDefs();
   state.refs = rawRules.map(addRule);
   return state;
 
   // return out;
 }
-
-export const $close = () => {
-  const defs = buildDefs();
-  const compiled = compileToRuntimeRules(defs);
-  const x = JSON.stringify(compiled);
-  // console.log(x);
-  const zlib = require("zlib");
-  console.log("__", zlib.deflateSync(new TextEncoder().encode(x)).byteLength);
-  // __registered.length = 0;
-  // __tokenCache.clear();
-  // console.log("========== close", defs.length, compiled.length);
-  return compiled;
-};
 
 export const $dump = () => {
   return buildDefs();
