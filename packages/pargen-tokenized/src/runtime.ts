@@ -75,6 +75,18 @@ export function compileFragment(rule: O_Rule): InternalParser {
     let parsed = ctx.cache.get(cacheKey);
     if (!parsed) {
       parsed = _parse(rule, ctx, pos);
+      if (!parsed.error) {
+        const ruleIdx = ctx.rules.indexOf(rule);
+        if (ruleIdx < 0) throw new Error("rule not found");
+        const fnPtr = ctx.reshapes[ruleIdx];
+        if (fnPtr != null) {
+          const fn = ctx.funcs[fnPtr];
+          // console.log("has reshape", ruleIdx, fnPtr, fn, parsed);
+          const resolved = resolveTokens(ctx.tokens, parsed.results);
+          const reshaped = fn(resolved, ctx);
+          parsed.results = Array.isArray(reshaped) ? reshaped : [reshaped];
+        }
+      }
       ctx.cache.set(cacheKey, parsed);
     }
     if (parsed.error) {
@@ -92,11 +104,10 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
     case RULE_ATOM:
       return rule.c(ctx, pos);
     case RULE_TOKEN: {
-      let expect = ctx.strings[rule.c];
-      // console.log("expect", expect, rule.c, ctx.strings);
+      const expect = ctx.strings[rule.c];
       const token = ctx.tokens[pos];
       if (token === expect) {
-        return success(pos, 1, [rule.r ? rule.r(token) : pos]);
+        return success(pos, 1, [pos]);
       } else {
         return fail(pos, {
           code: CODE_TOKEN_UNMATCH,
@@ -110,7 +121,7 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
       const token = ctx.tokens[pos];
       const matched = re.test(token);
       if (matched) {
-        return success(pos, 1, [rule.r ? rule.r(token) : pos]);
+        return success(pos, 1, [pos]);
       } else {
         return fail(pos, {
           code: CODE_REGEX_UNMATCH,
@@ -133,9 +144,7 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
       return success(
         pos,
         rule.c,
-        rule.r
-          ? [rule.r(ctx.tokens.slice(pos, pos + rule.c))]
-          : [...Array(rule.c).keys()].map((n) => n + pos)
+        [...Array(rule.c).keys()].map((n) => n + pos)
       );
     }
     case RULE_NOT: {
@@ -180,12 +189,9 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
           });
         }
         if (flags) {
-          if (flags.key) {
+          if (flags.key)
             result[flags.key] = resolveTokens(ctx.tokens, parsed.results);
-          }
-          if (flags.push) {
-            capturedStack.push(parsed);
-          }
+          if (flags.push) capturedStack.push(parsed);
           if (flags.pop) {
             const top = capturedStack.pop();
             if (top == null) {
@@ -204,7 +210,6 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
         }
         cursor += parsed.len;
       }
-      if (rule.r) result = rule.r(result, ctx);
       return success(pos, cursor - pos, [result]);
     }
 
@@ -225,7 +230,6 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
             index: i,
           });
         }
-
         if (flags) {
           if (flags.push) capturedStack.push(parsed);
           if (flags.pop) {
@@ -244,15 +248,10 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
             }
           }
         }
-
         if (flags == null || !flags.skip) {
           results.push(...parsed.results);
         }
         cursor += parsed.len;
-      }
-      if (rule.r) {
-        const resolvedTokens = resolveTokens(ctx.tokens, results);
-        results = rule.r(resolvedTokens, ctx) as any;
       }
       return success(pos, cursor - pos, results);
     }
@@ -260,7 +259,6 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
       const errors: ParseError[] = [];
       for (const idx of rule.c as number[]) {
         const parse = ctx.parsers[idx];
-        // console.log("ctx parsers!", ctx.rules[idx]);
         if (typeof ctx.rules[idx] === "number") {
           console.log("invalid", rule.c, idx, ctx.rules[idx]);
           throw new Error("stop");
@@ -295,15 +293,11 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
         }
         cursor += parsed.len;
       }
-      if (rule.r) {
-        results = rule.r(resolveTokens(ctx.tokens, results), ctx);
-      }
       return success(pos, cursor - pos, results);
-      // };
     }
   }
-  // @ts-ignore
-  throw new Error(`Unknown rule type ${rule}`);
+  // // @ts-ignore
+  // throw new Error(`Unknown rule type ${rule}`);
 }
 
 // export function walkRule(rule: Rule, visitor: (node: Rule) => void) {

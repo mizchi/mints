@@ -114,7 +114,6 @@ function compileToRuntimeRules(
       }
     }
     const ptr = o_rules.length;
-
     // @ts-ignore
     const r = rule.r as any;
     if (r) {

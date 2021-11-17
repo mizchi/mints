@@ -476,9 +476,6 @@ const anyLiteral = $def(() =>
 const accessModifier = $or([K_PRIVATE, K_PUBLIC, K_PROTECTED]);
 const getOrSetModifier = $seq([$or([K_GET, K_SET])]);
 
-const INIT = "1";
-const CODE = "2";
-
 type ParsedCostructorArg = {
   init: string | null;
   code: string;
@@ -510,10 +507,12 @@ const classConstructorArg = $def(() =>
         ]),
       ],
     ],
-    (input: {
-      ident: (string | { access: string; ident: string })[] | [{}];
-      init: string[];
-    }): ParsedCostructorArg => {
+    ([input]: [
+      {
+        ident: (string | { access: string; ident: string })[] | [{}];
+        init: string[];
+      }
+    ]): ParsedCostructorArg => {
       if (typeof input.ident[0] === "object") {
         // @ts-ignore
         const ident = input.ident[0].ident.join("");
@@ -522,10 +521,13 @@ const classConstructorArg = $def(() =>
           code: ident + (input.init?.join("") ?? ""),
         };
       }
-      return {
-        init: null,
-        code: input.ident.join("") + (input.init?.join("") ?? ""),
-      };
+      // @ts-ignore
+      return [
+        {
+          init: null,
+          code: input.ident.join("") + (input.init?.join("") ?? ""),
+        },
+      ];
     }
   )
 );
@@ -543,21 +545,23 @@ const classConstructor = $def(() =>
       ["body", lines],
       R_BRACE,
     ],
-    (input: {
-      args: Array<ParsedCostructorArg>;
-      last: Array<ParsedCostructorArg>;
-      body: number[];
-    }) => {
+    ([input]: [
+      {
+        args: Array<ParsedCostructorArg>;
+        last: Array<ParsedCostructorArg>;
+        body: number[];
+      }
+    ]) => {
+      // console.log("constrocutro input", input);
       const argList = [...(input.args ?? []), ...(input.last ?? [])];
       let bodyIntro = "";
       let args: string[] = [];
       for (const arg of argList) {
-        // console.log("arg", JSON.stringify(arg));
         if (arg.init) bodyIntro += `this.${arg.init}=${arg.init};`;
         args.push(arg.code);
       }
       const bodyCode = input.body.join("");
-      return `${K_CONSTRUCTOR}(${args.join(",")}){${bodyIntro}${bodyCode}}`;
+      return [`${K_CONSTRUCTOR}(${args.join(",")}){${bodyIntro}${bodyCode}}`];
     }
   )
 );
@@ -1070,11 +1074,13 @@ const enumStatement = $def(() =>
       ],
       R_BRACE,
     ],
-    (input: {
-      enumName: string;
-      items: Array<{ ident: string[]; assign?: string[] }>;
-      last?: Array<{ ident: string[]; assign?: string[] }>;
-    }) => {
+    ([input]: [
+      {
+        enumName: string;
+        items: Array<{ ident: string[]; assign?: string[] }>;
+        last?: Array<{ ident: string[]; assign?: string[] }>;
+      }
+    ]) => {
       let baseValue = 0;
       let out = `const ${input.enumName}={`;
       // console.log("input", input);
@@ -1100,7 +1106,7 @@ const enumStatement = $def(() =>
           out += `${key}:${val},`;
         }
       }
-      return out + "};";
+      return [out + "};"];
     }
   )
 );
@@ -1199,22 +1205,26 @@ const jsxElement = $def(() =>
       ],
       ">",
     ],
-    (input: {
-      [IDENT]: string[];
-      [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]: string[] }>;
-      [CHILDREN]: Array<string[]>;
-    }) => {
-      console.log("children", input[CHILDREN]);
-      return buildJsxCode(
-        input[IDENT].join(""),
-        input[ATTRIBUTES].map((a) => {
-          return {
-            [NAME]: a[NAME].join(""),
-            [VALUE]: a[VALUE].join(""),
-          };
-        }),
-        input[CHILDREN].flat()
-      );
+    ([input]: [
+      {
+        [IDENT]: string[];
+        [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]: string[] }>;
+        [CHILDREN]: Array<string[]>;
+      }
+    ]) => {
+      // console.log("children", input[CHILDREN]);
+      return [
+        buildJsxCode(
+          input[IDENT].join(""),
+          input[ATTRIBUTES].map((a) => {
+            return {
+              [NAME]: a[NAME].join(""),
+              [VALUE]: a[VALUE].join(""),
+            };
+          }),
+          input[CHILDREN].flat()
+        ),
+      ];
     }
   )
 );
@@ -1230,17 +1240,21 @@ const jsxSelfCloseElement = $def(() =>
       "/",
       ">",
     ],
-    (input: {
-      [IDENT]: string[];
-      [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]?: string[] }>;
-    }) => {
-      return buildJsxCode(
-        input[IDENT].join(""),
-        input[ATTRIBUTES].map((a) => ({
-          [NAME]: a[NAME].join(""),
-          [VALUE]: a[VALUE]?.join("") ?? "",
-        }))
-      );
+    ([input]: [
+      {
+        [IDENT]: string[];
+        [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]?: string[] }>;
+      }
+    ]) => {
+      return [
+        buildJsxCode(
+          input[IDENT].join(""),
+          input[ATTRIBUTES].map((a) => ({
+            [NAME]: a[NAME].join(""),
+            [VALUE]: a[VALUE]?.join("") ?? "",
+          }))
+        ),
+      ];
     }
   )
 );
