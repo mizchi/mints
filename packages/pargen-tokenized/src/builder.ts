@@ -151,11 +151,18 @@ function compileToRuntimeRules(rawRules: Rule[]): [
   }
   const refs = rawRules.map(addRule);
   return [o_rules, refs, strings, funcs, reshapes];
+
+  // return out;
 }
 
 export const $close = () => {
   const defs = buildDefs();
   const compiled = compileToRuntimeRules(defs);
+  // const x = JSON.stringify(compiled);
+  // console.log(x);
+  // const zlib = require("zlib");
+  // console.log("__", zlib.deflateSync(new TextEncoder().encode(x)).byteLength);
+
   // __registered.length = 0;
   // __tokenCache.clear();
   // console.log("========== close", defs.length, compiled.length);
