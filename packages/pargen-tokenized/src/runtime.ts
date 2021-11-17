@@ -27,7 +27,6 @@ import {
   ParseErrorData,
   ParseResult,
   ParseSuccess,
-  Rule,
 } from "./types";
 
 const resolveToken = (tokens: string[], result: any) => {

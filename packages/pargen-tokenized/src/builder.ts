@@ -62,9 +62,14 @@ export const toNode = (input: RuleExpr): Rule => {
 const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
-function compileToRules(rawRules: Rule[]): [O_Rule[], number[], string[]] {
-  const builtRules: O_Rule[] = [];
+function compileToRules(
+  rawRules: Rule[]
+): [O_Rule[], number[], string[], Function[]] {
+  const o_rules: O_Rule[] = [];
+  // const reshapes = new Map<number, Function>();
   const strings: string[] = [];
+  const funcs: Function[] = [];
+
   function _compile(rule: Rule): number {
     switch (rule.t) {
       case RULE_TOKEN: {
@@ -76,16 +81,23 @@ function compileToRules(rawRules: Rule[]): [O_Rule[], number[], string[]] {
           id = strings.length;
           strings.push(rule.c);
         }
+
+        if (rule.r) {
+          funcs.push(rule.r);
+        }
         rule = { ...rule, c: id } as O_Token as any;
+
         break;
       }
       case RULE_REPEAT: {
         rule = { ...rule, c: _compile(rule.c as Rule) } as O_Repeat;
         break;
       }
-      case RULE_OR:
       case RULE_SEQ:
-      case RULE_SEQ_OBJECT:
+      case RULE_SEQ_OBJECT: {
+        // handle seq child flags
+      }
+      case RULE_OR:
       case RULE_NOT: {
         rule = {
           ...rule,
@@ -93,13 +105,22 @@ function compileToRules(rawRules: Rule[]): [O_Rule[], number[], string[]] {
         } as O_Rule as any;
       }
     }
-    const id = builtRules.length;
-    builtRules.push(rule as O_Rule);
+    const id = o_rules.length;
+
+    // @ts-ignore
+    const r = rule.r as any;
+    if (r) {
+      let funcPtr = funcs.length;
+      funcs.push(r);
+      // rule = { ...rule, r: funcPtr } as any;
+    }
+
+    o_rules.push(rule as O_Rule);
     return id;
   }
 
   const refs = rawRules.map(_compile);
-  return [builtRules, refs, strings];
+  return [o_rules, refs, strings, funcs];
 }
 
 export const $close = () => {

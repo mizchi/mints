@@ -11,7 +11,7 @@ import { compileFragment, success } from "./runtime";
 export function createContext() {
   const rootCompiler: RootCompiler = (rule) => {
     const entryRefId = $def(() => $seq([toNode(rule), $eof()]));
-    const [rules, refs, strings] = $close();
+    const [rules, refs, strings, funcs] = $close();
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
@@ -21,6 +21,7 @@ export function createContext() {
         refs,
         rules,
         strings,
+        funcs,
         parsers: rules.map(compileFragment),
       } as ParseContext;
       const rootResult = ctx.parsers[ctx.refs[entryRefId]](ctx, 0);

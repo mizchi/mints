@@ -128,12 +128,12 @@ export type Rule =
   | Regex
   | Any;
 
-export type O_Token = Omit<Token, "c"> & { c: number };
-export type O_Regex = Omit<Regex, "c"> & { c: number };
+export type O_Token = Omit<Token, "c"> & { c: number; r: number };
+export type O_Regex = Omit<Regex, "c"> & { c: number; r: number };
 
 export type O_Repeat = Omit<Repeat, "c"> & { c: number };
-export type O_Seq = Omit<Seq, "c"> & { c: number[] };
-export type O_SeqObject = Omit<SeqObject, "c"> & { c: number[] };
+export type O_Seq = Omit<Seq, "c"> & { c: number[]; r: number };
+export type O_SeqObject = Omit<SeqObject, "c"> & { c: number[]; r: number };
 export type O_Not = Omit<Not, "c"> & { c: number[] };
 export type O_Or = Omit<Or, "c"> & { c: number[] };
 
@@ -184,6 +184,7 @@ export type ParseContext = {
   currentError: ParseError | null;
   refs: number[]; // ref index to rule index
   rules: O_Rule[];
+  funcs: Function[];
   parsers: InternalParser[];
 };
 
