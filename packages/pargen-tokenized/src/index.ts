@@ -11,19 +11,15 @@ import { compileFragment, success } from "./runtime";
 export function createContext() {
   const rootCompiler: RootCompiler = (rule) => {
     const entryRefId = $def(() => $seq([toNode(rule), $eof()]));
-    const [rules, refs, strings, funcs, reshapes] = $close();
+    const s = $close();
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
         tokens,
         currentError: null,
         cache,
-        refs,
-        rules,
-        strings,
-        funcs,
-        parsers: rules.map(compileFragment),
-        reshapes,
+        parsers: s.rules.map(compileFragment),
+        ...s,
       } as ParseContext;
       const rootResult = ctx.parsers[ctx.refs[entryRefId]](ctx, 0);
       if (rootResult.error && ctx.currentError) {
@@ -261,13 +257,15 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 
   test("seq:skip", () => {
     const compile = createContext();
-    const parser = compile($seq(["a", $skip("x"), "b"]));
-    expectSuccess(parser, ["a", "x", "b"], "ab");
-    is(parser(["a", "b"]), {
-      error: true,
-      code: CODE_SEQ_STOP,
-      childError: { code: CODE_TOKEN_UNMATCH },
-    });
+    const parser = compile($seq([$skip("x")]));
+    expectSuccess(parser, ["x"], "");
+    const parser2 = compile($seq(["a", $skip("x")]));
+    expectSuccess(parser2, ["a", "x"], "a");
+    // is(parser(["a", "b"]), {
+    //   error: true,
+    //   code: CODE_SEQ_STOP,
+    //   childError: { code: CODE_TOKEN_UNMATCH },
+    // });
   });
 
   test("seq:skip_opt", () => {

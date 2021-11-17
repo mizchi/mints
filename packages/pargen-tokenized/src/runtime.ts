@@ -72,14 +72,14 @@ export function fail<ErrorData extends ParseErrorData>(
 }
 
 // parse with cache
-export function compileFragment(rule: O_Rule, ridx: number): InternalParser {
+export function compileFragment(rule: O_Rule, rid: number): InternalParser {
   const parser: InternalParser = (ctx, pos) => {
-    const cacheKey = pos + "@" + ridx;
+    const cacheKey = pos + "@" + rid;
     let parsed = ctx.cache.get(cacheKey);
     if (!parsed) {
-      parsed = _parse(rule, ctx, pos);
+      parsed = _parse(rule, ctx, pos, rid);
       if (!parsed.error) {
-        const ruleIdx = ridx;
+        const ruleIdx = rid;
         if (ruleIdx < 0) throw new Error("rule not found");
         const fnPtr = ctx.reshapes[ruleIdx];
         if (fnPtr != null) {
@@ -100,7 +100,12 @@ export function compileFragment(rule: O_Rule, ridx: number): InternalParser {
   return parser;
 }
 
-function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
+function _parse(
+  rule: O_Rule,
+  ctx: ParseContext,
+  pos: number,
+  rid: number
+): ParseResult {
   switch (rule.t) {
     // generic rule
     case RULE_ATOM:
@@ -176,13 +181,15 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
       let cursor = pos;
       let result: any = {};
       const capturedStack: ParseSuccess[] = [];
+      const flagsList = ctx.flagsList[rid];
+
       for (let i = 0; i < rule.c.length; i++) {
         const parser = ctx.parsers[rule.c[i]];
-        const flags = rule.f[i];
+        const flags = flagsList[i] ?? 0;
 
         const parsed = parser(ctx, cursor);
         if (parsed.error) {
-          if (flags && OPT_MASK & flags[0]) continue;
+          if (OPT_MASK & flags) continue;
           return fail(cursor, {
             code: CODE_SEQ_STOP,
             childError: parsed,
@@ -190,14 +197,13 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
           });
         }
         if (flags) {
-          if (flags[0] & KEY_MASK) {
-            const key = ctx.strings[flags[1]];
+          if (flags & KEY_MASK) {
+            const key = ctx.strings[ctx.keyList[rid][i]];
             result[key] = resolveTokens(ctx.tokens, parsed.results);
           }
-          if (flags[0] & PUSH_MASK) capturedStack.push(parsed);
-          if (flags[0] & POP_MASK) {
-            const popFn = ctx.funcs[flags[2]];
-
+          if (flags & PUSH_MASK) capturedStack.push(parsed);
+          if (flags & POP_MASK) {
+            const popFn = ctx.funcs[ctx.popList[rid][i]];
             const top = capturedStack.pop();
             if (top == null) {
               return fail(cursor, {
@@ -222,13 +228,15 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
       let cursor = pos;
       let results: any[] = [];
       let capturedStack: ParseSuccess[] = [];
+      const flagsList = ctx.flagsList[rid];
+
       for (let i = 0; i < rule.c.length; i++) {
         const parser = ctx.parsers[rule.c[i] as number];
-        const flags = rule.f[i];
+        const flags = flagsList[i] ?? 0;
         const parsed = parser(ctx, cursor);
 
         if (parsed.error) {
-          if (flags && flags[0] & OPT_MASK) continue;
+          if (flags & OPT_MASK) continue;
           return fail(cursor, {
             code: CODE_SEQ_STOP,
             childError: parsed,
@@ -236,9 +244,9 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
           });
         }
         if (flags) {
-          if (flags[0] & PUSH_MASK) capturedStack.push(parsed);
-          if (flags[0] & POP_MASK) {
-            const popFn = ctx.funcs[flags[2]];
+          if (flags & PUSH_MASK) capturedStack.push(parsed);
+          if (flags & POP_MASK) {
+            const popFn = ctx.funcs[ctx.popList[rid][i]];
             const top = capturedStack.pop();
             if (top == null) {
               return fail(cursor, {
@@ -254,11 +262,22 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
             }
           }
         }
-        if (!(flags && flags[0] & SKIP_MASK)) {
+        if (flags & SKIP_MASK) {
+          // console.log(
+          //   "skip",
+          //   { i, rid, flagsList, flags },
+          //   // parsed.results,
+          //   // flagsList,
+          //   resolveTokens(ctx.tokens, parsed.results)
+          // );
+          // throw new Error("skip");
+        } else {
+          // console.log("add", i, parsed.results, flags);
           results.push(...parsed.results);
         }
         cursor += parsed.len;
       }
+      // console.log("results", results);
       return success(pos, cursor - pos, results);
     }
     case RULE_OR: {
@@ -291,9 +310,11 @@ function _parse(rule: O_Rule, ctx: ParseContext, pos: number): ParseResult {
         const parsed = parser(ctx, cursor);
         if (parsed.error === true) break;
         if (parsed.len === 0) throw new Error(`ZeroRepeat`);
-        if (rule.e !== 0) {
+
+        const eachFn = ctx.reshapeEachs[rid];
+        if (eachFn != null) {
           const tokens = resolveTokens(ctx.tokens, parsed.results);
-          const fn = ctx.funcs[rule.e];
+          const fn = ctx.funcs[eachFn];
           results.push([fn(tokens, ctx)]);
         } else {
           results.push(...parsed.results);

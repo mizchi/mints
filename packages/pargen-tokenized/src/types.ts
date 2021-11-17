@@ -121,15 +121,13 @@ export type O_Flags = [encodedFlags: number, strPtr: number, popPtr: number];
 
 export type O_Token = Omit<Token, "c" | "r"> & { c: number };
 export type O_Regex = Omit<Regex, "c" | "r"> & { c: number };
-export type O_Repeat = Omit<Repeat, "c" | "r" | "e"> & { c: number; e: number };
+export type O_Repeat = Omit<Repeat, "c" | "r" | "e"> & { c: number };
 export type O_Seq = Omit<Seq, "c" | "r" | "f"> & {
   c: number[];
-  f: (O_Flags | null)[];
 };
 
 export type O_SeqObject = Omit<SeqObject, "c" | "r" | "f"> & {
   c: number[];
-  f: (O_Flags | null)[];
 };
 
 export type O_Not = Omit<Not, "c"> & { c: number[] };
@@ -175,16 +173,23 @@ export type Compiler = {
 
 export type ParserMap = Map<number, InternalParser>;
 
-export type ParseContext = {
+export type PrebuiltState = {
+  rules: O_Rule[];
+  refs: number[];
+  strings: string[];
+  funcs: Function[];
+  reshapes: { [key: number]: number };
+  reshapeEachs: { [key: number]: number };
+  flagsList: { [key: number]: number[] };
+  keyList: { [key: number]: number[] };
+  popList: { [key: number]: number[] };
+};
+
+export type ParseContext = PrebuiltState & {
   tokens: string[];
   strings: string[];
   cache: Map<string, ParseResult>;
   currentError: ParseError | null;
-  refs: number[]; // ref index to rule index
-  rules: O_Rule[];
-  funcs: Function[];
-  reshapes: { [key: number]: number };
-  // flagsList: (O_Flags | void)[];
   parsers: InternalParser[];
 };
 

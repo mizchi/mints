@@ -20,6 +20,7 @@ import type {
   O_Token,
   O_Repeat,
   O_Flags,
+  PrebuiltState,
 } from "./types";
 
 import {
@@ -64,48 +65,45 @@ export const toNode = (input: RuleExpr): Rule => {
 const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
-function compileToRuntimeRules(
-  rawRules: Rule[]
-): [
-  rules: O_Rule[],
-  refs: number[],
-  strings: string[],
-  funcs: Function[],
-  reshapes: { [key: number]: number }
-] {
-  const o_rules: O_Rule[] = [];
-  const strings: string[] = [];
-  const reshapes: { [key: number]: number } = {};
-
-  const funcs: Function[] = [(x: any) => x];
+function compileToRuntimeRules(rawRules: Rule[]): PrebuiltState {
+  const state = {
+    rules: [],
+    refs: [],
+    strings: [""],
+    funcs: [() => {}],
+    reshapes: {},
+    reshapeEachs: {},
+    flagsList: {},
+    keyList: {},
+    popList: {},
+  } as PrebuiltState;
 
   function addString(str: string) {
-    const at = strings.indexOf(str);
+    const at = state.strings.indexOf(str);
     if (at > -1) return at;
-    const ptr = strings.length;
-    strings.push(str);
+    const ptr = state.strings.length;
+    state.strings.push(str);
     return ptr;
   }
   function addFunc(fn: Function | void) {
     if (fn == null) return 0;
-    const ptr = funcs.length;
-    funcs.push(fn);
+    const ptr = state.funcs.length;
+    state.funcs.push(fn);
     return ptr;
   }
 
-  function addFlags(flags: Flags): O_Flags {
-    const encodedFlags =
+  function toBitFlags(flags: Flags): number {
+    return (
       (flags.opt ? OPT_MASK : 0) +
       (flags.skip ? SKIP_MASK : 0) +
       (flags.push ? PUSH_MASK : 0) +
       (flags.pop ? POP_MASK : 0) +
-      (flags.key ? KEY_MASK : 0);
-    const strPtr = addString(flags.key ?? "");
-    const fnPopPtr = addFunc(flags.pop);
-    return [encodedFlags, strPtr, fnPopPtr];
+      (flags.key ? KEY_MASK : 0)
+    );
   }
 
-  function addRule(rule: Rule): number {
+  function addRule(ruleRaw: Rule): number {
+    let rule = { ...ruleRaw };
     switch (rule.t) {
       case RULE_TOKEN: {
         const strPtr = addString(rule.c as string);
@@ -116,7 +114,6 @@ function compileToRuntimeRules(
         rule = {
           ...rule,
           c: addRule(rule.c as Rule),
-          e: addFunc(rule.e),
         } as O_Repeat as any;
         break;
       }
@@ -130,27 +127,45 @@ function compileToRuntimeRules(
         } as O_Rule as any;
       }
     }
-    const ptr = o_rules.length;
+    const rulePtr = state.rules.length;
     // @ts-ignore
     const r = rule.r as any;
     if (r) {
       const fnPtr = addFunc(r);
-      reshapes[ptr] = fnPtr;
+      state.reshapes[rulePtr] = fnPtr;
     }
+    // post process with index
+    if (
+      ruleRaw.t === RULE_SEQ ||
+      (ruleRaw.t === RULE_SEQ_OBJECT && ruleRaw.f.some((f) => f != null))
+    ) {
+      let fs: number[] = [];
+      let ks: number[] = [];
+      let ps: number[] = [];
 
-    if ((rule as Seq | SeqObject).f) {
-      const newFlags = (rule as Seq | SeqObject).f.map((flags) => {
-        if (flags) return addFlags(flags);
-        return 0;
-      });
-      rule = { ...rule, f: newFlags } as O_Rule as any;
+      for (const flags of ruleRaw.f) {
+        fs.push(flags ? toBitFlags(flags) : 0);
+        ks.push(flags?.key ? addString(flags.key) : 0);
+        ps.push(flags?.pop ? addFunc(flags.pop) : 0);
+      }
+
+      state.flagsList[rulePtr] = fs;
+      if (ks.some((k) => k > 0)) {
+        state.keyList[rulePtr] = ks;
+      }
+      if (ps.some((p) => p > 0)) {
+        state.popList[rulePtr] = ps;
+      }
     }
-    o_rules.push(rule as O_Rule);
-
-    return ptr;
+    if (rule.t === RULE_REPEAT && rule.e) {
+      const fnPtr = addFunc(rule.e);
+      state.reshapeEachs[rulePtr] = fnPtr;
+    }
+    state.rules.push(rule as O_Rule);
+    return rulePtr;
   }
-  const refs = rawRules.map(addRule);
-  return [o_rules, refs, strings, funcs, reshapes];
+  state.refs = rawRules.map(addRule);
+  return state;
 
   // return out;
 }
