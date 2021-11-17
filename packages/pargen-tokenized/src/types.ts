@@ -24,30 +24,25 @@ import type {
 } from "./constants";
 
 export type RuleBase = {
-  u: number;
   t: number;
 };
 
 export type Atom = {
-  u: number;
   t: typeof RULE_ATOM;
   c: InternalParser;
 };
 
 export type Any<T = any> = {
-  u: number;
   t: typeof RULE_ANY;
   c: number;
   r?: (tokens: string[]) => T;
 };
 
 export type Eof = {
-  u: number;
   t: typeof RULE_EOF;
 };
 
 export type Not = {
-  u: number;
   t: typeof RULE_NOT;
   c: Rule[] | number[];
 };
@@ -65,7 +60,6 @@ export type Flags = {
 };
 
 export type Seq<T = string, U = string> = {
-  u: number;
   t: typeof RULE_SEQ;
   c: Rule[] | number[];
   f: (Flags | null)[];
@@ -73,7 +67,6 @@ export type Seq<T = string, U = string> = {
 };
 
 export type SeqObject<T = any, U = any> = {
-  u: number;
   t: typeof RULE_SEQ_OBJECT;
   c: Rule[] | number[];
   f: (Flags | null)[];
@@ -88,7 +81,6 @@ export type Ref<T = any, U = any> = {
 };
 
 export type Repeat<T = string, U = T, R = U[]> = {
-  u: number;
   t: typeof RULE_REPEAT;
   c: Rule | number;
   e?: (results: T[], ctx: ParseContext) => U;
@@ -96,20 +88,17 @@ export type Repeat<T = string, U = T, R = U[]> = {
 };
 
 export type Or = {
-  u: number;
   t: typeof RULE_OR;
   c: Array<Seq | Token | Ref | Regex> | number[];
 };
 
 export type Token<T = string> = {
-  u: number;
   t: typeof RULE_TOKEN;
   c: string;
   r?: (raw: string) => T;
 };
 
 export type Regex<T = string> = {
-  u: number;
   t: typeof RULE_REGEX;
   c: string | RegExp;
   r?: (raw: string) => T;

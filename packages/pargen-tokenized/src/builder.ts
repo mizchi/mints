@@ -370,7 +370,6 @@ export function $repeat<T = any, U = T, R = T[]>(
   reshape?: (results: U[], ctx: ParseContext) => R
 ): Repeat<T, U, R> {
   return {
-    u: genId(),
     t: RULE_REPEAT,
     c: toNode(pattern),
     e: reshapeEach,
@@ -383,7 +382,6 @@ export function $token<T = string>(
   reshape?: (raw: string) => T
 ): Token<T> {
   return {
-    u: genId(),
     t: RULE_TOKEN,
     c: expr,
     r: reshape,
@@ -395,7 +393,6 @@ export function $regex<T = string>(
   reshape?: (raw: string) => T
 ): Regex<T> {
   return {
-    u: genId(),
     t: RULE_REGEX,
     c: expr,
     r: reshape,
@@ -408,14 +405,12 @@ export function $r(strings: TemplateStringsArray): Regex {
 
 export function $eof(): Eof {
   return {
-    u: genId(),
     t: RULE_EOF,
   };
 }
 
 export function $atom(parse: InternalParser): Atom {
   return {
-    u: genId(),
     t: RULE_ATOM,
     c: parse,
   };

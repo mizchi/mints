@@ -74,7 +74,7 @@ export function fail<ErrorData extends ParseErrorData>(
 // parse with cache
 export function compileFragment(rule: O_Rule, ridx: number): InternalParser {
   const parser: InternalParser = (ctx, pos) => {
-    const cacheKey = pos + "@" + rule.u;
+    const cacheKey = pos + "@" + ridx;
     let parsed = ctx.cache.get(cacheKey);
     if (!parsed) {
       parsed = _parse(rule, ctx, pos);
