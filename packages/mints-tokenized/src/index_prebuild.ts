@@ -1,7 +1,8 @@
 import type { Snapshot } from "../../pargen-tokenized/src/types";
-import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
 import { getFuncs } from "./funcs";
+import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
 import { parseTokens } from "./tokenizer";
+
 import snapshot from "./snapshot.json";
 
 const parse = createParserWithSnapshot(getFuncs(), snapshot as Snapshot);

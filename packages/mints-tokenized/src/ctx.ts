@@ -1,13 +1,6 @@
 import { createContext } from "../../pargen-tokenized/src/index";
-import { funcs } from "./funcs";
+import { getFuncs } from "./funcs";
 
-const compile = createContext(funcs);
-const defaultJsx = "React.createElement";
-const defaultJsxFragment = "React.Fragment";
-
-export let config = {
-  jsx: defaultJsx,
-  jsxFragment: defaultJsxFragment,
-};
+const compile = createContext(getFuncs());
 
 export { compile };

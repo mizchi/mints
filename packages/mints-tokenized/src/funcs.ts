@@ -1,5 +1,9 @@
 import { fail, success } from "../../pargen-tokenized/src/runtime";
-import { InternalParser, ParseContext } from "../../pargen-tokenized/src/types";
+import type {
+  InternalParser,
+  ParseContext,
+} from "../../pargen-tokenized/src/types";
+
 import {
   ATTRIBUTES,
   CHILDREN,
@@ -10,9 +14,9 @@ import {
   RESERVED_WORDS,
   VALUE,
 } from "./constants";
-import { config } from "./ctx";
+// import { config } from "./ctx";
 
-export const funcs: Array<Function> = [() => {}];
+const funcs: Array<Function> = [() => {}];
 export const getFuncs = () => funcs;
 
 function addFunc(fn: Function) {
@@ -82,7 +86,6 @@ const reshapeClassConstructor = ([input]: [
     body: number[];
   }
 ]) => {
-  // console.log("constrocutro input", input);
   const argList = [...(input.args ?? []), ...(input.last ?? [])];
   let bodyIntro = "";
   let args: string[] = [];
@@ -103,7 +106,6 @@ const reshapeEnum = ([input]: [
 ]) => {
   let baseValue = 0;
   let out = `const ${input.enumName}={`;
-  // console.log("input", input);
   for (const item of [...(input.items ?? []), ...(input.last ?? [])]) {
     let val: string | number;
     if (item.assign) {
@@ -111,7 +113,6 @@ const reshapeEnum = ([input]: [
       if (isNaN(num)) {
         val = item.assign.join("") as string;
       } else {
-        // reset base value
         val = num;
         baseValue = num + 1;
       }
@@ -151,6 +152,9 @@ const popJsxElement = (a: number[], b: number[], ctx: ParseContext) => {
   return ctx.tokens[a[0]] === ctx.tokens[b[0]];
 };
 
+const jsx = "React.createElement";
+const jsxFragment = "React.Fragment";
+
 const buildJsxCode = (
   ident: string,
   attributes: Array<{ [NAME]: string; [VALUE]: string }>,
@@ -174,9 +178,9 @@ const buildJsxCode = (
   const isDomPrimitive = /^[a-z-]+$/.test(ident);
   let element = isDomPrimitive ? `"${ident}"` : ident;
   if (ident === "") {
-    element = config.jsxFragment;
+    element = jsxFragment;
   }
-  return `${config.jsx}(${element}${data}${childrenCode})`;
+  return `${jsx}(${element}${data}${childrenCode})`;
 };
 
 const reshapeJsxElement = ([input]: [

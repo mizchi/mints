@@ -2,10 +2,11 @@ import esbuild from "rollup-plugin-esbuild";
 import { terser } from "rollup-plugin-terser";
 import replace from "@rollup/plugin-replace";
 import nodeResolve from "@rollup/plugin-node-resolve";
+import json from "@rollup/plugin-json";
 
 export default {
-  input: ["src/index.ts"],
-  // input: ["src/index_prebuild.ts"],
+  // input: ["src/index.ts"],
+  input: ["src/index_prebuild.ts"],
   output: [
     {
       file: "dist/index.js",
@@ -17,6 +18,7 @@ export default {
     },
   ],
   plugins: [
+    json(),
     nodeResolve(),
     replace({
       preventAssignment: true,
