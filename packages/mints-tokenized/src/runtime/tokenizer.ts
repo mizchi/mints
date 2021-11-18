@@ -181,7 +181,7 @@ import {
   SKIP_TOKENS,
   SLASH,
   STRING_PAIR,
-} from "./constants";
+} from "../prebuild/constants";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
   const assert = require("assert");

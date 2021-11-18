@@ -6,7 +6,7 @@ import json from "@rollup/plugin-json";
 
 export default {
   // input: ["src/index.ts"],
-  input: ["src/index_prebuild.ts"],
+  input: ["src/runtime/index.ts"],
   output: [
     {
       file: "dist/index.js",

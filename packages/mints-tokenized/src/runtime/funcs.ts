@@ -1,8 +1,8 @@
-import { fail, success } from "../../pargen-tokenized/src/runtime";
+import { fail, success } from "../../../pargen-tokenized/src/runtime";
 import type {
   InternalParser,
   ParseContext,
-} from "../../pargen-tokenized/src/types";
+} from "../../../pargen-tokenized/src/types";
 
 import {
   ATTRIBUTES,
@@ -13,8 +13,7 @@ import {
   NAME,
   RESERVED_WORDS,
   VALUE,
-} from "./constants";
-// import { config } from "./ctx";
+} from "../prebuild/constants";
 
 const funcs: Array<Function> = [() => {}];
 export const getFuncs = () => funcs;

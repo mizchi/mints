@@ -3,7 +3,7 @@ import { wrap } from "../rpc/node";
 import { Worker } from "worker_threads";
 import path from "path";
 import fs from "fs";
-import { parseTokens } from "../src/tokenizer";
+import { parseTokens } from "../src/runtime/tokenizer";
 import os from "os";
 
 const MAX_TOKENS = 512;

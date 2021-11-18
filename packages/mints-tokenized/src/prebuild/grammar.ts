@@ -1,7 +1,7 @@
 import type {
   InternalParser,
   ParseError,
-} from "./../../pargen-tokenized/src/types";
+} from "../../../pargen-tokenized/src/types";
 import {
   $any,
   $atom,
@@ -18,7 +18,7 @@ import {
   $skip,
   $skip_opt,
   $token,
-} from "../../pargen-tokenized/src/builder";
+} from "../../../pargen-tokenized/src/builder";
 
 import {
   CONTROL_TOKENS,
@@ -82,7 +82,6 @@ import {
   R_BRACE,
   R_PAREN,
 } from "./constants";
-import { config } from "./ctx";
 
 const thisKeyword = K_THIS;
 const importKeyword = K_IMPORT;
@@ -1207,14 +1206,14 @@ const caseClause = $def(() =>
 export const program = lines;
 
 import { test, run, is } from "@mizchi/test";
-import { Rule } from "../../pargen-tokenized/src/types";
-import { parseTokens } from "./tokenizer";
+import { Rule } from "../../../pargen-tokenized/src/types";
+import { parseTokens } from "../runtime/tokenizer";
 
 const isMain = require.main === module;
 
 import { compile as compileRaw } from "./ctx";
 // import { fail, success } from "../../pargen-tokenized/src/runtime";
-import { CODE_SEQ_STOP } from "../../pargen-tokenized/src/constants";
+import { CODE_SEQ_STOP } from "../../../pargen-tokenized/src/constants";
 import {
   createWhitespacePtr,
   identParserPtr,
@@ -1225,7 +1224,7 @@ import {
   reshapeEnumPtr,
   reshapeJsxElementPtr,
   reshapeJsxSelfClosingElementPtr,
-} from "./funcs";
+} from "../runtime/funcs";
 
 if (process.env.NODE_ENV === "test") {
   const compile = (

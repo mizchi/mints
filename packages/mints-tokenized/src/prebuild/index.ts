@@ -1,6 +1,6 @@
 import { line } from "./grammar";
 import { compile } from "./ctx";
-import { parseTokens } from "./tokenizer";
+import { parseTokens } from "../runtime/tokenizer";
 
 const parse = compile(line);
 
