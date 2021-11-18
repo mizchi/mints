@@ -6,17 +6,17 @@ import type {
 } from "./types";
 import { parseWithCache, success } from "./runtime";
 
-export function createContext() {
+export function createContext(funcs: Function[] = []) {
   const rootCompiler: RootCompiler = (rule) => {
     const entryRefId = $def(() => $seq([toNode(rule), $eof()]));
     const snapshot = compileSnapshot();
-
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
         tokens,
         currentError: null,
         cache,
+        funcs,
         ...snapshot,
       } as ParseContext;
       const rootResult = parseWithCache(ctx, 0, ctx.refs[entryRefId]);
@@ -121,15 +121,15 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("any", () => {
-    const compile = createContext();
+    const compile = createContext([dummyFn, () => "x", () => " "]);
     const parse = compile($any());
     is(parse(["a"]), { results: [0] });
     const parseNull = compile($any(0));
     is(parseNull([]), { results: [] });
-    const parseNull2 = compile($seq([$any(1), $any(0, () => "x")]));
+    const parseNull2 = compile($seq([$any(1), $any(0, 1)]));
     is(parseNull2(["a"]), { results: [0, "x"] });
 
-    const parseWhitespace = compile($any(0, () => " "));
+    const parseWhitespace = compile($any(0, 2));
     is(parseWhitespace([]), { results: [" "] });
 
     const parseTwo = compile($any(2));
@@ -144,9 +144,11 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     expectFail(parse, ["b"]);
   });
 
+  const dummyFn = () => {};
   test("token with reshaped", () => {
-    const compile = createContext();
-    const parse = compile($token("a", (token) => token + "_mod"));
+    const funcs = [dummyFn, (token: any) => token + "_mod"];
+    const compile = createContext(funcs);
+    const parse = compile($token("a", 1));
     is(parse(["a"]), { results: ["a_mod"] });
   });
 
@@ -174,8 +176,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("regex with reshape", () => {
-    const compile = createContext();
-    const parse = compile($regex(`^\\w+$`, (token) => token + "_mod"));
+    const compile = createContext([dummyFn, (token: string) => token + "_mod"]);
+    const parse = compile($regex(`^\\w+$`, 1));
     expectSuccess(parse, ["abc"], "abc_mod");
     expectFail(parse, [""]);
   });
@@ -214,12 +216,13 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq reshape", () => {
-    const compile = createContext();
-    const parser = compile(
-      $seq(["a", "b"], (results) => {
+    const compile = createContext([
+      dummyFn,
+      (results: any[]) => {
         return results.map((i) => i + ".");
-      })
-    );
+      },
+    ]);
+    const parser = compile($seq(["a", "b"], 1));
     expectSuccess(parser, ["a", "b"], "a.b.");
   });
 
@@ -283,22 +286,20 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("repeat_reshape", () => {
-    const compile = createContext();
-    const parse = compile(
-      $repeat<string, string, string[]>($token("a"), ([a]) => a + "x")
-    );
+    const compile = createContext([
+      () => {},
+      ([a]: [string]) => a + "x",
+      (results: any) => {
+        return results.join("") + "-end";
+      },
+    ]);
+    const parse = compile($repeat<string, string, string[]>($token("a"), 1));
     expectSuccess(parse, [], "");
     expectSuccess(parse, ["a"], "ax");
     expectSuccess(parse, ["a", "a"], "axax");
 
     const parseWithTransResult = compile(
-      $repeat<string, string, any>(
-        $token("a"),
-        ([a]) => a + "x",
-        (results) => {
-          return results.join("") + "-end";
-        }
-      )
+      $repeat<string, string, any>($token("a"), 1, 2)
     );
     expectSuccess(parseWithTransResult, ["a", "a"], "axax-end");
   });
@@ -394,7 +395,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
         ")",
       ])
     );
-    const parser = compile(paren, { end: true });
+    const parser = compile(paren);
     expectSuccess(parser, "(1)".split(""), "(1)");
     expectSuccess(parser, "((1))".split(""), "((1))");
     expectFail(parser, "((1)".split(""));
@@ -420,16 +421,15 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq-string with reshape", () => {
-    const compile = createContext();
+    const compile = createContext([dummyFn, () => "_"]);
     const parser = compile(
       $seq([
         //
         "a",
-        $seq(["b"], () => "_"),
+        $seq(["b"], 1),
         $skip("c"),
         "d",
-      ]),
-      { end: true }
+      ])
     );
     expectSuccess(parser, "abcd".split(""), "a_d");
     is(parser("abbd".split("")), { error: true });
@@ -467,13 +467,17 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("seq-o paired close", () => {
-    const compile = createContext();
+    const compile = createContext([
+      dummyFn,
+      ([a]: number[], [b]: number[], ctx: ParseContext) =>
+        ctx.tokens[a] === ctx.tokens[b],
+    ]);
     const parser = compile(
       $seqo([
         [{ key: "key", push: true }, $or(["x", "y"])],
         [
           {
-            pop: ([a], [b], ctx) => ctx.tokens[a] === ctx.tokens[b],
+            pop: 1,
           },
           $or(["x", "y"]),
         ],
@@ -491,7 +495,11 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
   });
   test("paired close: like jsx", () => {
-    const compile = createContext();
+    const compile = createContext([
+      dummyFn,
+      ([a]: number[], [b]: number[], { tokens }: { tokens: string[] }) =>
+        tokens[a] === tokens[b],
+    ]);
     const parser = compile(
       $seqo([
         "<",
@@ -500,10 +508,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
         [{ key: "value" }, $regex(`^[a-z]+$`)],
         "<",
         "/",
-        [
-          { pop: ([a], [b], { tokens }) => tokens[a] === tokens[b] },
-          $regex(`^[a-z]+$`),
-        ],
+        [{ pop: 1 }, $regex(`^[a-z]+$`)],
         ">",
       ])
     );
@@ -516,7 +521,11 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     });
   });
   test("paired close: like jsx nested", () => {
-    const compile = createContext();
+    const compile = createContext([
+      dummyFn,
+      ([a]: number[], [b]: number[], { tokens }: { tokens: string[] }) =>
+        tokens[a] === tokens[b],
+    ]);
     const parser = compile(
       $seqo([
         "<",
@@ -527,17 +536,11 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
         ">",
         "<",
         "/",
-        [
-          { pop: ([a], [b], { tokens }) => tokens[a] === tokens[b] },
-          $regex("[a-z]+"),
-        ],
+        [{ pop: 1 }, $regex("[a-z]+")],
         ">",
         "<",
         "/",
-        [
-          { pop: ([a], [b], { tokens }) => tokens[a] === tokens[b] },
-          $regex("[a-z]+"),
-        ],
+        [{ pop: 1 }, $regex("[a-z]+")],
         ">",
       ])
     );
@@ -588,26 +591,23 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
   });
 
   test("atom: jsx string", () => {
-    const compile = createContext();
-    const parser = compile(
-      $seq([
-        "<",
-        $atom((ctx, pos) => {
-          let i = 0;
-          const results: string[] = [];
-          while (i < ctx.tokens.length) {
-            const token = ctx.tokens[pos + i];
-            if ([">", "<", "{"].includes(token)) {
-              break;
-            }
-            results.push(token);
-            i++;
+    const compile = createContext([
+      dummyFn,
+      (ctx: ParseContext, pos: number) => {
+        let i = 0;
+        const results: string[] = [];
+        while (i < ctx.tokens.length) {
+          const token = ctx.tokens[pos + i];
+          if ([">", "<", "{"].includes(token)) {
+            break;
           }
-          return success(pos, i, [results.join(" ")]);
-        }),
-        ">",
-      ])
-    );
+          results.push(token);
+          i++;
+        }
+        return success(pos, i, [results.join(" ")]);
+      },
+    ]);
+    const parser = compile($seq(["<", $atom(1), ">"]));
     const ret = parser(["<", "ab", "cd", ">"]);
     is(ret, {
       error: false,

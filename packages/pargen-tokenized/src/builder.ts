@@ -63,7 +63,7 @@ export function compileSnapshot(): Snapshot {
     values: [],
     refs: [],
     strings: [""],
-    funcs: [() => {}],
+    // funcs: [() => {}],
     reshapes: {},
     reshapeEachs: {},
     flagsList: {},
@@ -85,12 +85,12 @@ export function compileSnapshot(): Snapshot {
     state.strings.push(str);
     return ptr;
   }
-  function addFunc(fn: Function | void) {
-    if (fn == null) return 0;
-    const ptr = state.funcs.length;
-    state.funcs.push(fn);
-    return ptr;
-  }
+  // function addFunc(fn: Function | void) {
+  //   if (fn == null) return 0;
+  //   const ptr = state.funcs.length;
+  //   state.funcs.push(fn);
+  //   return ptr;
+  // }
 
   function toBitFlags(flags: Flags): number {
     return (
@@ -112,7 +112,7 @@ export function compileSnapshot(): Snapshot {
         break;
       }
       case RULE_ATOM: {
-        value = addFunc(rule.c);
+        value = rule.c;
         break;
       }
       case RULE_ANY: {
@@ -144,8 +144,8 @@ export function compileSnapshot(): Snapshot {
     // @ts-ignore
     const r = rule.r as any;
     if (r) {
-      const fnPtr = addFunc(r);
-      state.reshapes[rulePtr] = fnPtr;
+      // const fnPtr = addFunc(r);
+      state.reshapes[rulePtr] = r;
     }
     // post process with index
     if (
@@ -159,7 +159,7 @@ export function compileSnapshot(): Snapshot {
       for (const flags of ruleRaw.f) {
         fs.push(flags ? toBitFlags(flags) : 0);
         ks.push(flags?.key ? addString(flags.key) : 0);
-        ps.push(flags?.pop ? addFunc(flags.pop) : 0);
+        ps.push(flags?.pop ?? 0);
       }
 
       if (fs.some((k) => k > 0)) {
@@ -173,7 +173,7 @@ export function compileSnapshot(): Snapshot {
       }
     }
     if (rule.t === RULE_REPEAT && rule.e) {
-      const fnPtr = addFunc(rule.e);
+      const fnPtr = rule.e;
       state.reshapeEachs[rulePtr] = fnPtr;
     }
 
@@ -196,7 +196,7 @@ export function $def(nodeCreator: () => RuleExpr): number {
   return rootId;
 }
 
-export function $ref(refId: string | number, reshape?: Reshape): Ref {
+export function $ref(refId: string | number, reshape: number = 0): Ref {
   return {
     t: RULE_REF,
     c: refId,
@@ -204,10 +204,7 @@ export function $ref(refId: string | number, reshape?: Reshape): Ref {
   } as Ref;
 }
 
-export function $any<T = string>(
-  len: number = 1,
-  reshape?: (token: string) => T
-): Any {
+export function $any<T = string>(len: number = 1, reshape: number = 0): Any {
   return {
     t: RULE_ANY,
     c: len,
@@ -220,7 +217,8 @@ const toFlags = (
   opt?: boolean,
   skip?: boolean,
   push?: boolean,
-  pop?: (a: any[], b: any[], ctx: ParseContext) => boolean
+  // pop?: (a: any[], b: any[], ctx: ParseContext) => boolean,
+  pop?: number
 ): Flags => {
   return { key, skip, opt, push, pop };
 };
@@ -250,7 +248,7 @@ const toFlagsList = (children: Array<RuleWithFlags>): (Flags | null)[] => {
 
 export function $seq<T = string, U = string>(
   children: Array<RuleWithFlags>,
-  reshape?: (results: T[], ctx: ParseContext) => U
+  reshape: number = 0
 ): Seq {
   return {
     t: RULE_SEQ,
@@ -267,7 +265,7 @@ export function $seq<T = string, U = string>(
 
 export function $seqo<T = any, U = any>(
   children: Array<RuleWithFlags>,
-  reshape?: (obj: T, ctx: ParseContext) => U
+  reshape: number = 0
 ): SeqObject<T, U> {
   return {
     t: RULE_SEQ_OBJECT,
@@ -281,8 +279,8 @@ export function $seqo<T = any, U = any>(
 
 export function $repeat_seq(
   input: Array<RuleWithFlags>,
-  reshapeEach?: Reshape,
-  reshape?: Reshape
+  reshapeEach = 0,
+  reshape = 0
 ): Repeat {
   return $repeat($seq(input), reshapeEach, reshape);
 }
@@ -356,7 +354,7 @@ export function $not(children: RuleExpr[]): Not {
 //   }
 // }
 
-export function $or(patterns: Array<RuleExpr>, reshape?: Reshape): Or | Rule {
+export function $or(patterns: Array<RuleExpr>): Or | Rule {
   if (patterns.length === 1) {
     return toNode(patterns[0]);
   }
@@ -368,14 +366,13 @@ export function $or(patterns: Array<RuleExpr>, reshape?: Reshape): Or | Rule {
     t: RULE_OR,
     // heads: [],
     c: builtPatterns,
-    reshape,
   } as Or;
 }
 
 export function $repeat<T = any, U = T, R = T[]>(
   pattern: RuleExpr,
-  reshapeEach?: (results: T[], ctx: ParseContext) => U,
-  reshape?: (results: U[], ctx: ParseContext) => R
+  reshapeEach: number = 0,
+  reshape: number = 0
 ): Repeat<T, U, R> {
   return {
     t: RULE_REPEAT,
@@ -387,7 +384,7 @@ export function $repeat<T = any, U = T, R = T[]>(
 
 export function $token<T = string>(
   expr: string,
-  reshape?: (raw: string) => T
+  reshape: number = 0
 ): Token<T> {
   return {
     t: RULE_TOKEN,
@@ -396,10 +393,7 @@ export function $token<T = string>(
   };
 }
 
-export function $regex<T = string>(
-  expr: string,
-  reshape?: (raw: string) => T
-): Regex<T> {
+export function $regex<T = string>(expr: string, reshape: number = 0): Regex {
   return {
     t: RULE_REGEX,
     c: expr,
@@ -417,7 +411,7 @@ export function $eof(): Eof {
   };
 }
 
-export function $atom(parse: InternalParser): Atom {
+export function $atom(parse: number): Atom {
   return {
     t: RULE_ATOM,
     c: parse,

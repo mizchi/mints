@@ -29,13 +29,13 @@ export type RuleBase = {
 
 export type Atom = {
   t: typeof RULE_ATOM;
-  c: InternalParser;
+  c: number;
 };
 
 export type Any<T = any> = {
   t: typeof RULE_ANY;
   c: number;
-  r?: (tokens: string[]) => T;
+  r: number;
 };
 
 export type Eof = {
@@ -52,38 +52,39 @@ export type Flags = {
   skip?: boolean;
   push?: boolean;
   key?: string;
-  pop?: (
-    a: ParseSuccess["results"],
-    b: ParseSuccess["results"],
-    ctx: ParseContext
-  ) => boolean;
+  pop?: number;
+  // ?: (
+  //   a: ParseSuccess["results"],
+  //   b: ParseSuccess["results"],
+  //   ctx: ParseContext
+  // ) => boolean;
 };
 
 export type Seq<T = string, U = string> = {
   t: typeof RULE_SEQ;
   c: Rule[] | number[];
   f: (Flags | null)[];
-  r?: (results: T[], ctx: ParseContext) => U;
+  r: number;
 };
 
 export type SeqObject<T = any, U = any> = {
   t: typeof RULE_SEQ_OBJECT;
   c: Rule[] | number[];
   f: (Flags | null)[];
-  r?: (results: T, ctx: ParseContext) => U;
+  r: number;
 };
 
 export type Ref<T = any, U = any> = {
   t: typeof RULE_REF;
   c: number;
-  r?: (results: T, ctx: ParseContext) => U;
+  r: number;
 };
 
 export type Repeat<T = string, U = T, R = U[]> = {
   t: typeof RULE_REPEAT;
   c: Rule | number;
-  e?: (results: T[], ctx: ParseContext) => U;
-  r?: (results: U[], ctx: ParseContext) => R;
+  e: number;
+  r: number;
 };
 
 export type Or = {
@@ -94,13 +95,13 @@ export type Or = {
 export type Token<T = string> = {
   t: typeof RULE_TOKEN;
   c: string;
-  r?: (raw: string) => T;
+  r: number;
 };
 
-export type Regex<T = string> = {
+export type Regex = {
   t: typeof RULE_REGEX;
   c: string;
-  r?: (raw: string) => T;
+  r: number;
 };
 
 export type Rule =
@@ -117,13 +118,10 @@ export type Rule =
   | Any;
 
 // ==== public interface
-export type RootCompilerOptions = {
-  end?: boolean;
-};
-export type RootCompiler = (
-  node: Rule | number,
-  opts?: RootCompilerOptions
-) => RootParser;
+// export type RootCompilerOptions = {
+//   end?: boolean;
+// };
+export type RootCompiler = (node: Rule | number) => RootParser;
 
 export type RootParser = (
   tokens: string[],
@@ -135,11 +133,6 @@ export type RuleExpr = Rule | string | number;
 
 export type DefinitionMap = Map<number, Rule>;
 
-export type Compiler = {
-  refs: number[];
-  rules: Rule[];
-};
-
 export type ParserMap = Map<number, InternalParser>;
 
 export type Snapshot = {
@@ -148,7 +141,7 @@ export type Snapshot = {
   // rules: O_Rule[];
   refs: number[];
   strings: string[];
-  funcs: Function[];
+  // funcs: Function[];
   cidsList: Array<number[]>;
   reshapes: { [key: number]: number };
   reshapeEachs: { [key: number]: number };
@@ -159,7 +152,8 @@ export type Snapshot = {
 
 export type ParseContext = Snapshot & {
   tokens: string[];
-  strings: string[];
+  // strings: string[];
+  funcs: Function[];
   cache: Map<string, ParseResult>;
   currentError: ParseError | null;
   parsers: InternalParser[];

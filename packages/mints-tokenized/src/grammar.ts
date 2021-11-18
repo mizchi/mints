@@ -1,10 +1,11 @@
-import type { ParseError } from "./../../pargen-tokenized/src/types";
+import type {
+  InternalParser,
+  ParseError,
+} from "./../../pargen-tokenized/src/types";
 import {
   $any,
   $atom,
-  $close,
   $def,
-  $eof,
   $not,
   $opt,
   $opt_seq,
@@ -95,27 +96,9 @@ for (const word of [...CONTROL_TOKENS, ...RESERVED_WORDS]) {
   reservedWordsByLength.set(word.length, [...words, word].sort());
 }
 
-const whitespace = $def(() => $any(0, () => " "));
+const whitespace = $def(() => $any(0, createWhitespacePtr));
 
-const identifier = $def(() =>
-  $atom((ctx, pos) => {
-    const token = ctx.tokens[pos] ?? "";
-    const errorData = { code: "IdentifierError", token } as any;
-    const len = Array.from(token).length;
-    const charCode = token.charCodeAt(0);
-    if (len === 0) return fail(pos, errorData);
-    const words = reservedWordsByLength.get(len);
-    if (len === 1 && charCode > 127) {
-      // Nothing
-    } else {
-      if (words?.includes(token)) return fail(pos, errorData);
-    }
-    if (48 <= charCode && charCode <= 57) {
-      return fail(pos, errorData);
-    }
-    return success(pos, 1, [pos]);
-  })
-);
+const identifier = $def(() => $atom(identParserPtr));
 
 const typeDeclareParameter = $def(() =>
   $seq([
@@ -476,11 +459,6 @@ const anyLiteral = $def(() =>
 const accessModifier = $or([K_PRIVATE, K_PUBLIC, K_PROTECTED]);
 const getOrSetModifier = $seq([$or([K_GET, K_SET])]);
 
-type ParsedCostructorArg = {
-  init: string | null;
-  code: string;
-};
-
 const classConstructorArg = $def(() =>
   $seqo(
     [
@@ -507,28 +485,7 @@ const classConstructorArg = $def(() =>
         ]),
       ],
     ],
-    ([input]: [
-      {
-        ident: (string | { access: string; ident: string })[] | [{}];
-        init: string[];
-      }
-    ]): ParsedCostructorArg => {
-      if (typeof input.ident[0] === "object") {
-        // @ts-ignore
-        const ident = input.ident[0].ident.join("");
-        return {
-          init: ident,
-          code: ident + (input.init?.join("") ?? ""),
-        };
-      }
-      // @ts-ignore
-      return [
-        {
-          init: null,
-          code: input.ident.join("") + (input.init?.join("") ?? ""),
-        },
-      ];
-    }
+    reshapeClassConstructorArgPtr
   )
 );
 
@@ -545,24 +502,7 @@ const classConstructor = $def(() =>
       ["body", lines],
       R_BRACE,
     ],
-    ([input]: [
-      {
-        args: Array<ParsedCostructorArg>;
-        last: Array<ParsedCostructorArg>;
-        body: number[];
-      }
-    ]) => {
-      // console.log("constrocutro input", input);
-      const argList = [...(input.args ?? []), ...(input.last ?? [])];
-      let bodyIntro = "";
-      let args: string[] = [];
-      for (const arg of argList) {
-        if (arg.init) bodyIntro += `this.${arg.init}=${arg.init};`;
-        args.push(arg.code);
-      }
-      const bodyCode = input.body.join("");
-      return [`${K_CONSTRUCTOR}(${args.join(",")}){${bodyIntro}${bodyCode}}`];
-    }
+    reshapeClassConstructorPtr
   )
 );
 
@@ -1074,63 +1014,13 @@ const enumStatement = $def(() =>
       ],
       R_BRACE,
     ],
-    ([input]: [
-      {
-        enumName: string;
-        items: Array<{ ident: string[]; assign?: string[] }>;
-        last?: Array<{ ident: string[]; assign?: string[] }>;
-      }
-    ]) => {
-      let baseValue = 0;
-      let out = `const ${input.enumName}={`;
-      // console.log("input", input);
-      for (const item of [...(input.items ?? []), ...(input.last ?? [])]) {
-        let val: string | number;
-        if (item.assign) {
-          const num = Number(item.assign);
-          if (isNaN(num)) {
-            val = item.assign.join("") as string;
-          } else {
-            // reset base value
-            val = num;
-            baseValue = num + 1;
-          }
-        } else {
-          val = baseValue;
-          baseValue++;
-        }
-        const key = item.ident.join("");
-        if (typeof val === "number") {
-          out += `${key}:${val},"${val}":"${key}",`;
-        } else {
-          out += `${key}:${val},`;
-        }
-      }
-      return [out + "};"];
-    }
+    reshapeEnumPtr
   )
 );
 
 const jsxInlineExpr = $seq([$skip("{"), anyExpression, $skip("}")]);
 
-const jsxText = $def(() =>
-  $atom((ctx, pos) => {
-    let i = 0;
-    const results: string[] = [];
-    while (i < ctx.tokens.length) {
-      const token = ctx.tokens[pos + i];
-      if ([">", "<", "{"].includes(token)) {
-        break;
-      }
-      results.push(token);
-      i++;
-    }
-    if (results.length === 0) {
-      return fail(pos, {} as any);
-    }
-    return success(pos, i, ['"' + results.join(" ") + '"']);
-  })
-);
+const jsxText = $def(() => $atom(parseJsxTextPtr));
 
 // JSX transform constants
 const IDENT = "1";
@@ -1146,86 +1036,28 @@ const jsxAttributes = $repeat(
   ])
 );
 
-const buildJsxCode = (
-  ident: string,
-  attributes: Array<{ [NAME]: string; [VALUE]: string }>,
-  children: Array<string> = []
-) => {
-  // TODO: Detect dom name
-  let data = ",{}";
-  if (attributes.length > 0) {
-    data = ",{";
-    for (const attr of attributes) {
-      data += `${attr[NAME]}:${attr[VALUE]},`;
-    }
-    data += "}";
-  }
-  let childrenCode = "";
-  if (children.length > 0) {
-    for (const child of children) {
-      childrenCode += `,${child}`;
-    }
-  }
-  const isDomPrimitive = /^[a-z-]+$/.test(ident);
-  let element = isDomPrimitive ? `"${ident}"` : ident;
-  if (ident === "") {
-    element = config.jsxFragment;
-  }
-  return `${config.jsx}(${element}${data}${childrenCode})`;
-};
-
-const $debug_next_token = $atom((ctx, pos) => {
-  console.log("[next] >", ctx.tokens[pos]);
-  return success(pos, 0, []);
-});
-
 const jsxElement = $def(() =>
   $seqo(
     [
       "<",
-      // $debugger,
-      // [{ key: IDENT, push: true }, $or([accessible, ""])],
       [{ key: IDENT, push: true }, accessible],
       $skip_opt(typeDeclareParameters),
       [ATTRIBUTES, jsxAttributes],
       ">",
       [CHILDREN, $repeat($or([jsxSelfCloseElement, jsxInlineExpr, jsxText]))],
-      // [CHILDREN, $repeat_seq([$or([jsxInlineExpr, jsxText])])],
       "<",
       "/",
       [
         {
           key: "close",
-          pop: (a, b, ctx) => {
-            // TODO: Multi token equality
-            return ctx.tokens[a[0]] === ctx.tokens[b[0]];
-          },
+          pop: popJsxElementPtr,
         },
         $or([accessible, ""]),
       ],
       ">",
     ],
-    ([input]: [
-      {
-        [IDENT]: string[];
-        [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]: string[] }>;
-        [CHILDREN]: Array<string[]>;
-      }
-    ]) => {
-      // console.log("children", input[CHILDREN]);
-      return [
-        buildJsxCode(
-          input[IDENT].join(""),
-          input[ATTRIBUTES].map((a) => {
-            return {
-              [NAME]: a[NAME].join(""),
-              [VALUE]: a[VALUE].join(""),
-            };
-          }),
-          input[CHILDREN].flat()
-        ),
-      ];
-    }
+    reshapeJsxElementPtr
+    // xxx
   )
 );
 
@@ -1233,29 +1065,14 @@ const jsxSelfCloseElement = $def(() =>
   $seqo(
     [
       "<",
-      $debug_next_token,
+      // $debug_next_token,
       [IDENT, accessible],
       // $skip_opt(typeDeclareParameters),
       [ATTRIBUTES, jsxAttributes],
       "/",
       ">",
     ],
-    ([input]: [
-      {
-        [IDENT]: string[];
-        [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]?: string[] }>;
-      }
-    ]) => {
-      return [
-        buildJsxCode(
-          input[IDENT].join(""),
-          input[ATTRIBUTES].map((a) => ({
-            [NAME]: a[NAME].join(""),
-            [VALUE]: a[VALUE]?.join("") ?? "",
-          }))
-        ),
-      ];
-    }
+    reshapeJsxSelfClosingElementPtr
   )
 );
 
@@ -1396,8 +1213,19 @@ import { parseTokens } from "./tokenizer";
 const isMain = require.main === module;
 
 import { compile as compileRaw } from "./ctx";
-import { fail, success } from "../../pargen-tokenized/src/runtime";
+// import { fail, success } from "../../pargen-tokenized/src/runtime";
 import { CODE_SEQ_STOP } from "../../pargen-tokenized/src/constants";
+import {
+  createWhitespacePtr,
+  identParserPtr,
+  parseJsxTextPtr,
+  popJsxElementPtr,
+  reshapeClassConstructorArgPtr,
+  reshapeClassConstructorPtr,
+  reshapeEnumPtr,
+  reshapeJsxElementPtr,
+  reshapeJsxSelfClosingElementPtr,
+} from "./funcs";
 
 if (process.env.NODE_ENV === "test") {
   const compile = (
