@@ -59,6 +59,7 @@ const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
 export function compileSnapshot(): Snapshot {
   const state = {
+    entryRefId: 0,
     rules: [],
     values: [],
     refs: [],

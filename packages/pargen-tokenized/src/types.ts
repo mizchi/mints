@@ -136,6 +136,7 @@ export type DefinitionMap = Map<number, Rule>;
 export type ParserMap = Map<number, InternalParser>;
 
 export type Snapshot = {
+  entryRefId: number;
   rules: Array<Rule["t"]>;
   values: Array<number>;
   // rules: O_Rule[];

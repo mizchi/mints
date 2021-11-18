@@ -19,10 +19,8 @@ export function processLine(tokens: string[]): string {
 export function transform(input: string) {
   let tokens: string[] = [];
   let results: string[] = [];
-  // console.time("preprocess");
   for (const t of parseTokens(input)) {
     if (t === "\n") {
-      // console.log("<line-tokens>", tokens.map((t) => `${t}`).join(" "));
       results.push(processLine(tokens.slice()));
       tokens = [];
     } else {

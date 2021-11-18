@@ -1,11 +1,12 @@
 // import { transform } from '@mizchi/mints';
-import { transform } from "../src/index";
 import ts from "typescript";
 import fs from "fs";
 import path from "path";
 import esbuild_ from "esbuild";
 import { createTransformer } from "../node/node_main";
 import { transform as sucraseTransform } from "sucrase";
+import { transform } from "../src/index";
+// import { transform } from "../src/index_prebuild";
 
 const N = 1;
 

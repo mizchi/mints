@@ -1,9 +1,10 @@
-// import { line } from "./grammar";
-import { compile } from "./ctx";
+import type { Snapshot } from "../../pargen-tokenized/src/types";
+import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
+import { getFuncs } from "./funcs";
 import { parseTokens } from "./tokenizer";
+import snapshot from "./snapshot.json";
 
-// @ts-ignore
-const parse = compile(line);
+const parse = createParserWithSnapshot(getFuncs(), snapshot as Snapshot);
 
 export function processLine(tokens: string[]): string {
   const parsed = parse(tokens.slice());
@@ -31,6 +32,5 @@ export function transform(input: string) {
   if (tokens.length > 0) {
     results.push(processLine(tokens));
   }
-  // console.timeEnd("preprocess");
   return results.join("");
 }

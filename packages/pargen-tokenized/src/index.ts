@@ -3,13 +3,23 @@ import type {
   ParseResult,
   RootCompiler,
   RootParser,
+  Snapshot,
 } from "./types";
 import { parseWithCache, success } from "./runtime";
 
-export function createContext(funcs: Function[] = []) {
+export function createSnapshot(refId: number): Snapshot {
+  const entryRefId = $def(() => $seq([toNode(refId), $eof()]));
+  const snapshot = compileSnapshot();
+  snapshot.entryRefId = entryRefId;
+  return snapshot;
+}
+
+export function createContext(
+  funcs: Function[] = [],
+  prebuiltSnapshot?: Snapshot
+) {
   const rootCompiler: RootCompiler = (rule) => {
-    const entryRefId = $def(() => $seq([toNode(rule), $eof()]));
-    const snapshot = compileSnapshot();
+    const snapshot = prebuiltSnapshot ?? createSnapshot(rule as number);
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
@@ -19,7 +29,7 @@ export function createContext(funcs: Function[] = []) {
         funcs,
         ...snapshot,
       } as ParseContext;
-      const rootResult = parseWithCache(ctx, 0, ctx.refs[entryRefId]);
+      const rootResult = parseWithCache(ctx, 0, ctx.refs[snapshot.entryRefId]);
       if (rootResult.error && ctx.currentError) {
         return { ...ctx.currentError, tokens } as any;
       }
@@ -28,6 +38,28 @@ export function createContext(funcs: Function[] = []) {
     return rootParser;
   };
   return rootCompiler;
+}
+
+export function createParserWithSnapshot(
+  funcs: Function[],
+  snapshot: Snapshot
+) {
+  const rootParser: RootParser = (tokens: string[]) => {
+    const cache = new Map<string, ParseResult>();
+    const ctx = {
+      tokens,
+      currentError: null,
+      cache,
+      funcs,
+      ...snapshot,
+    } as ParseContext;
+    const rootResult = parseWithCache(ctx, 0, ctx.refs[snapshot.entryRefId]);
+    if (rootResult.error && ctx.currentError) {
+      return { ...ctx.currentError, tokens } as any;
+    }
+    return rootResult;
+  };
+  return rootParser;
 }
 
 /* Test */

@@ -13,6 +13,7 @@ import {
 import { config } from "./ctx";
 
 export const funcs: Array<Function> = [() => {}];
+export const getFuncs = () => funcs;
 
 function addFunc(fn: Function) {
   const id = funcs.length;
