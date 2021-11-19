@@ -3,17 +3,45 @@ import type {
   InternalParser,
   ParseContext,
 } from "../../../pargen-tokenized/src/types";
-
 import {
+  ACCESS,
+  ARGS,
+  ASSIGN,
   ATTRIBUTES,
+  BODY,
   CHILDREN,
-  CONTROL_TOKENS,
+  CODE,
   IDENT,
-  K_CONSTRUCTOR,
+  INIT,
+  ITEMS,
+  LAST,
   NAME,
-  RESERVED_WORDS,
   VALUE,
 } from "../prebuild/constants";
+
+// export const IDENT = "1";
+// export const ATTRIBUTES = "2";
+// export const CHILDREN = "3";
+// export const NAME = "4";
+// export const VALUE = "5";
+// export const ACCESS = "6";
+// export const INIT = "7";
+// export const LAST = "8";
+// export const CODE = "9";
+// export const ARGS = "10";
+// export const BODY = "11";
+// export const ASSIGN = "12";
+// export const ITEMS = "13";
+
+type ParsedCostructorArg = {
+  [INIT]: string | null;
+  [CODE]: string;
+};
+
+// const NAME = "6"
+
+import reserved from "./reserved.json";
+import strings from "./strings.json";
 
 export const funcs: Array<Function> = [() => {}];
 
@@ -23,20 +51,16 @@ function addFunc(fn: Function) {
   return id;
 }
 
+// TODO: prebuild
 const __reservedWordsByLength: Map<number, string[]> = new Map();
-for (const word of [...CONTROL_TOKENS, ...RESERVED_WORDS]) {
+for (const word of reserved.map((x) => strings[x])) {
   const words = __reservedWordsByLength.get(word.length) ?? [];
   __reservedWordsByLength.set(word.length, [...words, word].sort());
 }
 
-type ParsedCostructorArg = {
-  init: string | null;
-  code: string;
-};
-
 const identParser: InternalParser = (ctx, pos) => {
   const token = ctx.tokens[pos] ?? "";
-  const errorData = { code: "IdentifierError", token } as any;
+  const errorData = { code: 255, token } as any;
   const len = Array.from(token).length;
   const charCode = token.charCodeAt(0);
   if (len === 0) return fail(pos, errorData);
@@ -56,60 +80,61 @@ const createWhitespace = () => " ";
 
 const reshapeClassConstructorArg = ([input]: [
   {
-    ident: (string | { access: string; ident: string })[] | [{}];
-    init: string[];
+    [IDENT]: (string | { [ACCESS]: string; [IDENT]: string })[] | [{}];
+    [INIT]: string[];
   }
 ]): ParsedCostructorArg => {
-  if (typeof input.ident[0] === "object") {
+  if (typeof input[IDENT][0] === "object") {
     // @ts-ignore
-    const ident = input.ident[0].ident.join("");
+    const ident = input[IDENT][0][IDENT].join("");
     return {
-      init: ident,
-      code: ident + (input.init?.join("") ?? ""),
+      [INIT]: ident,
+      [CODE]: ident + (input[INIT]?.join("") ?? ""),
     };
   }
   // @ts-ignore
   return [
     {
-      init: null,
-      code: input.ident.join("") + (input.init?.join("") ?? ""),
+      [INIT]: null,
+      [CODE]: input[IDENT].join("") + (input[INIT]?.join("") ?? ""),
     },
   ];
 };
 
 const reshapeClassConstructor = ([input]: [
   {
-    args: Array<ParsedCostructorArg>;
-    last: Array<ParsedCostructorArg>;
-    body: number[];
+    [ARGS]: Array<ParsedCostructorArg>;
+    [LAST]: Array<ParsedCostructorArg>;
+    [BODY]: number[];
   }
 ]) => {
-  const argList = [...(input.args ?? []), ...(input.last ?? [])];
+  const argList = [...(input[ARGS] ?? []), ...(input[LAST] ?? [])];
   let bodyIntro = "";
   let args: string[] = [];
   for (const arg of argList) {
-    if (arg.init) bodyIntro += `this.${arg.init}=${arg.init};`;
-    args.push(arg.code);
+    if (arg[INIT]) bodyIntro += `this.${arg[INIT]}=${arg[INIT]};`;
+    args.push(arg[CODE]);
   }
-  const bodyCode = input.body.join("");
-  return [`${K_CONSTRUCTOR}(${args.join(",")}){${bodyIntro}${bodyCode}}`];
+  const bodyCode = input[BODY].join("");
+  return [`constructor(${args.join(",")}){${bodyIntro}${bodyCode}}`];
 };
 
 const reshapeEnum = ([input]: [
   {
-    enumName: string;
-    items: Array<{ ident: string[]; assign?: string[] }>;
-    last?: Array<{ ident: string[]; assign?: string[] }>;
+    [NAME]: string;
+    [ITEMS]: Array<{ [IDENT]: string[]; [ASSIGN]?: string[] }>;
+    [LAST]?: Array<{ [IDENT]: string[]; [ASSIGN]?: string[] }>;
   }
 ]) => {
   let baseValue = 0;
-  let out = `const ${input.enumName}={`;
-  for (const item of [...(input.items ?? []), ...(input.last ?? [])]) {
+  let out = `const ${input[NAME]}={`;
+  for (const item of [...(input[ITEMS] ?? []), ...(input[LAST] ?? [])]) {
     let val: string | number;
-    if (item.assign) {
-      const num = Number(item.assign);
+    if (item[ASSIGN]) {
+      const num = Number(item[ASSIGN]);
       if (isNaN(num)) {
-        val = item.assign.join("") as string;
+        console.log(item, ASSIGN);
+        val = item[ASSIGN]!.join("") as string;
       } else {
         val = num;
         baseValue = num + 1;
@@ -118,7 +143,7 @@ const reshapeEnum = ([input]: [
       val = baseValue;
       baseValue++;
     }
-    const key = item.ident.join("");
+    const key = item[IDENT].join("");
     if (typeof val === "number") {
       out += `${key}:${val},"${val}":"${key}",`;
     } else {

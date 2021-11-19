@@ -21,7 +21,16 @@ import {
 } from "../../../pargen-tokenized/src/builder";
 
 import {
+  ACCESS,
+  ARGS,
+  ASSIGN,
+  ATTRIBUTES,
+  BODY,
+  CHILDREN,
   CONTROL_TOKENS,
+  IDENT,
+  INIT,
+  ITEMS,
   K_ABSTRACT,
   K_AS,
   K_ASYNC,
@@ -76,11 +85,14 @@ import {
   K_WHILE,
   K_WITH,
   K_YIELD,
+  LAST,
   L_BRACE,
   L_PAREN,
+  NAME,
   RESERVED_WORDS,
   R_BRACE,
   R_PAREN,
+  VALUE,
 } from "./constants";
 
 const thisKeyword = K_THIS;
@@ -462,12 +474,12 @@ const classConstructorArg = $def(() =>
   $seqo(
     [
       [
-        { key: "ident" },
+        IDENT,
         $or([
           // private
           $seqo([
-            ["access", accessModifier],
-            ["ident", identifier],
+            [ACCESS, accessModifier],
+            [IDENT, identifier],
           ]),
           destructiveObjectPattern,
           destructiveArrayPattern,
@@ -475,7 +487,7 @@ const classConstructorArg = $def(() =>
         ]),
       ],
       [
-        { key: "init", opt: true },
+        { key: INIT, opt: true },
         $seq([
           $skip_opt($seq([K_QUESTION, ":", typeExpression])),
           "=",
@@ -494,11 +506,11 @@ const classConstructor = $def(() =>
       $skip_opt(accessModifier),
       K_CONSTRUCTOR,
       L_PAREN,
-      ["args", $repeat($seq([classConstructorArg, $skip(",")]))],
-      [{ key: "last", opt: true }, $seq([classConstructorArg, $skip_opt(",")])],
+      [ARGS, $repeat($seq([classConstructorArg, $skip(",")]))],
+      [{ key: LAST, opt: true }, $seq([classConstructorArg, $skip_opt(",")])],
       R_PAREN,
       L_BRACE,
-      ["body", lines],
+      [BODY, lines],
       R_BRACE,
     ],
     reshapeClassConstructorPtr
@@ -984,30 +996,28 @@ const enumAssign = $def(() =>
   $seq([$skip("="), $or([numberLiteral, stringLiteral])])
 );
 
-const ENUM_NAME = "1";
-
 const enumStatement = $def(() =>
   $seqo(
     [
       K_ENUM,
       whitespace,
-      ["enumName", identifier],
+      [NAME, identifier],
       L_BRACE,
       [
-        "items",
+        ITEMS,
         $repeat(
           $seqo([
-            ["ident", identifier],
-            [{ key: "assign", opt: true }, enumAssign],
+            [IDENT, identifier],
+            [{ key: ASSIGN, opt: true }, enumAssign],
             $skip(","),
           ])
         ),
       ],
       [
-        { key: "last", opt: true },
+        { key: LAST, opt: true },
         $seqo([
-          ["ident", identifier],
-          [{ key: "assign", opt: true }, enumAssign],
+          [IDENT, identifier],
+          [{ key: ASSIGN, opt: true }, enumAssign],
           $skip_opt(","),
         ]),
       ],
@@ -1022,11 +1032,11 @@ const jsxInlineExpr = $seq([$skip("{"), anyExpression, $skip("}")]);
 const jsxText = $def(() => $atom(parseJsxTextPtr));
 
 // JSX transform constants
-const IDENT = "1";
-const ATTRIBUTES = "2";
-const CHILDREN = "3";
-const NAME = "4";
-const VALUE = "5";
+// const IDENT = "1";
+// const ATTRIBUTES = "2";
+// const CHILDREN = "3";
+// const NAME = "4";
+// const VALUE = "5";
 
 const jsxAttributes = $repeat(
   $seqo([
@@ -1268,7 +1278,6 @@ if (process.env.NODE_ENV === "test") {
 
   test("identifier", () => {
     const parse = compile(identifier);
-    console.log("ident", identifier);
 
     expectSuccess(parse, "a");
     expectSuccess(parse, "Aaa");

@@ -150,13 +150,27 @@ export const CONTROL_TOKENS = [
 ];
 
 export const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
+
+// export const IDENT = "1";
+// export const ATTRIBUTES = "2";
+// export const CHILDREN = "3";
+// export const NAME = "4";
+// export const VALUE = "5";
 export const IDENT = "1";
 export const ATTRIBUTES = "2";
 export const CHILDREN = "3";
 export const NAME = "4";
 export const VALUE = "5";
+export const ACCESS = "6";
+export const INIT = "7";
+export const LAST = "8";
+export const CODE = "9";
+export const ARGS = "10";
+export const BODY = "11";
+export const ASSIGN = "12";
+export const ITEMS = "13";
 
-if (process.env.NODE_ENV === "prebuild") {
-  console.log(CONTROL_TOKENS.map((x) => x.charCodeAt(0)));
-  // console.log(RESERVED_WORDS.map((x) => x.charCodeAt(0)));
-}
+// if (process.env.NODE_ENV === "prebuild") {
+//   console.log(CONTROL_TOKENS.map((x) => x.charCodeAt(0)));
+//   // console.log(RESERVED_WORDS.map((x) => x.charCodeAt(0)));
+// }

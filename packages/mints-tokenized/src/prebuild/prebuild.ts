@@ -1,4 +1,4 @@
-import assert from "assert";
+// import assert from "assert";
 import { createSnapshot } from "../../../pargen-tokenized/src/index";
 import { line } from "./grammar";
 import { encode, decode } from "./cbor";
@@ -38,6 +38,7 @@ import {
   E_strings,
   E_values,
 } from "../../../pargen-tokenized/src/constants";
+import { CONTROL_TOKENS, RESERVED_WORDS } from "./constants";
 
 fs.writeFileSync(
   path.join(__dirname, "../runtime/snapshot.bin"),
@@ -45,14 +46,47 @@ fs.writeFileSync(
 );
 
 fs.writeFileSync(
+  path.join(__dirname, "../runtime/snapshot_b64.ts"),
+  `export const snapshot = '${Buffer.from(serialized).toString("base64")}';`
+);
+
+// console.log("c", controlTokens, reservedWords);
+const controlTokens = CONTROL_TOKENS.map((x) => {
+  const strPtr = strings.indexOf(x);
+  if (strPtr > -1) {
+    return strPtr;
+  }
+  // console.log("push!", x);
+  const id = strings.length;
+  // strings.push(x);
+  return id;
+});
+
+const reservedWords = RESERVED_WORDS.map((x) => {
+  const idx = strings.indexOf(x);
+  if (idx > -1) {
+    return idx;
+  }
+  // console.log("push rw", x);
+  const id = strings.length;
+  strings.push(x);
+  return id;
+});
+
+fs.writeFileSync(
   path.join(__dirname, "../runtime/strings.json"),
   JSON.stringify(strings)
 );
 
-fs.writeFileSync(
-  path.join(__dirname, "../runtime/snapshot_b64.ts"),
-  `export const snapshot = '${Buffer.from(serialized).toString("base64")}';`
+const rw = [...new Set([...reservedWords, ...controlTokens])].sort(
+  (a, b) => a - b
 );
+fs.writeFileSync(
+  path.join(__dirname, "../runtime/reserved.json"),
+  JSON.stringify(rw)
+);
+
+// const controlTokens = CONTROL_TOKENS.map(x => strings.indexOf(x))
 
 // if (require.main === module) {
 //   console.time("decode");
