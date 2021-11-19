@@ -133,27 +133,40 @@ export type RuleExpr = Rule | string | number;
 
 export type DefinitionMap = Map<number, Rule>;
 
-export type ParserMap = Map<number, InternalParser>;
+// export type ParserMap = Map<number, InternalParser>;
 
-export type Snapshot = {
-  entryRefId: number;
-  rules: Array<Rule["t"]>;
-  values: Array<number>;
-  // rules: O_Rule[];
-  refs: number[];
-  strings: string[];
-  // funcs: Function[];
-  cidsList: Array<number[]>;
-  reshapes: { [key: number]: number };
-  reshapeEachs: { [key: number]: number };
-  flagsList: { [key: number]: number[] };
-  keyList: { [key: number]: number[] };
-  popList: { [key: number]: number[] };
-};
+// export type Snapshot = {
+//   entryRefId: number;
+//   rules: Array<Rule["t"]>;
+//   values: Array<number>;
+//   // rules: O_Rule[];
+//   refs: number[];
+//   strings: string[];
+//   // funcs: Function[];
+//   cidsList: Array<number[]>;
+//   reshapes: { [key: number]: number };
+//   reshapeEachs: { [key: number]: number };
+//   flagsList: { [key: number]: number[] };
+//   keyList: { [key: number]: number[] };
+//   popList: { [key: number]: number[] };
+// };
+
+export type Snapshot = [
+  entryRefId: number,
+  rules: Array<Rule["t"]>,
+  values: Array<number>,
+  refs: number[],
+  cidsList: Array<number[]>,
+  reshapes: { [key: number]: number },
+  reshapeEachs: { [key: number]: number },
+  flagsList: { [key: number]: number[] },
+  keyList: { [key: number]: number[] },
+  popList: { [key: number]: number[] },
+  strings: string[]
+];
 
 export type ParseContext = Snapshot & {
   tokens: string[];
-  // strings: string[];
   funcs: Function[];
   cache: Map<string, ParseResult>;
   currentError: ParseError | null;

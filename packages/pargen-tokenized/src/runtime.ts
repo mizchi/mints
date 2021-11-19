@@ -23,6 +23,16 @@ import {
   PUSH_MASK,
   POP_MASK,
   SKIP_MASK,
+  E_reshapes,
+  E_rules,
+  E_values,
+  E_strings,
+  E_cidsList,
+  E_refs,
+  E_flagsList,
+  E_keyList,
+  E_popList,
+  E_reshapeEachs,
 } from "./constants";
 import {
   ParseContext,
@@ -82,7 +92,7 @@ export function parseWithCache(
     if (!parsed.error) {
       const ruleIdx = rid;
       if (ruleIdx < 0) throw new Error("rule not found");
-      const fnPtr = ctx.reshapes[ruleIdx];
+      const fnPtr = ctx[E_reshapes][ruleIdx];
       if (fnPtr != null) {
         const fn = ctx.funcs[fnPtr];
         const resolved = resolveTokens(ctx.tokens, parsed.results);
@@ -100,8 +110,8 @@ export function parseWithCache(
 }
 
 function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
-  const ruleType = ctx.rules[rid];
-  const val = ctx.values[rid];
+  const ruleType = ctx[E_rules][rid];
+  const val = ctx[E_values][rid];
 
   switch (ruleType) {
     case RULE_ATOM: {
@@ -109,7 +119,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       return fn(ctx, pos);
     }
     case RULE_TOKEN: {
-      const expect = ctx.strings[val];
+      const expect = ctx[E_strings][val];
       const token = ctx.tokens[pos];
       if (token === expect) {
         return success(pos, 1, [pos]);
@@ -122,7 +132,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       }
     }
     case RULE_REGEX: {
-      const expect = ctx.strings[val];
+      const expect = ctx[E_strings][val];
       let re = new RegExp(expect, "u");
       const token = ctx.tokens[pos];
       const matched = re.test(token);
@@ -154,7 +164,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       );
     }
     case RULE_NOT: {
-      const childrenIds = ctx.cidsList[val];
+      const childrenIds = ctx[E_cidsList][val];
       for (const ruleId of childrenIds) {
         const result = parseWithCache(ctx, pos, ruleId);
 
@@ -170,15 +180,15 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       return success(pos, 0, []);
     }
     case RULE_REF: {
-      const rid = ctx.refs[val];
+      const rid = ctx[E_refs][val];
       return parseWithCache(ctx, pos, rid);
     }
     case RULE_SEQ_OBJECT: {
       let cursor = pos;
       let result: any = {};
       const capturedStack: ParseSuccess[] = [];
-      const flagsList = ctx.flagsList[rid];
-      const childrenIds = ctx.cidsList[val];
+      const flagsList = ctx[E_flagsList][rid];
+      const childrenIds = ctx[E_cidsList][val];
 
       for (let i = 0; i < childrenIds.length; i++) {
         const crid = childrenIds[i];
@@ -195,12 +205,12 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
         }
         if (flags) {
           if (flags & KEY_MASK) {
-            const key = ctx.strings[ctx.keyList[rid][i]];
+            const key = ctx[E_strings][ctx[E_keyList][rid][i]];
             result[key] = resolveTokens(ctx.tokens, parsed.results);
           }
           if (flags & PUSH_MASK) capturedStack.push(parsed);
           if (flags & POP_MASK) {
-            const popFn = ctx.funcs[ctx.popList[rid][i]];
+            const popFn = ctx.funcs[ctx[E_popList][rid][i]];
             const top = capturedStack.pop();
             if (top == null) {
               return fail(cursor, {
@@ -225,9 +235,9 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       let cursor = pos;
       let results: any[] = [];
       let capturedStack: ParseSuccess[] = [];
-      const flagsList = ctx.flagsList[rid];
+      const flagsList = ctx[E_flagsList][rid];
 
-      const childrenIds = ctx.cidsList[val];
+      const childrenIds = ctx[E_cidsList][val];
 
       for (let i = 0; i < childrenIds.length; i++) {
         const crid = childrenIds[i];
@@ -245,7 +255,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
         if (flags) {
           if (flags & PUSH_MASK) capturedStack.push(parsed);
           if (flags & POP_MASK) {
-            const popFn = ctx.funcs[ctx.popList[rid][i]];
+            const popFn = ctx.funcs[ctx[E_popList][rid][i]];
             const top = capturedStack.pop();
             if (top == null) {
               return fail(cursor, {
@@ -281,7 +291,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
     }
     case RULE_OR: {
       const errors: ParseError[] = [];
-      const childrenIds = ctx.cidsList[val];
+      const childrenIds = ctx[E_cidsList][val];
 
       for (const idx of childrenIds) {
         const parsed = parseWithCache(ctx, pos, idx);
@@ -305,7 +315,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
         if (parsed.error === true) break;
         if (parsed.len === 0) throw new Error(`ZeroRepeat`);
 
-        const eachFn = ctx.reshapeEachs[rid];
+        const eachFn = ctx[E_reshapeEachs][rid];
         if (eachFn != null) {
           const tokens = resolveTokens(ctx.tokens, parsed.results);
           const fn = ctx.funcs[eachFn];

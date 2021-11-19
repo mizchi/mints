@@ -1,8 +1,21 @@
+import {
+  E_cidsList,
+  E_entryRefId,
+  E_flagsList,
+  E_keyList,
+  E_popList,
+  E_refs,
+  E_reshapeEachs,
+  E_reshapes,
+  E_rules,
+  E_strings,
+  E_values,
+} from "./constants";
+// import { ohash } from "object-hash";
 import type {
   Rule,
   RuleExpr,
   Token,
-  Reshape,
   Seq,
   Ref,
   Not,
@@ -11,8 +24,6 @@ import type {
   Repeat,
   Atom,
   Regex,
-  InternalParser,
-  ParseContext,
   Flags,
   SeqObject,
   Any,
@@ -57,41 +68,34 @@ export const toNode = (input: RuleExpr): Rule => {
 const __registered: Array<() => RuleExpr> = [];
 const buildDefs = () => __registered.map((creator) => toNode(creator()));
 
+// @ts-ignore
+// import objectHash from "./ohash.js";
+
+export function createSnapshot(refId: number): Snapshot {
+  const entryRefId = $def(() => $seq([toNode(refId), $eof()]));
+  const snapshot = compileSnapshot();
+  snapshot[E_entryRefId] = entryRefId;
+  return snapshot;
+}
+
 export function compileSnapshot(): Snapshot {
-  const state = {
-    entryRefId: 0,
-    rules: [],
-    values: [],
-    refs: [],
-    strings: [""],
-    // funcs: [() => {}],
-    reshapes: {},
-    reshapeEachs: {},
-    flagsList: {},
-    keyList: {},
-    popList: {},
-    cidsList: [],
-  } as Snapshot;
+  const cachedRules = new Map<string, number>();
+
+  const state = [0, [], [], [], [], {}, {}, {}, {}, [], [""]] as Snapshot;
 
   function addCids(ptrs: number[]) {
-    const ptr = state.cidsList.length;
-    state.cidsList.push(ptrs);
+    const ptr = state[E_cidsList].length;
+    state[E_cidsList].push(ptrs);
     return ptr;
   }
 
   function addString(str: string) {
-    const at = state.strings.indexOf(str);
+    const at = state[E_strings].indexOf(str);
     if (at > -1) return at;
-    const ptr = state.strings.length;
-    state.strings.push(str);
+    const ptr = state[E_strings].length;
+    state[E_strings].push(str);
     return ptr;
   }
-  // function addFunc(fn: Function | void) {
-  //   if (fn == null) return 0;
-  //   const ptr = state.funcs.length;
-  //   state.funcs.push(fn);
-  //   return ptr;
-  // }
 
   function toBitFlags(flags: Flags): number {
     return (
@@ -103,8 +107,14 @@ export function compileSnapshot(): Snapshot {
     );
   }
 
-  function addRule(ruleRaw: Rule): number {
-    let rule = { ...ruleRaw };
+  function addRule(rule: Rule): number {
+    // const hash = requi
+    // const hash = objectHash(rule);
+    const hash = JSON.stringify(rule);
+    if (cachedRules.has(hash)) {
+      return cachedRules.get(hash)!;
+    }
+    // let rule = { ...ruleRaw };
     let value: number = 0;
 
     switch (rule.t) {
@@ -141,55 +151,50 @@ export function compileSnapshot(): Snapshot {
       }
     }
 
-    const rulePtr = state.rules.length;
+    const rulePtr = state[E_rules].length;
     // @ts-ignore
     const r = rule.r as any;
     if (r) {
-      // const fnPtr = addFunc(r);
-      state.reshapes[rulePtr] = r;
+      state[E_reshapes][rulePtr] = r;
     }
-    // post process with index
     if (
-      ruleRaw.t === RULE_SEQ ||
-      (ruleRaw.t === RULE_SEQ_OBJECT && ruleRaw.f.some((f) => f != null))
+      rule.t === RULE_SEQ ||
+      (rule.t === RULE_SEQ_OBJECT && rule.f.some((f) => f != null))
     ) {
       let fs: number[] = [];
       let ks: number[] = [];
       let ps: number[] = [];
 
-      for (const flags of ruleRaw.f) {
+      for (const flags of rule.f) {
         fs.push(flags ? toBitFlags(flags) : 0);
         ks.push(flags?.key ? addString(flags.key) : 0);
         ps.push(flags?.pop ?? 0);
       }
 
       if (fs.some((k) => k > 0)) {
-        state.flagsList[rulePtr] = fs;
+        state[E_flagsList][rulePtr] = fs;
       }
       if (ks.some((k) => k > 0)) {
-        state.keyList[rulePtr] = ks;
+        state[E_keyList][rulePtr] = ks;
       }
       if (ps.some((p) => p > 0)) {
-        state.popList[rulePtr] = ps;
+        state[E_popList][rulePtr] = ps;
       }
     }
     if (rule.t === RULE_REPEAT && rule.e) {
       const fnPtr = rule.e;
-      state.reshapeEachs[rulePtr] = fnPtr;
+      state[E_reshapeEachs][rulePtr] = fnPtr;
     }
 
-    state.rules.push(rule.t);
-    state.values.push(value);
+    state[E_rules].push(rule.t);
+    state[E_values].push(value);
+    cachedRules.set(hash, rulePtr);
     return rulePtr;
   }
   const rawRules = buildDefs();
-  state.refs = rawRules.map(addRule);
+  state[E_refs] = rawRules.map(addRule);
   return state;
 }
-
-export const $dump = () => {
-  return buildDefs();
-};
 
 export function $def(nodeCreator: () => RuleExpr): number {
   const rootId = __registered.length;

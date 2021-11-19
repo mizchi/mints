@@ -5,7 +5,6 @@ import nodeResolve from "@rollup/plugin-node-resolve";
 import json from "@rollup/plugin-json";
 
 export default {
-  // input: ["src/index.ts"],
   input: ["src/runtime/index.ts"],
   output: [
     {

@@ -41,3 +41,15 @@ export const SKIP_MASK = 0b00010;
 export const KEY_MASK = 0b00100;
 export const PUSH_MASK = 0b01000;
 export const POP_MASK = 0b10000;
+
+export const E_entryRefId = 0;
+export const E_rules = 1;
+export const E_values = 2;
+export const E_refs = 3;
+export const E_cidsList = 4;
+export const E_reshapes = 5;
+export const E_reshapeEachs = 6;
+export const E_flagsList = 7;
+export const E_keyList = 8;
+export const E_popList = 9;
+export const E_strings = 10;

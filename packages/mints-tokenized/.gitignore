@@ -1,2 +1,4 @@
 test262
 src/runtime/snapshot.json
+src/runtime/snapshot.bin
+src/runtime/strings.json

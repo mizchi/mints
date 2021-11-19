@@ -15,8 +15,7 @@ import {
   VALUE,
 } from "../prebuild/constants";
 
-const funcs: Array<Function> = [() => {}];
-export const getFuncs = () => funcs;
+export const funcs: Array<Function> = [() => {}];
 
 function addFunc(fn: Function) {
   const id = funcs.length;

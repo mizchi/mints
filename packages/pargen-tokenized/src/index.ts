@@ -10,7 +10,7 @@ import { parseWithCache, success } from "./runtime";
 export function createSnapshot(refId: number): Snapshot {
   const entryRefId = $def(() => $seq([toNode(refId), $eof()]));
   const snapshot = compileSnapshot();
-  snapshot.entryRefId = entryRefId;
+  snapshot[E_entryRefId] = entryRefId;
   return snapshot;
 }
 
@@ -29,7 +29,7 @@ export function createContext(
         funcs,
         ...snapshot,
       } as ParseContext;
-      const rootResult = parseWithCache(ctx, 0, ctx.refs[snapshot.entryRefId]);
+      const rootResult = parseWithCache(ctx, 0, ctx[E_refs][snapshot[0]]);
       if (rootResult.error && ctx.currentError) {
         return { ...ctx.currentError, tokens } as any;
       }
@@ -53,7 +53,11 @@ export function createParserWithSnapshot(
       funcs,
       ...snapshot,
     } as ParseContext;
-    const rootResult = parseWithCache(ctx, 0, ctx.refs[snapshot.entryRefId]);
+    const rootResult = parseWithCache(
+      ctx,
+      0,
+      ctx[E_refs][snapshot[E_entryRefId]]
+    );
     if (rootResult.error && ctx.currentError) {
       return { ...ctx.currentError, tokens } as any;
     }
@@ -89,6 +93,8 @@ import {
   CODE_SEQ_STOP,
   CODE_SEQ_UNMATCH_STACK,
   CODE_TOKEN_UNMATCH,
+  E_entryRefId,
+  E_refs,
 } from "./constants";
 if (process.env.NODE_ENV === "test" && require.main === module) {
   const _buildTokens = (tokens: string[], xs: any[]) => {

@@ -1,10 +1,11 @@
 import type { Snapshot } from "../../../pargen-tokenized/src/types";
-import { getFuncs } from "./funcs";
+import { funcs } from "./funcs";
 import { createParserWithSnapshot } from "../../../pargen-tokenized/src/index";
 import { parseTokens } from "./tokenizer";
-import snapshot from "./snapshot.json";
+import { loadSnapshot } from "./load_snapshot";
 
-const parse = createParserWithSnapshot(getFuncs(), snapshot as Snapshot);
+const snapshot = loadSnapshot();
+const parse = createParserWithSnapshot(funcs, snapshot as Snapshot);
 
 export function processLine(tokens: string[]): string {
   const parsed = parse(tokens.slice());

@@ -148,10 +148,15 @@ export const CONTROL_TOKENS = [
   "\t",
   " ",
 ];
-export const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
 
+export const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
 export const IDENT = "1";
 export const ATTRIBUTES = "2";
 export const CHILDREN = "3";
 export const NAME = "4";
 export const VALUE = "5";
+
+if (process.env.NODE_ENV === "prebuild") {
+  console.log(CONTROL_TOKENS.map((x) => x.charCodeAt(0)));
+  // console.log(RESERVED_WORDS.map((x) => x.charCodeAt(0)));
+}
