@@ -23,7 +23,7 @@ export function createContext(
     const rootParser: RootParser = (tokens: string[]) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
-        tokens,
+        t: tokens,
         currentError: null,
         cache,
         funcs,
@@ -47,7 +47,7 @@ export function createParserWithSnapshot(
   const rootParser: RootParser = (tokens: string[]) => {
     const cache = new Map<string, ParseResult>();
     const ctx = {
-      tokens,
+      t: tokens,
       currentError: null,
       cache,
       funcs,
@@ -120,7 +120,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       throw new Error("Expect Parse Success");
     }
     // @ts-ignore
-    const tokenString = _buildTokens(tokens, parsed.results);
+    const tokenString = _buildTokens(tokens, parsed.xs);
     is(tokenString, expected);
   };
 
@@ -133,7 +133,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     if (parsed.error) {
       throw new Error("Expect Parse Success");
     }
-    const obj = parsed.results[0];
+    const obj = parsed.xs[0];
     const result = Object.fromEntries(
       Object.entries(obj).map(([k, v]) => {
         return [k, _buildTokens(tokens, v as any)];
@@ -146,7 +146,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const parsed = parse(tokens);
     if (!parsed.error) {
       throw new Error(
-        `Expect Parse Fail but success: ${_buildTokens(tokens, parsed.results)}`
+        `Expect Parse Fail but success: ${_buildTokens(tokens, parsed.xs)}`
       );
     }
   };
@@ -508,7 +508,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
     const compile = createContext([
       dummyFn,
       ([a]: number[], [b]: number[], ctx: ParseContext) =>
-        ctx.tokens[a] === ctx.tokens[b],
+        ctx.t[a] === ctx.t[b],
     ]);
     const parser = compile(
       $seqo([
@@ -634,8 +634,8 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
       (ctx: ParseContext, pos: number) => {
         let i = 0;
         const results: string[] = [];
-        while (i < ctx.tokens.length) {
-          const token = ctx.tokens[pos + i];
+        while (i < ctx.t.length) {
+          const token = ctx.t[pos + i];
           if ([">", "<", "{"].includes(token)) {
             break;
           }

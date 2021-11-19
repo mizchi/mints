@@ -64,7 +64,7 @@ export const success = <T = any>(
     error: false,
     pos,
     len,
-    results,
+    xs: results,
   } as ParseSuccess;
 };
 
@@ -91,13 +91,12 @@ export function parseWithCache(
     parsed = _parse(ctx, pos, rid);
     if (!parsed.error) {
       const ruleIdx = rid;
-      if (ruleIdx < 0) throw new Error("rule not found");
       const fnPtr = ctx[E_reshapes][ruleIdx];
       if (fnPtr != null) {
         const fn = ctx.funcs[fnPtr];
-        const resolved = resolveTokens(ctx.tokens, parsed.results);
+        const resolved = resolveTokens(ctx.t, parsed.xs);
         const reshaped = fn(resolved, ctx);
-        parsed.results = Array.isArray(reshaped) ? reshaped : [reshaped];
+        parsed.xs = Array.isArray(reshaped) ? reshaped : [reshaped];
       }
     }
     ctx.cache.set(cacheKey, parsed);
@@ -120,7 +119,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
     }
     case RULE_TOKEN: {
       const expect = ctx[E_strings][val];
-      const token = ctx.tokens[pos];
+      const token = ctx.t[pos];
       if (token === expect) {
         return success(pos, 1, [pos]);
       } else {
@@ -134,7 +133,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
     case RULE_REGEX: {
       const expect = ctx[E_strings][val];
       let re = new RegExp(expect, "u");
-      const token = ctx.tokens[pos];
+      const token = ctx.t[pos];
       const matched = re.test(token);
       if (matched) {
         return success(pos, 1, [pos]);
@@ -147,7 +146,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       }
     }
     case RULE_EOF: {
-      const ended = pos === ctx.tokens.length;
+      const ended = pos === ctx.t.length;
       if (ended) {
         return success(pos, 0, []);
       } else {
@@ -206,7 +205,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
         if (flags) {
           if (flags & KEY_MASK) {
             const key = ctx[E_strings][ctx[E_keyList][rid][i]];
-            result[key] = resolveTokens(ctx.tokens, parsed.results);
+            result[key] = resolveTokens(ctx.t, parsed.xs);
           }
           if (flags & PUSH_MASK) capturedStack.push(parsed);
           if (flags & POP_MASK) {
@@ -218,7 +217,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
                 index: i,
               });
             }
-            if (!popFn(top.results, parsed.results, ctx)) {
+            if (!popFn(top.xs, parsed.xs, ctx)) {
               return fail(cursor, {
                 code: CODE_SEQ_UNMATCH_STACK,
                 index: i,
@@ -263,7 +262,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
                 index: i,
               });
             }
-            if (!popFn(top.results, parsed.results, ctx)) {
+            if (!popFn(top.xs, parsed.xs, ctx)) {
               return fail(cursor, {
                 code: CODE_SEQ_UNMATCH_STACK,
                 index: i,
@@ -282,7 +281,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
           // throw new Error("skip");
         } else {
           // console.log("add", i, parsed.results, flags);
-          results.push(...parsed.results);
+          results.push(...parsed.xs);
         }
         cursor += parsed.len;
       }
@@ -310,18 +309,18 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
     case RULE_REPEAT: {
       let results: (string | number | any)[] = [];
       let cursor = pos;
-      while (cursor < ctx.tokens.length) {
+      while (cursor < ctx.t.length) {
         const parsed = parseWithCache(ctx, cursor, val);
         if (parsed.error === true) break;
         if (parsed.len === 0) throw new Error(`ZeroRepeat`);
 
         const eachFn = ctx[E_reshapeEachs][rid];
         if (eachFn != null) {
-          const tokens = resolveTokens(ctx.tokens, parsed.results);
+          const tokens = resolveTokens(ctx.t, parsed.xs);
           const fn = ctx.funcs[eachFn];
           results.push([fn(tokens, ctx)]);
         } else {
-          results.push(...parsed.results);
+          results.push(...parsed.xs);
         }
         cursor += parsed.len;
       }

@@ -59,7 +59,7 @@ for (const word of reserved.map((x) => strings[x])) {
 }
 
 const identParser: InternalParser = (ctx, pos) => {
-  const token = ctx.tokens[pos] ?? "";
+  const token = ctx.t[pos] ?? "";
   const errorData = { code: 255, token } as any;
   const len = Array.from(token).length;
   const charCode = token.charCodeAt(0);
@@ -156,8 +156,8 @@ const reshapeEnum = ([input]: [
 const parseJsxText = (ctx: ParseContext, pos: number) => {
   let i = 0;
   const results: string[] = [];
-  while (i < ctx.tokens.length) {
-    const token = ctx.tokens[pos + i];
+  while (i < ctx.t.length) {
+    const token = ctx.t[pos + i];
     if ([">", "<", "{"].includes(token)) {
       break;
     }
@@ -172,7 +172,7 @@ const parseJsxText = (ctx: ParseContext, pos: number) => {
 
 const popJsxElement = (a: number[], b: number[], ctx: ParseContext) => {
   // TODO: Multi token equality
-  return ctx.tokens[a[0]] === ctx.tokens[b[0]];
+  return ctx.t[a[0]] === ctx.t[b[0]];
 };
 
 const jsx = "React.createElement";

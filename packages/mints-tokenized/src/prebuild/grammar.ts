@@ -1251,7 +1251,7 @@ if (process.env.NODE_ENV === "test") {
       if (out.error) {
         return out;
       } else {
-        return out.results
+        return out.xs
           .map((r) => (typeof r === "number" ? tokens[r] : r))
           .join("");
       }
