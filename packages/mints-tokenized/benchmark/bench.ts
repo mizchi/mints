@@ -2,10 +2,11 @@ import ts from "typescript";
 import fs from "fs";
 import path from "path";
 import esbuild_ from "esbuild";
-import { createTransformer } from "../node/node_main";
 import { transform as sucraseTransform } from "sucrase";
-// import { transform } from "../src/index";
-import { transform } from "../src/runtime";
+// @ts-ignore
+import { transform } from "../dist/index.cjs";
+// @ts-ignore
+import { createTransformer } from "../dist/node_main.cjs";
 
 const N = 1;
 
@@ -75,7 +76,10 @@ function mints(input: string) {
   return out as string;
 }
 
-const transformer = createTransformer();
+const transformer = createTransformer(
+  path.join(__dirname, "../dist/node_worker.js"),
+  14
+);
 process.on("exit", () => transformer.terminate());
 
 async function mints_para(input: string) {

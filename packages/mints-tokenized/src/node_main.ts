@@ -1,17 +1,12 @@
 // import { transform } from '@mizchi/mints';
-import { wrap } from "../rpc/node";
 import { Worker } from "worker_threads";
-import path from "path";
-import fs from "fs";
-import { parseTokens } from "../src/runtime/tokenizer";
-import os from "os";
-
+import { wrap } from "./rpc/node";
+import { parseTokens } from "./runtime/tokenizer";
 const MAX_TOKENS = 512;
 
-export function createTransformer() {
-  const MAX_CPUS = os.cpus().length - 1;
-  const apis = [...Array(MAX_CPUS).keys()].map((_i) => {
-    return wrap(new Worker(path.join(__dirname, "node_worker.js")));
+export function createTransformer(workerPath: string, workers: number) {
+  const apis = [...Array(workers).keys()].map((_i) => {
+    return wrap(new Worker(workerPath));
   });
   return {
     terminate() {
@@ -20,7 +15,6 @@ export function createTransformer() {
     transform: async (input: string) => {
       let i = 0;
       const promises: Promise<string>[] = [];
-
       let _tokens: string[] = [];
       let _tokensList: Array<string[]> = [];
       let _currentTokensCount = 0;
@@ -50,22 +44,4 @@ export function createTransformer() {
       return results.flat().join("");
     },
   };
-}
-
-if (require.main === module) {
-  async function main() {
-    const input = fs.readFileSync(
-      path.join(__dirname, "../benchmark/cases/example4.ts"),
-      "utf-8"
-    );
-    const transformer = await createTransformer();
-    console.time("root");
-    const _result = await transformer.transform(input);
-    console.timeEnd("root");
-    // console.log("size", result.length);
-    console.log("result:", _result);
-    transformer.terminate();
-  }
-  main();
-  // main(code);
 }
