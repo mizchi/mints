@@ -13,31 +13,28 @@ export function formatError(
   depth: number = 0
 ): string {
   const prefix = "  ".repeat(depth) + `${err.pos}:`.padStart(3);
-  if (err.code === CODE_NOT_INCORRECT_MATCH) {
-    return `${prefix}IncorrectMatch: ${JSON.stringify(
-      err.matched.xs,
-      null,
-      2
-    )}`;
+  const detail = err.detail;
+  if (detail[0] === CODE_NOT_INCORRECT_MATCH) {
+    return `${prefix}IncorrectMatch: ${JSON.stringify(detail[1].xs, null, 2)}`;
   }
 
-  if (err.code === CODE_TOKEN_UNMATCH || err.code === CODE_REGEX_UNMATCH) {
-    return `${prefix}Expect ${err.expect}, got ${err.got}`;
+  if (detail[0] === CODE_TOKEN_UNMATCH || detail[0] === CODE_REGEX_UNMATCH) {
+    return `${prefix}Expect ${detail[1]}, got ${detail[2]}`;
   }
 
-  if (err.code === CODE_SEQ_STOP) {
-    const formatted = formatError(tokens, err.childError, depth + 1);
+  if (detail[0] === CODE_SEQ_STOP) {
+    const formatted = formatError(tokens, detail[2], depth + 1);
     return `${prefix}Seq Stopped\n` + formatted;
   }
 
-  if (err.code === CODE_OR_UNMATCH_ALL) {
-    const formatted = err.errors
+  if (detail[0] === CODE_OR_UNMATCH_ALL) {
+    const formatted = detail[1]
       .map((e) => "\n" + formatError(tokens, e, depth + 1))
       .join("");
     return `${prefix}UnmatchAll` + formatted;
   }
 
   return (
-    `${prefix}TODO: formatError(${err.code})\n` + JSON.stringify(err, null, 2)
+    `${prefix}TODO: formatError(${detail[0]})\n` + JSON.stringify(err, null, 2)
   );
 }

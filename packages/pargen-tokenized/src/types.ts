@@ -158,59 +158,41 @@ export type ParseSuccess = {
 };
 
 // Parse Errors
-type RepeatRangeError = {
-  code: typeof CODE_REPEAT_RANGE;
-};
+type RepeatRangeError = [code: typeof CODE_REPEAT_RANGE];
 
-type NotIncorrectMatch = {
-  code: typeof CODE_NOT_INCORRECT_MATCH;
-  matched: ParseSuccess;
-};
+type NotIncorrectMatch = [
+  code: typeof CODE_NOT_INCORRECT_MATCH,
+  matched: ParseSuccess
+];
 
-type EofUnmatch = {
-  code: typeof CODE_EOF_UNMATCH;
-};
+type EofUnmatch = [code: typeof CODE_EOF_UNMATCH];
 
-type TokenUnmatch = {
-  code: typeof CODE_TOKEN_UNMATCH;
-  expect: string;
-  got: string;
-};
+type TokenUnmatch = [
+  code: typeof CODE_TOKEN_UNMATCH,
+  expect: string,
+  got: string
+];
 
-type RegexUnmatch = {
-  code: typeof CODE_REGEX_UNMATCH;
-  expect: string;
-  got: string;
-};
+type RegexUnmatch = [
+  code: typeof CODE_REGEX_UNMATCH,
+  expect: string,
+  got: string
+];
 
-type SeqStop = {
-  code: typeof CODE_SEQ_STOP;
-  index: number;
-  childError: ParseError;
-};
+type SeqStop = [
+  code: typeof CODE_SEQ_STOP,
+  index: number,
+  childError: ParseError
+];
 
-type SeqNoStack = {
-  code: typeof CODE_SEQ_NO_STACK_ON_POP;
-  index: number;
-};
-type SeqStackLeft = {
-  code: typeof CODE_SEQ_STACK_LEFT;
-};
+type SeqNoStack = [code: typeof CODE_SEQ_NO_STACK_ON_POP, index: number];
+type SeqStackLeft = [code: typeof CODE_SEQ_STACK_LEFT];
 
-type SeqUnmatchStack = {
-  code: typeof CODE_SEQ_UNMATCH_STACK;
-  index: number;
-};
+type SeqUnmatchStack = [code: typeof CODE_SEQ_UNMATCH_STACK, index: number];
 
-type UnmatchAll = {
-  code: typeof CODE_OR_UNMATCH_ALL;
-  errors: Array<ParseError>;
-};
+type UnmatchAll = [code: typeof CODE_OR_UNMATCH_ALL, errors: Array<ParseError>];
 
-type AtomError = {
-  code: typeof CODE_ATOM_PARSE_ERROR;
-  childError: ParseError;
-};
+type AtomError = [code: typeof CODE_ATOM_PARSE_ERROR, childError: ParseError];
 
 export type ParseErrorData =
   | RepeatRangeError
@@ -225,9 +207,8 @@ export type ParseErrorData =
   | AtomError
   | UnmatchAll;
 
-export type ParseErrorBase = {
+export type ParseError = {
   error: true;
   pos: number;
+  detail: ParseErrorData;
 };
-
-export type ParseError = ParseErrorData & ParseErrorBase;

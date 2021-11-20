@@ -1300,11 +1300,11 @@ if (process.env.NODE_ENV === "test") {
     expectFail(parse, "");
     is(parse("'hello"), {
       error: true,
-      code: CODE_SEQ_STOP,
+      detail: [CODE_SEQ_STOP],
     });
     is(parse("hello'"), {
       error: true,
-      code: CODE_SEQ_STOP,
+      detail: [CODE_SEQ_STOP],
     });
   });
 

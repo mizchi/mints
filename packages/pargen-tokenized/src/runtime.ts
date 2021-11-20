@@ -75,7 +75,7 @@ export function fail<ErrorData extends ParseErrorData>(
   return {
     error: true,
     pos,
-    ...errorData,
+    detail: errorData,
   };
 }
 
@@ -123,11 +123,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       if (token === expect) {
         return success(pos, 1, [pos]);
       } else {
-        return fail(pos, {
-          code: CODE_TOKEN_UNMATCH,
-          expect,
-          got: token,
-        });
+        return fail(pos, [CODE_TOKEN_UNMATCH, expect, token]);
       }
     }
     case RULE_REGEX: {
@@ -138,11 +134,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       if (matched) {
         return success(pos, 1, [pos]);
       } else {
-        return fail(pos, {
-          code: CODE_REGEX_UNMATCH,
-          expect: re.toString(),
-          got: token,
-        });
+        return fail(pos, [CODE_REGEX_UNMATCH, re.toString(), token]);
       }
     }
     case RULE_EOF: {
@@ -150,9 +142,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
       if (ended) {
         return success(pos, 0, []);
       } else {
-        return fail(pos, {
-          code: CODE_EOF_UNMATCH,
-        });
+        return fail(pos, [CODE_EOF_UNMATCH]);
       }
     }
     case RULE_ANY: {
@@ -170,10 +160,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
         if (result.error) {
           continue;
         } else {
-          return fail(pos, {
-            code: CODE_NOT_INCORRECT_MATCH,
-            matched: result,
-          });
+          return fail(pos, [CODE_NOT_INCORRECT_MATCH, result]);
         }
       }
       return success(pos, 0, []);
@@ -196,11 +183,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
         const parsed = parseWithCache(ctx, cursor, crid);
         if (parsed.error) {
           if (OPT_MASK & flags) continue;
-          return fail(cursor, {
-            code: CODE_SEQ_STOP,
-            childError: parsed,
-            index: i,
-          });
+          return fail(cursor, [CODE_SEQ_STOP, i, parsed]);
         }
         if (flags) {
           if (flags & KEY_MASK) {
@@ -212,16 +195,10 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
             const popFn = ctx.funcs[ctx[E_popList][rid][i]];
             const top = capturedStack.pop();
             if (top == null) {
-              return fail(cursor, {
-                code: CODE_SEQ_NO_STACK_ON_POP,
-                index: i,
-              });
+              return fail(cursor, [CODE_SEQ_NO_STACK_ON_POP, i]);
             }
             if (!popFn(top.xs, parsed.xs, ctx)) {
-              return fail(cursor, {
-                code: CODE_SEQ_UNMATCH_STACK,
-                index: i,
-              });
+              return fail(cursor, [CODE_SEQ_UNMATCH_STACK, i]);
             }
           }
         }
@@ -245,11 +222,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
 
         if (parsed.error) {
           if (flags & OPT_MASK) continue;
-          return fail(cursor, {
-            code: CODE_SEQ_STOP,
-            childError: parsed,
-            index: i,
-          });
+          return fail(cursor, [CODE_SEQ_STOP, i, parsed]);
         }
         if (flags) {
           if (flags & PUSH_MASK) capturedStack.push(parsed);
@@ -257,16 +230,10 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
             const popFn = ctx.funcs[ctx[E_popList][rid][i]];
             const top = capturedStack.pop();
             if (top == null) {
-              return fail(cursor, {
-                code: CODE_SEQ_NO_STACK_ON_POP,
-                index: i,
-              });
+              return fail(cursor, [CODE_SEQ_NO_STACK_ON_POP, i]);
             }
             if (!popFn(top.xs, parsed.xs, ctx)) {
-              return fail(cursor, {
-                code: CODE_SEQ_UNMATCH_STACK,
-                index: i,
-              });
+              return fail(cursor, [CODE_SEQ_UNMATCH_STACK, i]);
             }
           }
         }
@@ -300,10 +267,7 @@ function _parse(ctx: ParseContext, pos: number, rid: number): ParseResult {
         }
         return parsed as ParseResult;
       }
-      return fail(pos, {
-        code: CODE_OR_UNMATCH_ALL,
-        errors,
-      });
+      return fail(pos, [CODE_OR_UNMATCH_ALL, errors]);
     }
 
     case RULE_REPEAT: {
