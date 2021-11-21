@@ -4,8 +4,8 @@ import { parseTokens } from "../runtime/tokenizer";
 
 const parse = compile(line);
 
-export function processLine(tokens: string[]): string {
-  const parsed = parse(tokens.slice());
+function processLine(tokens: string[], opts: any): string {
+  const parsed = parse(tokens.slice(), opts);
   if (parsed.error) {
     throw new Error(JSON.stringify(parsed, null, 2));
   } else {
@@ -16,25 +16,34 @@ export function processLine(tokens: string[]): string {
   }
 }
 
-export function transform(input: string) {
+export function transform(
+  input: string,
+  opts?: { jsx?: string; jsxFragment?: string }
+) {
+  if (!opts) {
+    opts = detectPragma(input);
+    opts.jsx ??= "React.createElement";
+    opts.jsxFragment ??= "React.Fragment";
+  }
   let tokens: string[] = [];
   let results: string[] = [];
   for (const t of parseTokens(input)) {
     if (t === "\n") {
-      results.push(processLine(tokens.slice()));
+      results.push(processLine(tokens.slice(), opts));
       tokens = [];
     } else {
       tokens.push(t);
     }
   }
   if (tokens.length > 0) {
-    results.push(processLine(tokens));
+    results.push(processLine(tokens, opts));
   }
   // console.timeEnd("preprocess");
   return results.join("");
 }
 
 import { run, test, is } from "@mizchi/test";
+import { detectPragma } from "../runtime/preprocess";
 const isMain = require.main === module;
 // import ts from "typescript";
 if (process.env.NODE_ENV === "test") {
@@ -206,26 +215,19 @@ if (process.env.NODE_ENV === "test") {
       transform(`enum X { a = "foo", b = "bar" }`),
       `const X={a:"foo",b:"bar",};`
     );
-    // expectError(parse, [`class{f(a={a = 1}){}}`]);
   });
 
-  // test("jsx: no-pragma", () => {
-  //   const code = `const el = <div>1</div>`;
-  //   const result = transform(code);
-  //   is(result, {
-  //     result: `const el=React.createElement("div",{},"1")`,
-  //   });
-  // });
+  test("jsx: no pragma", () => {
+    const code = `const el = <div>1</div>;`;
+    const result = transform(code);
+    is(result, `const el=React.createElement("div",{},"1");`);
+  });
 
-  // test("jsx pragma", () => {
-  //   const code = `/* @jsx h */\nconst el = <div></div>`;
-  //   const result = transform(code);
-  //   // console.log("config", config);
-  //   // console.log(result);
-  //   is(result, {
-  //     result: `const el=h("div",{})`,
-  //   });
-  // });
+  test("jsx: with pragma", () => {
+    const code = `/* @jsx h */\nconst el = <div></div>;`;
+    const result = transform(code);
+    is(result, `const el=h("div",{});`);
+  });
 
   run({ stopOnFail: true, stub: true, isMain }).then(() => {
     console.log("[test:time]", Date.now() - now);

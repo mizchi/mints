@@ -35,7 +35,6 @@ export function loadSnapshot() {
     d(decoded[E_popList]),
     strings,
   ] as Snapshot;
-  // } as Snapshot;
 }
 
 // console.timeEnd("decode");

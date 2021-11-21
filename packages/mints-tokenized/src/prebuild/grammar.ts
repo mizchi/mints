@@ -1235,6 +1235,7 @@ import {
   reshapeJsxElementPtr,
   reshapeJsxSelfClosingElementPtr,
 } from "../runtime/funcs";
+import { detectPragma } from "../runtime/preprocess";
 
 if (process.env.NODE_ENV === "test") {
   const compile = (
@@ -1247,7 +1248,17 @@ if (process.env.NODE_ENV === "test") {
         if (next === "\n") continue;
         tokens.push(next);
       }
-      const out = parser(tokens, 0);
+
+      const opts = detectPragma(input);
+      // console.log("opts", opts);
+      const out = parser(
+        tokens,
+        {
+          jsx: opts.jsx ?? "React.createElement",
+          jsxFragment: opts.jsxFragment ?? "React.Fragment",
+        },
+        0
+      );
       if (out.error) {
         return out;
       } else {

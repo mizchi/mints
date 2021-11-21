@@ -3,6 +3,7 @@ import { funcs } from "./runtime/funcs";
 import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
 import { parseTokens } from "./runtime/tokenizer";
 import { loadSnapshot } from "./runtime/load_snapshot";
+import { detectPragma } from "./runtime/preprocess";
 
 const snapshot = loadSnapshot();
 const parse = createParserWithSnapshot(funcs, snapshot as Snapshot);
@@ -12,7 +13,12 @@ export type Opts = {
   jsxFragment?: string;
 };
 
-export function transform(input: string, opts: Opts = {}) {
+export function transform(input: string, opts?: Opts) {
+  if (!opts) {
+    opts = detectPragma(input);
+    opts.jsx = opts.jsx ?? "React.createElement";
+    opts.jsxFragment = opts.jsxFragment ?? "React.Fragment";
+  }
   let tokens: string[] = [];
   let results: string[] = [];
   for (const t of parseTokens(input)) {

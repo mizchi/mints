@@ -19,29 +19,13 @@ import {
   VALUE,
 } from "../prebuild/constants";
 
-// export const IDENT = "1";
-// export const ATTRIBUTES = "2";
-// export const CHILDREN = "3";
-// export const NAME = "4";
-// export const VALUE = "5";
-// export const ACCESS = "6";
-// export const INIT = "7";
-// export const LAST = "8";
-// export const CODE = "9";
-// export const ARGS = "10";
-// export const BODY = "11";
-// export const ASSIGN = "12";
-// export const ITEMS = "13";
+import reserved from "./reserved.json";
+import strings from "./strings.json";
 
 type ParsedCostructorArg = {
   [INIT]: string | null;
   [CODE]: string;
 };
-
-// const NAME = "6"
-
-import reserved from "./reserved.json";
-import strings from "./strings.json";
 
 export const funcs: Array<Function> = [() => {}];
 
@@ -179,6 +163,7 @@ const jsx = "React.createElement";
 const jsxFragment = "React.Fragment";
 
 const buildJsxCode = (
+  ctx: ParseContext,
   ident: string,
   attributes: Array<{ [NAME]: string; [VALUE]: string }>,
   children: Array<string> = []
@@ -200,22 +185,26 @@ const buildJsxCode = (
   }
   const isDomPrimitive = /^[a-z-]+$/.test(ident);
   let element = isDomPrimitive ? `"${ident}"` : ident;
-  if (ident === "") {
-    element = jsxFragment;
-  }
-  return `${jsx}(${element}${data}${childrenCode})`;
+  // console.log("ctx", ctx.opts);
+  if (ident === "") element = ctx.opts.jsxFragment ?? jsxFragment;
+  const factory = ctx.opts.jsx ?? jsx;
+  return `${factory}(${element}${data}${childrenCode})`;
 };
 
-const reshapeJsxElement = ([input]: [
-  {
-    [IDENT]: string[];
-    [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]: string[] }>;
-    [CHILDREN]: Array<string[]>;
-  }
-]) => {
+const reshapeJsxElement = (
+  [input]: [
+    {
+      [IDENT]: string[];
+      [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]: string[] }>;
+      [CHILDREN]: Array<string[]>;
+    }
+  ],
+  ctx: ParseContext
+) => {
   // console.log("children", input[CHILDREN]);
   return [
     buildJsxCode(
+      ctx,
       input[IDENT].join(""),
       input[ATTRIBUTES].map((a) => {
         return {
@@ -228,14 +217,18 @@ const reshapeJsxElement = ([input]: [
   ];
 };
 
-const reshapeJsxSelfClosingElement = ([input]: [
-  {
-    [IDENT]: string[];
-    [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]?: string[] }>;
-  }
-]) => {
+const reshapeJsxSelfClosingElement = (
+  [input]: [
+    {
+      [IDENT]: string[];
+      [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]?: string[] }>;
+    }
+  ],
+  ctx: ParseContext
+) => {
   return [
     buildJsxCode(
+      ctx,
       input[IDENT].join(""),
       input[ATTRIBUTES].map((a) => ({
         [NAME]: a[NAME].join(""),
