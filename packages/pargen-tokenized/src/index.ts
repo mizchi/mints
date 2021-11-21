@@ -22,6 +22,7 @@ export function createContext(
     const snapshot = prebuiltSnapshot ?? createSnapshot(rule as number);
     const rootParser: RootParser = (tokens: string[], opts: any) => {
       const cache = new Map<string, ParseResult>();
+      console.log("rootParser", tokens, opts);
       const ctx = {
         t: tokens,
         currentError: null,
@@ -43,10 +44,9 @@ export function createContext(
 
 export function createParserWithSnapshot(
   funcs: Function[],
-  snapshot: Snapshot,
-  opts: any = {}
+  snapshot: Snapshot
 ) {
-  const rootParser: RootParser = (tokens: string[]) => {
+  const rootParser: RootParser = (tokens: string[], opts: any) => {
     const cache = new Map<string, ParseResult>();
     const ctx = {
       t: tokens,

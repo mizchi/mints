@@ -2,6 +2,22 @@
 import { createSnapshot } from "../../../pargen-tokenized/src/index";
 import { line } from "./grammar";
 import { encode, decode } from "./cbor";
+import fs from "fs";
+import path from "path";
+import {
+  E_cidsList,
+  E_entryRefId,
+  E_flagsList,
+  E_keyList,
+  E_popList,
+  E_refs,
+  E_reshapeEachs,
+  E_reshapes,
+  E_rules,
+  E_strings,
+  E_values,
+} from "../../../pargen-tokenized/src/constants";
+import { CONTROL_TOKENS, RESERVED_WORDS } from "./constants";
 
 const snapshot = createSnapshot(line);
 const strings = snapshot[E_strings];
@@ -22,23 +38,6 @@ const newSnapshot = [
   toArray(snapshot[E_popList]),
 ];
 const serialized = encode(newSnapshot);
-
-import fs from "fs";
-import path from "path";
-import {
-  E_cidsList,
-  E_entryRefId,
-  E_flagsList,
-  E_keyList,
-  E_popList,
-  E_refs,
-  E_reshapeEachs,
-  E_reshapes,
-  E_rules,
-  E_strings,
-  E_values,
-} from "../../../pargen-tokenized/src/constants";
-import { CONTROL_TOKENS, RESERVED_WORDS } from "./constants";
 
 fs.writeFileSync(
   path.join(__dirname, "../runtime/snapshot.bin"),
@@ -85,26 +84,3 @@ fs.writeFileSync(
   path.join(__dirname, "../runtime/reserved.json"),
   JSON.stringify(rw)
 );
-
-// const controlTokens = CONTROL_TOKENS.map(x => strings.indexOf(x))
-
-// if (require.main === module) {
-//   console.time("decode");
-//   const decoded = decode(serialized);
-//   const d = Object.fromEntries;
-//   const decodedSnapshot = {
-//     entryRefId: decoded[0],
-//     rules: decoded[1],
-//     values: decoded[2],
-//     refs: decoded[3],
-//     cidsList: decoded[4],
-//     reshapes: d(decoded[5]),
-//     reshapeEachs: d(decoded[6]),
-//     flagsList: d(decoded[7]),
-//     keyList: d(decoded[8]),
-//     popList: d(decoded[9]),
-//   };
-
-//   console.timeEnd("decode");
-//   assert.deepStrictEqual(decodedSnapshot, snapshot);
-// }

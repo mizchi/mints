@@ -2,7 +2,7 @@ import type { Snapshot } from "../../pargen-tokenized/src/types";
 import { funcs } from "./runtime/funcs";
 import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
 import { parseTokens } from "./runtime/tokenizer";
-import { loadSnapshot } from "./runtime/load_snapshot";
+import { loadSnapshot } from "./runtime/load_b64_snapshot";
 import { detectPragma } from "./runtime/preprocess";
 
 const snapshot = loadSnapshot();

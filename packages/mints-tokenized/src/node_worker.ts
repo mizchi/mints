@@ -3,9 +3,10 @@ import { expose } from "./rpc/node";
 import { parentPort } from "worker_threads";
 import { funcs } from "./runtime/funcs";
 import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
-import { loadSnapshot } from "./runtime/load_snapshot";
+import { loadSnapshot } from "./runtime/load_b64_snapshot";
 
 let _parse: RootParser = createParserWithSnapshot(funcs, loadSnapshot());
+
 function transformLine(tokens: string[], opts?: any): string {
   const parsed = _parse(tokens.slice(), opts);
   if (parsed.error) {
@@ -18,8 +19,8 @@ function transformLine(tokens: string[], opts?: any): string {
   }
 }
 
-async function transform(tokensList: string[][]) {
-  return tokensList.map(transformLine);
+async function transform(tokensList: string[][], opts: any = {}) {
+  return tokensList.map((tokens) => transformLine(tokens, opts));
 }
 
 expose(parentPort, { transform });

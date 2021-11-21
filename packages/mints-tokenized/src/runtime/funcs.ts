@@ -188,6 +188,7 @@ const buildJsxCode = (
   // console.log("ctx", ctx.opts);
   if (ident === "") element = ctx.opts.jsxFragment ?? jsxFragment;
   const factory = ctx.opts.jsx ?? jsx;
+  // console.log("jsx build", factory, ctx.opts);
   return `${factory}(${element}${data}${childrenCode})`;
 };
 

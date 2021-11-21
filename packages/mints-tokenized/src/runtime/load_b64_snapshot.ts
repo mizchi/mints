@@ -4,7 +4,7 @@ import {
   E_keyList,
   E_popList,
   E_reshapeEachs,
-} from "./../../../pargen-tokenized/src/constants";
+} from "../../../pargen-tokenized/src/constants";
 import {
   E_cidsList,
   E_refs,
@@ -36,6 +36,3 @@ export function loadSnapshot() {
     strings,
   ] as Snapshot;
 }
-
-// console.timeEnd("decode");
-// assert.deepStrictEqual(decodedSnapshot, snapshot);

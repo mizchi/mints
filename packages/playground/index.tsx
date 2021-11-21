@@ -33,7 +33,7 @@ declare const _hidden: number;
 
 class Point<Num extends number = number> {
   private z: Num = 0;
-  constructor(private x: Num, private y: Num) {}
+  // constructor(private x: Num, private y: Num) {}
 }
 
 console.log(new Point<1 | 2>(1, 2));
@@ -53,13 +53,14 @@ function App() {
         timeout = null;
         const now = Date.now();
         const out = await api.transform(code);
+        // debugger;
         if (out.error) {
           setOutput(JSON.stringify(out, null, 2));
         } else {
           setBuildTime(Date.now() - now);
           setOutput(
             // format
-            out.result
+            out
             // .replace(/;/g, ";\n")
           );
         }

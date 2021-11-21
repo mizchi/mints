@@ -34,7 +34,7 @@ const plugins = [
   }),
 ];
 
-export default ["index", "node_main", "node_worker"].map((name) => {
+export default ["index", "node_main", "node_worker", "browser"].map((name) => {
   return {
     input: `src/${name}.ts`,
     output: [
