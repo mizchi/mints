@@ -51,7 +51,7 @@ export type Adapter<Ctx = any> = [
 ];
 
 export const createExpose =
-  ([emit, listen, terminate]: Adapter) =>
+  ([emit, listen]: Adapter) =>
   (ctx: any, api: any) => {
     listen(ctx, (ev: MessageEvent) => {
       if (ev.data?.[0] !== REQUEST_MARK) {

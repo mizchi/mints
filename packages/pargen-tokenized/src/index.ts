@@ -20,13 +20,14 @@ export function createContext(
 ) {
   const rootCompiler: RootCompiler = (rule) => {
     const snapshot = prebuiltSnapshot ?? createSnapshot(rule as number);
-    const rootParser: RootParser = (tokens: string[]) => {
+    const rootParser: RootParser = (tokens: string[], opts: any) => {
       const cache = new Map<string, ParseResult>();
       const ctx = {
         t: tokens,
         currentError: null,
         cache,
         funcs,
+        opts,
         ...snapshot,
       } as ParseContext;
       const rootResult = parseWithCache(ctx, 0, ctx[E_refs][snapshot[0]]);
@@ -42,7 +43,8 @@ export function createContext(
 
 export function createParserWithSnapshot(
   funcs: Function[],
-  snapshot: Snapshot
+  snapshot: Snapshot,
+  opts: any = {}
 ) {
   const rootParser: RootParser = (tokens: string[]) => {
     const cache = new Map<string, ParseResult>();
@@ -51,6 +53,7 @@ export function createParserWithSnapshot(
       currentError: null,
       cache,
       funcs,
+      opts,
       ...snapshot,
     } as ParseContext;
     const rootResult = parseWithCache(

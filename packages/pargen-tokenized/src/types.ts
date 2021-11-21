@@ -120,6 +120,7 @@ export type RootCompiler = (node: Rule | number) => RootParser;
 
 export type RootParser = (
   tokens: string[],
+  opts?: any,
   pos?: number,
   entryRef?: number
 ) => ParseSuccess | (ParseError & { tokens: string[] });
@@ -145,6 +146,7 @@ export type ParseContext = Snapshot & {
   funcs: Function[];
   cache: Map<string, ParseResult>;
   currentError: ParseError | null;
+  opts: any;
 };
 
 export type InternalParser = (ctx: ParseContext, pos: number) => ParseResult;

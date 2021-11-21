@@ -6,8 +6,8 @@ import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
 import { loadSnapshot } from "./runtime/load_snapshot";
 
 let _parse: RootParser = createParserWithSnapshot(funcs, loadSnapshot());
-function transformLine(tokens: string[]): string {
-  const parsed = _parse(tokens.slice());
+function transformLine(tokens: string[], opts?: any): string {
+  const parsed = _parse(tokens.slice(), opts);
   if (parsed.error) {
     throw new Error(JSON.stringify(parsed, null, 2));
   } else {

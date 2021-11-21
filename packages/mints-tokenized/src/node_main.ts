@@ -12,7 +12,7 @@ export function createTransformer(workerPath: string, workers: number) {
     terminate() {
       apis.forEach((w) => w.terminate());
     },
-    transform: async (input: string) => {
+    transform: async (input: string, opts?: any) => {
       let i = 0;
       const promises: Promise<string>[] = [];
       let _tokens: string[] = [];
@@ -20,7 +20,9 @@ export function createTransformer(workerPath: string, workers: number) {
       let _currentTokensCount = 0;
 
       const _hydrate = () => {
-        promises.push(apis[i++ % apis.length].exec("transform", _tokensList));
+        promises.push(
+          apis[i++ % apis.length].exec("transform", _tokensList, opts)
+        );
         _tokensList = [];
         _currentTokensCount = 0;
       };

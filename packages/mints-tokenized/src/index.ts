@@ -7,25 +7,30 @@ import { loadSnapshot } from "./runtime/load_snapshot";
 const snapshot = loadSnapshot();
 const parse = createParserWithSnapshot(funcs, snapshot as Snapshot);
 
-export function transform(input: string) {
+export type Opts = {
+  jsx?: string;
+  jsxFragment?: string;
+};
+
+export function transform(input: string, opts: Opts = {}) {
   let tokens: string[] = [];
   let results: string[] = [];
   for (const t of parseTokens(input)) {
     if (t === "\n") {
-      results.push(processLine(tokens.slice()));
+      results.push(processLine(tokens.slice(), opts));
       tokens = [];
     } else {
       tokens.push(t);
     }
   }
   if (tokens.length > 0) {
-    results.push(processLine(tokens));
+    results.push(processLine(tokens, opts));
   }
   return results.join("");
 }
 
-function processLine(tokens: string[]): string {
-  const parsed = parse(tokens.slice());
+function processLine(tokens: string[], opts: Opts): string {
+  const parsed = parse(tokens.slice(), opts);
   if (parsed.error) {
     throw new Error(JSON.stringify(parsed, null, 2));
   } else {
