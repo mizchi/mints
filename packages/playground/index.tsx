@@ -33,7 +33,7 @@ declare const _hidden: number;
 
 class Point<Num extends number = number> {
   private z: Num = 0;
-  // constructor(private x: Num, private y: Num) {}
+  constructor(private x: Num, private y: Num) {}
 }
 
 console.log(new Point<1 | 2>(1, 2));

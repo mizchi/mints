@@ -468,33 +468,31 @@ const anyLiteral = $def(() =>
 
 /* Class */
 const accessModifier = $or([K_PRIVATE, K_PUBLIC, K_PROTECTED]);
-const getOrSetModifier = $seq([$or([K_GET, K_SET])]);
+const getOrSetModifier = $or([K_GET, K_SET]);
 
 const classConstructorArg = $def(() =>
   $seqo(
     [
+      // name
       [
         IDENT,
         $or([
-          // private
+          // private x
           $seqo([
             [ACCESS, accessModifier],
             [IDENT, identifier],
+            // $skip_opt($seq([K_QUESTION, ":", typeExpression])),
           ]),
+          // x
           destructiveObjectPattern,
           destructiveArrayPattern,
           identifier,
         ]),
       ],
-      [
-        { key: INIT, opt: true },
-        $seq([
-          $skip_opt($seq([K_QUESTION, ":", typeExpression])),
-          "=",
-          $not([">"]),
-          anyExpression,
-        ]),
-      ],
+      // :number
+      $skip_opt($seq([$opt(K_QUESTION), ":", typeExpression])),
+      // =v
+      [{ key: INIT, opt: true }, $seq(["=", $not([">"]), anyExpression])],
     ],
     reshapeClassConstructorArgPtr
   )
@@ -1966,6 +1964,17 @@ if (process.env.NODE_ENV === "test") {
     is(
       parse("class{constructor(private x=1){foo;}}"),
       "class{constructor(x=1){this.x=x;foo;}}"
+    );
+
+    is(
+      parse(`class Point {constructor(private x: number) {} }`),
+      "class Point{constructor(x){this.x=x;}}"
+    );
+    is(
+      parse(
+        `class Point {constructor(private x: number, public y?: number) {} }`
+      ),
+      "class Point{constructor(x,y){this.x=x;this.y=y;}}"
     );
   });
 
