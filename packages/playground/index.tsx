@@ -40,35 +40,55 @@ console.log(new Point<1 | 2>(1, 2));
 `;
 
 let timeout: any = null;
+
+console.log("[main] start", performance.now());
+
+const loading = fetch("/snapshot.bin")
+  .then((r) => r.blob())
+  .then((b) => b.arrayBuffer());
+loading.then((snapshot) =>
+  console.log("[main] snapshot loaded", performance.now(), snapshot)
+);
+// @ts-ignore
+import { createTransform } from "../mints-tokenized/dist/browser";
+
 function App() {
   const [code, setCode] = useState(initialCode);
   const [output, setOutput] = useState("");
   const [buildTime, setBuildTime] = useState(0);
   const ref = useRef<HTMLIFrameElement>(null);
+  const [transform, setTransform] = useState<
+    null | ((input: string) => string)
+  >(null);
 
   useEffect(() => {
+    loading.then((snapshot) => {
+      setTransform(createTransform(snapshot));
+      console.log("[main] start", performance.now());
+    });
+  }, []);
+
+  useEffect(() => {
+    // if (transform == null) return;
     try {
       if (timeout) clearTimeout(timeout);
       timeout = setTimeout(async () => {
         timeout = null;
         const now = Date.now();
         const out = await api.transform(code);
+        // const out = await transform(code);
         // debugger;
         if (out.error) {
           setOutput(JSON.stringify(out, null, 2));
         } else {
           setBuildTime(Date.now() - now);
-          setOutput(
-            // format
-            out
-            // .replace(/;/g, ";\n")
-          );
+          setOutput(out);
         }
       }, 500);
     } catch (err) {
       console.error(err);
     }
-  }, [code, setCode, setOutput, setBuildTime]);
+  }, [code, setCode, setOutput, setBuildTime, transform]);
   const onClickRun = useCallback(() => {
     if (ref.current == null) return;
     const encoded = btoa(unescape(encodeURIComponent(output)));
