@@ -1,11 +1,16 @@
 /* @jsx h */
 import { h, render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
+// @ts-ignore
+import { createTransform } from "../mints-tokenized/dist/browser";
 import { wrap } from "comlink";
 import type { Api } from "./worker";
 // @ts-ignore
 import Worker from "./worker?worker";
 const api = wrap<Api>(new Worker());
+
+console.time("ui");
+console.time("first-compile");
 
 const initialCode = `/* @jsx h */
 import { h, render } from "https://cdn.skypack.dev/preact";
@@ -40,55 +45,39 @@ console.log(new Point<1 | 2>(1, 2));
 `;
 
 let timeout: any = null;
-
-console.log("[main] start", performance.now());
-
-const loading = fetch("/snapshot.bin")
-  .then((r) => r.blob())
-  .then((b) => b.arrayBuffer());
-loading.then((snapshot) =>
-  console.log("[main] snapshot loaded", performance.now(), snapshot)
-);
-// @ts-ignore
-import { createTransform } from "../mints-tokenized/dist/browser";
+let firstCompileDone = false;
 
 function App() {
   const [code, setCode] = useState(initialCode);
   const [output, setOutput] = useState("");
   const [buildTime, setBuildTime] = useState(0);
   const ref = useRef<HTMLIFrameElement>(null);
-  const [transform, setTransform] = useState<
-    null | ((input: string) => string)
-  >(null);
-
   useEffect(() => {
-    loading.then((snapshot) => {
-      setTransform(createTransform(snapshot));
-      console.log("[main] start", performance.now());
-    });
-  }, []);
-
-  useEffect(() => {
-    // if (transform == null) return;
     try {
       if (timeout) clearTimeout(timeout);
-      timeout = setTimeout(async () => {
-        timeout = null;
-        const now = Date.now();
-        const out = await api.transform(code);
-        // const out = await transform(code);
-        // debugger;
-        if (out.error) {
-          setOutput(JSON.stringify(out, null, 2));
-        } else {
-          setBuildTime(Date.now() - now);
-          setOutput(out);
-        }
-      }, 500);
+      timeout = setTimeout(
+        async () => {
+          timeout = null;
+          const now = Date.now();
+          const out = await api.transform(code);
+          if (out.error) {
+            setOutput(JSON.stringify(out, null, 2));
+          } else {
+            setBuildTime(Date.now() - now);
+            setOutput(out);
+            if (!firstCompileDone) {
+              firstCompileDone = true;
+              console.timeEnd("first-compile");
+              console.log("first compile ends at", performance.now());
+            }
+          }
+        },
+        firstCompileDone ? 250 : 0
+      );
     } catch (err) {
       console.error(err);
     }
-  }, [code, setCode, setOutput, setBuildTime, transform]);
+  }, [code, setCode, setOutput, setBuildTime]);
   const onClickRun = useCallback(() => {
     if (ref.current == null) return;
     const encoded = btoa(unescape(encodeURIComponent(output)));
@@ -125,7 +114,7 @@ function App() {
         }}
       >
         <div style={{ height: "100%", width: "100%", paddingLeft: 15 }}>
-          <h3>Mints Playground (WIP: 5kb typescript compiler)</h3>
+          <h3>Mints Playground</h3>
           <div>
             by{" "}
             <a href="https://twitter.com/mizchi" style={{ color: "#89f" }}>
@@ -138,7 +127,7 @@ function App() {
             style={{ paddingLeft: 10, width: "45vw", height: "80vh" }}
             value={code}
             onInput={(ev: any) => {
-              console.log("changed", ev.target.value);
+              // console.log("changed", ev.target.value);
               setCode(ev.target.value);
             }}
           />
@@ -153,8 +142,6 @@ function App() {
               position: "absolute",
               right: 0,
               top: 0,
-              // background: "gray",
-              // color: "white",
             }}
           >
             Run
@@ -177,3 +164,4 @@ function App() {
 }
 
 render(<App />, document.body);
+console.timeEnd("ui");

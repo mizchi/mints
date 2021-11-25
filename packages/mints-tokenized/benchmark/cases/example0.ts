@@ -118,3 +118,8 @@ export function main() {
   }
 }
 main();
+
+class _Point<Num extends number = number> {
+  private z: Num = 0;
+  constructor(private x: Num, private y: Num) {}
+}

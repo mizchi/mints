@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "vite build",
+    "build": "yarn workspace @mizchi/mints-tokenized build && cp ../mints-tokenized/src/runtime/snapshot.bin public/ && vite build",
     "dev": "vite"
   },
   "devDependencies": {
