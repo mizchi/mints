@@ -28,13 +28,18 @@ const plugins = [
       unsafe_methods: true,
       unsafe_undefined: true,
       inline: 3,
-      // unsafe_math: true,
       unsafe: true,
     },
   }),
 ];
 
-export default ["index", "node_main", "node_worker", "browser"].map((name) => {
+export default [
+  "index",
+  "node_main",
+  "node_worker",
+  "processor",
+  "tokenizer",
+].map((name) => {
   return {
     input: `src/${name}.ts`,
     output: [

@@ -1,13 +1,14 @@
 /* @jsx h */
 import { h, render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
-// @ts-ignore
-import { createTransform } from "../mints-tokenized/dist/browser";
 import { wrap } from "comlink";
-import type { Api } from "./worker";
+import type { TokenizerApi } from "./tokenize-worker";
 // @ts-ignore
-import Worker from "./worker?worker";
-const api = wrap<Api>(new Worker());
+import { transformSync } from "@mizchi/mints-tokenized/dist/index.js";
+// @ts-ignore
+import TokenizeWorker from "./tokenize-worker?worker";
+
+const api = wrap<TokenizerApi>(new TokenizeWorker());
 
 console.time("ui");
 console.time("first-compile");
@@ -59,7 +60,9 @@ function App() {
         async () => {
           timeout = null;
           const now = Date.now();
-          const out = await api.transform(code);
+          // const out = await api.transform(code);
+          const out = await transformSync(code);
+          // @ts-ignore
           if (out.error) {
             setOutput(JSON.stringify(out, null, 2));
           } else {
@@ -72,7 +75,7 @@ function App() {
             }
           }
         },
-        firstCompileDone ? 250 : 0
+        firstCompileDone ? 400 : 0
       );
     } catch (err) {
       console.error(err);
@@ -97,11 +100,7 @@ function App() {
       ],
       { type: "text/html" }
     );
-
-    // const iframe = document.querySelector("iframe");
-    // if (ref.current) {
     ref.current.src = URL.createObjectURL(blob);
-    // }
   }, [output, ref]);
   return (
     <div style={{ display: "flex", width: "100vw", hegiht: "100vh" }}>

@@ -5,9 +5,9 @@ import { parseTokens } from "./runtime/tokenizer";
 const MAX_TOKENS = 512;
 
 export function createTransformer(workerPath: string, workers: number) {
-  const apis = [...Array(workers).keys()].map((_i) => {
-    return wrap(new Worker(workerPath));
-  });
+  const apis = [...Array(workers).keys()].map((_i) =>
+    wrap(new Worker(workerPath))
+  );
   return {
     terminate() {
       apis.forEach((w) => w.terminate());
@@ -18,7 +18,6 @@ export function createTransformer(workerPath: string, workers: number) {
       let _tokens: string[] = [];
       let _tokensList: Array<string[]> = [];
       let _currentTokensCount = 0;
-
       const _hydrate = () => {
         promises.push(
           apis[i++ % apis.length].exec("transform", _tokensList, opts)

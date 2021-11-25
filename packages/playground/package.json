@@ -3,11 +3,15 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "yarn workspace @mizchi/mints-tokenized build && cp ../mints-tokenized/src/runtime/snapshot.bin public/ && vite build",
-    "dev": "vite"
+    "build-deps": "yarn workspace @mizchi/mints-tokenized build",
+    "build": "yarn build-deps && vite build",
+    "dev": "yarn build-deps && vite"
   },
   "devDependencies": {
     "comlink": "^4.3.1",
     "vite": "^2.6.10"
+  },
+  "dependencies": {
+    "vite": "^2.6.14"
   }
 }

@@ -1,13 +1,10 @@
-import { expose } from "comlink";
-// @ts-ignore
-import { createTransform } from "../mints-tokenized/dist/browser.js";
-import { snapshot } from "../mints-tokenized/src/runtime/snapshot_b64";
+// https://github.com/niklasvh/base64-arraybuffer
 const chars =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 const lookup = typeof Uint8Array === "undefined" ? [] : new Uint8Array(256);
 for (let i = 0; i < chars.length; i++) lookup[chars.charCodeAt(i)] = i;
 
-const decodeBase64 = (base64: string): ArrayBuffer => {
+export const decodeBase64 = (base64: string): ArrayBuffer => {
   let bufferLength = base64.length * 0.75,
     len = base64.length,
     i,
@@ -35,17 +32,3 @@ const decodeBase64 = (base64: string): ArrayBuffer => {
   }
   return arraybuffer;
 };
-
-console.time("snapshot-loading");
-const buf = decodeBase64(snapshot);
-const transform = createTransform(buf);
-console.timeEnd("snapshot-loading");
-
-const api = {
-  async transform(input: string) {
-    return transform(input, { jsx: "h" });
-  },
-};
-
-export type Api = typeof api;
-expose(api);

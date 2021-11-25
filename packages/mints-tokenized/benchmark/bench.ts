@@ -4,7 +4,7 @@ import path from "path";
 import esbuild_ from "esbuild";
 import { transform as sucraseTransform } from "sucrase";
 // @ts-ignore
-import { transform } from "../dist/index.cjs";
+import { transformSync } from "../dist/index.cjs";
 // @ts-ignore
 import { createTransformer } from "../dist/node_main.cjs";
 
@@ -69,7 +69,7 @@ async function esbuild(input: string) {
 }
 
 function mints(input: string) {
-  const out = transform(input);
+  const out = transformSync(input);
   if (typeof out === "object") {
     throw out;
   }

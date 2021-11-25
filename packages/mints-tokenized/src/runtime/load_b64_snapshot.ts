@@ -13,14 +13,15 @@ import {
   E_values,
 } from "../../../pargen-tokenized/src/constants";
 import { Snapshot } from "../../../pargen-tokenized/src/types";
-import { decode } from "./decode_cbor_subset";
+import { decodeBase64 } from "../decode/decodeBase64";
+import { decode } from "../decode/decode_cbor_subset";
 import { snapshot } from "./snapshot_b64";
 import strings from "./strings.json";
 
+const buf = decodeBase64(snapshot);
+
 export function loadSnapshot() {
-  const decoded = decode(
-    new Uint8Array(Buffer.from(snapshot, "base64")).buffer
-  );
+  const decoded = decode(buf);
   const d = Object.fromEntries;
   return [
     decoded[E_entryRefId],

@@ -4,16 +4,12 @@ import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
 import { parseTokens } from "./runtime/tokenizer";
 import { loadSnapshot } from "./runtime/load_b64_snapshot";
 import { detectPragma } from "./runtime/preprocess";
+import { Opts } from "./types";
 
 const snapshot = loadSnapshot();
 const parse = createParserWithSnapshot(funcs, snapshot as Snapshot);
 
-export type Opts = {
-  jsx?: string;
-  jsxFragment?: string;
-};
-
-export function transform(input: string, opts?: Opts) {
+export function transformSync(input: string, opts?: Opts) {
   if (!opts) {
     opts = detectPragma(input);
     opts.jsx = opts.jsx ?? "React.createElement";
