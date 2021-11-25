@@ -15,7 +15,7 @@ import {
   $skip,
   $skip_opt,
   $token,
-} from "../../pargen/src/builder";
+} from "@mizchi/pargen/src/builder";
 
 import {
   K_ABSTRACT,

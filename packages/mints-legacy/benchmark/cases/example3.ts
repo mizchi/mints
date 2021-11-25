@@ -17,8 +17,8 @@ const reserved = RESERVED_WORDS.join("|");
 export const identifier = $.def(() =>
   $.seq([
     // TODO: doc
-    $.not($.or([...RESERVED_WORDS])),
-    $.r`([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
+    // $.not($.or([...RESERVED_WORDS])),
+    // $.r`([a-zA-Z_\\$][a-zA-Z_\\$\\d]*)`,
     $.regex(`(?!(${reserved})$)([a-zA-Z_$][a-zA-Z_$0-9]*)`),
   ])
 );
@@ -67,15 +67,15 @@ const typeParen = $.def(() =>
   $.seq(["(", _, typeExpression, _, ")", _, $.opt(typeParameters)])
 );
 
-const typeIdentifier = $.def(() =>
-  $.or([
-    "a",
-    "void",
-    "any",
-    "unknown",
-    $.seq([identifier, _, $.opt(typeParameters)]),
-  ])
-);
+// const typeIdentifier = $.def(() =>
+//   $.or([
+//     "a",
+//     "void",
+//     "any",
+//     "unknown",
+//     $.seq([identifier, _, $.opt(typeParameters)]),
+//   ])
+// );
 
 const typePrimary = $.def(() =>
   $.or([typeParen, typeObjectLiteral, typeArrayLiteral, typeIdentifier])
@@ -184,7 +184,7 @@ const _typeObjectItem = $.def(() =>
     $.seq([
       $.opt($.seq(["readonly", __])),
       identifier,
-      $.opt($.seq([_, "?"])),
+      // $.opt($.seq([_, "?"])),
       _,
       $.or([":", "?:"]),
       // ":",
@@ -341,9 +341,9 @@ export const functionArgWithAssign = $.def(() =>
     $.opt($.seq([_, "=", _, anyExpression])),
   ])
 );
-// const lefthand = $.def(() => destructivePattern);
+const lefthand = $.def(() => destructivePattern);
 
-// const x = $.opt(destructivePattern);
+const x = $.opt(destructivePattern);
 
 const functionArguments = $.def(() =>
   $.or([
@@ -733,20 +733,20 @@ const unary = $.def(() =>
   ])
 );
 
-const binaryExpression = $.def(() =>
-  $.seq([
-    unary,
-    $["*"]([
-      // _s,
-      $.or([
-        ...SPACE_REQUIRED_OPERATORS.map((op) => $.seq([__, op, __])),
-        ...OPERATORS.map((op) => $.seq([_s, op, _s])),
-      ]),
-      // _s,
-      unary,
-    ]),
-  ])
-);
+// const binaryExpression = $.def(() =>
+//   $.seq([
+//     unary,
+//     $["*"]([
+//       // _s,
+//       $.or([
+//         ...SPACE_REQUIRED_OPERATORS.map((op) => $.seq([__, op, __])),
+//         ...OPERATORS.map((op) => $.seq([_s, op, _s])),
+//       ]),
+//       // _s,
+//       unary,
+//     ]),
+//   ])
+// );
 
 /* TypeExpression */
 
@@ -1117,12 +1117,12 @@ const lines = $.seq([
         semicolonlessStatement,
         $.or([$.skip($.tok("\n")), $.tok(";"), $.skip(_)]),
       ]),
-      $.seq([$.opt(anyStatement), _, $.r`[;\\n]+`, _]),
+      // $.seq([$.opt(anyStatement), _, $.r`[;\\n]+`, _]),
       $.seq([
         // enter or semicolon end statements
         $.opt(anyStatement),
         $.r`[ ]*`,
-        $.r`[\\n;]`,
+        // $.r`[\\n;]`,
         $.or([$.skip($.tok("\n")), $.tok(";")]),
         _s,
       ]),
@@ -1137,7 +1137,8 @@ export const block = $.def(() => $.seq(["{", _s, lines, _s, "}"]));
 export const program = $.def(() => $.seq([_s, lines, _s, $.eof()]));
 
 import { test, run, is } from "@mizchi/test";
-import { expectError, expectSame } from "./_testHelpers";
+// import { expectError, expectSame } from "./_testHelpers";
 import { preprocessLight } from "./preprocess";
 import { ErrorType, ParseError } from "../../pargen/src/types";
-import { reportError } from "../../pargen/src/error_reporter";
+// import { reportError } from "../../pargen/src/error_reporter";
+

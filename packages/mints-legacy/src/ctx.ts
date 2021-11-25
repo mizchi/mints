@@ -1,5 +1,5 @@
-import { Rule, RootCompilerOptions } from "./../../pargen/src/types";
-import { createContext } from "../../pargen/src/index";
+import { Rule, RootCompilerOptions } from "@mizchi/pargen/src/types";
+import { createContext } from "@mizchi/pargen/src";
 import { detectPragma, preprocessLight } from "./preprocess";
 
 const { compile } = createContext({});

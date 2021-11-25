@@ -1,11 +1,11 @@
 // , b: number[], c: Array<string>;
 const x: number = 1;
 
-let a,b,c;
+let a, b, c;
 
 function square(x: number): number {
   return x ** 2;
-};
+}
 
 square(2);
 
@@ -17,7 +17,7 @@ type IPoint = {
 if (1) {
   1;
 } else {
-  while(false) {}
+  while (false) {}
 }
 
 class Point<T extends IPoint = any> implements Object {
@@ -34,9 +34,9 @@ class Point<T extends IPoint = any> implements Object {
 
 const p = new Point(1, 2);
 
-// console.log(p.x);
+console.log(p.x);
 
-// func<T>();
+func<T>();
 
 export { x, x as y, p };
 
@@ -44,9 +44,9 @@ export const v = 1;
 
 export class Foo {
   x: number = 1;
-};
+}
 
-// console.log("aaa");
+console.log("aaa");
 
 const el = document.querySelector("#app");
 
@@ -55,10 +55,10 @@ console.log("el", el);
 switch (1 as number) {
   case 1:
   case 2: {
-    break
+    break;
   }
   default: {
-    console.log(!!1)
+    console.log(!!1);
   }
 }
 
@@ -71,15 +71,13 @@ import {
   __ as __w,
 } from "../../src/constants";
 
-
-
-// declare const foo: any;
+declare const foo: any;
 
 import { RootCompiler, RootParser } from "@mizchi/pargen/src/types";
 import { createContext } from "@mizchi/pargen/src";
 import { preprocessLight } from "../../src/preprocess";
-const { compile, builder } = createContext<number>({
-  composeTokens: true,
+const { compile } = createContext({
+  // composeTokens: true,
   // pairs: ["{", "}"],
 });
 
@@ -93,38 +91,35 @@ const compileWithPreprocess: RootCompiler = (input, opts) => {
   return newParser;
 };
 
-export { compileWithPreprocess as compile, builder };
+export { compileWithPreprocess as compile };
 
 interface X {}
 
 export function escapeWhistespace(input: string) {
-  return input
-  .replace(/[ ]{1,}/gmu, (text) => `@W${text.length}}`)
-  .replace(/\n{1,}/gmu, (text) => `@N${text.length}}`);
-};
+  return input.replace(/[ ]{1,}/gmu, (text) => `@W${text.length}}`);
+}
 
 export function restoreEscaped(input: string, literals: Map<string, string>) {
-  return input.replace(/@(W|L|N)(\d+)\}/, (full, type, $2)=>{});
-  
-};
-
+  return input.replace(/@(W|L|N)(\d+)\}/, (full, type, $2) => {});
+}
 
 export function main() {
-  // const compilers = [
-  //   compileTsc,
-  //   compileMints,
-  // ];
-
-  // for (const compiler of compilers) {
-  //   for (let i = 0; i < 3; i++) {
-  //     const now = Date.now();
-  //     const out = compiler(code);
-  //     console.log(compiler.name, `[${i}]`, Date.now() - now);
-  //     // printPerfResult();
-  //     console.log("raw:", out);
-  //     // console.log("----");
-  //     // console.log(prettier.format(out, { parser: "typescript" }));
-  //   }
-  // }
-};
+  const compilers = [compileTsc, compileMints];
+  for (const compiler of compilers) {
+    for (let i = 0; i < 3; i++) {
+      const now = Date.now();
+      const out = compiler(code);
+      console.log(compiler.name, `[${i}]`, Date.now() - now);
+      printPerfResult();
+      console.log("raw:", out);
+      console.log("----");
+      console.log(prettier.format(out, { parser: "typescript" }));
+    }
+  }
+}
 main();
+
+class _Point<Num extends number = number> {
+  private z: Num = 0;
+  constructor(private x: Num, private y: Num) {}
+}

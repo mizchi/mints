@@ -13,37 +13,7 @@ import { transformSync } from "@mizchi/mints/dist/index.js";
 console.time("ui");
 console.time("first-compile");
 
-const initialCode = `/* @jsx h */
-import { h, render } from "https://cdn.skypack.dev/preact";
-
-// support enum
-enum Keys {
-  A = 1,
-  B
-}
-
-// support jsx
-function App() {
-  return <div>Hello World</div>;
-}
-render(<App />, document.body);
-
-// types
-const x: number = 1;
-function square(x: number): number {
-  return x ** 2;
-}
-
-type T = any;
-declare const _hidden: number;
-
-class Point<Num extends number = number> {
-  private z: Num = 0;
-  constructor(private x: Num, private y: Num) {}
-}
-
-console.log(new Point<1 | 2>(1, 2));
-`;
+const initialCode = `hello`;
 
 let timeout: any = null;
 let firstCompileDone = false;

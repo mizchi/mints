@@ -1,5 +1,5 @@
 import ts from "typescript";
-import { ErrorType, ParseError } from "../../../pargen-tokenized/src/types";
+import { ErrorType, ParseError } from "@mizchi/pargen/src/types";
 import { preprocessLight } from "../../src/preprocess";
 import prettier from "prettier";
 
@@ -17,11 +17,11 @@ const _format = (input: string, format: boolean, stripTypes: boolean) => {
 
 export const expectSame = (
   parse: any,
-  inputs: string[]
-  // {
-  //   format = true,
-  //   stripTypes = true,
-  // }: { format?: boolean; stripTypes?: boolean } = {}
+  inputs: string[],
+  {
+    format = true,
+    stripTypes = true,
+  }: { format?: boolean; stripTypes?: boolean } = {}
 ) => {
   inputs.forEach((raw) => {
     const input = preprocessLight(raw);
@@ -79,6 +79,7 @@ function _formatError(input: string, error: ParseError, depth: number = 0) {
     console.error("[parse:fail]", error.pos);
   }
   const prefix = " ".repeat(depth * 2);
+
   console.log(
     prefix,
     `${ErrorType?.[error.code]}[${error.pos}]`,
@@ -91,9 +92,11 @@ function _formatError(input: string, error: ParseError, depth: number = 0) {
   if (error.code === ErrorType.Not_IncorrectMatch) {
     console.log(prefix, "matche", error);
   }
+
   if (error.code === ErrorType.Seq_Stop) {
     _formatError(input, error.detail.child, depth + 1);
   }
+
   if (error.code === ErrorType.Or_UnmatchAll) {
     for (const e of error.detail.children) {
       _formatError(input, e, depth + 1);

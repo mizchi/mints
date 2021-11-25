@@ -5,7 +5,7 @@ console.timeEnd("load");
 
 console.time("run1");
 const out = transform("const x: number = 1;");
-console.log(out.result);
+console.log(out);
 console.timeEnd("run1");
 
 console.time("run2");

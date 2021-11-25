@@ -18,13 +18,17 @@ const defaultImportMap = {
 export class Bundler {
   private modulesMap = new Map<string, AnalyzedChunk>();
   public fs: IPromisesAPI;
-  public importMap: ImportMap = defaultImportMap;
-  // {
-  //   this.fs = createMemoryFs(files);
-  // }
+
+  constructor(
+    // public files: { [k: string]: string },
+    // public importMap: ImportMap = defaultImportMap
+  ) {
+    this.fs = createMemoryFs(files);
+  }
+
   public async bundle(
-    entry: string,
-    { exposeToGlobal = null, optimize: _optimize = true }: BundleOptions
+    entry: string
+    // { exposeToGlobal = null, optimize: _optimize = true }: BundleOptions
   ) {
     await this.addModule(entry);
     const chunks = aggregateChunks(this.modulesMap, entry);
@@ -36,6 +40,7 @@ export class Bundler {
       transformDynamicImport: false,
     });
   }
+
   public async bundleChunks(
     entry: string
     // {} : {} = {}
@@ -53,6 +58,7 @@ export class Bundler {
       transformDynamicImport: true,
       publicPath,
     });
+
     if (root) {
       builtChunks.push({
         type: "entry",
@@ -67,6 +73,7 @@ export class Bundler {
         builtCode: built,
       });
     }
+
     const dynamicImports = optimizedChunks.map((c) => c.dynamicImports).flat();
     dynamicImports.forEach((i) => {
       this.bundleChunks(
@@ -94,15 +101,17 @@ export class Bundler {
         builtChunks
       );
     });
+
     return builtChunks;
   }
+
   public async updateModule(filepath: string, nextContent: string) {
     await this.fs.writeFile(filepath, nextContent);
     this.modulesMap.delete(filepath);
     this.addModule(filepath);
   }
 
-  //   // // TODO: need this?
+  // // TODO: need this?
   async deleteRecursive(filepath: string) {
     const cached = this.modulesMap.get(filepath)!;
     if (cached) {
@@ -112,14 +121,17 @@ export class Bundler {
       }
     }
   }
+
   private async addModule(filepath: string): Promise<void> {
-    console.log("add module", filepath);
+    // console.log("add module", filepath);
     if (this.modulesMap.has(filepath)) {
       return;
     }
+
     const basepath = path.dirname(filepath);
     const raw = await readFile(this.fs, filepath);
     const ast = parse(raw, filepath);
+
     const analyzed = analyzeModule(ast, basepath, this.importMap);
     this.modulesMap.set(filepath, {
       ...analyzed,
@@ -127,7 +139,8 @@ export class Bundler {
       filepath,
       ast,
     });
-    console.log("used", filepath, JSON.stringify(imports, null, 2));
+
+    // console.log("used", filepath, JSON.stringify(imports, null, 2));
     for (const i of analyzed.imports) {
       await this.addModule(i.filepath);
     }
@@ -145,10 +158,12 @@ export function aggregateChunks(modulesMap: ModulesMap, entryPath: string) {
   const chunks: AnalyzedChunk[] = [];
   _aggregate(entryMod);
   return chunks;
+
   function _aggregate(mod: AnalyzedChunk) {
     if (chunks.find((x) => x.filepath === mod.filepath)) {
       return chunks;
     }
+
     for (const imp of mod.imports) {
       if (chunks.find((x) => x.filepath === imp.filepath)) {
         continue;
@@ -156,6 +171,7 @@ export function aggregateChunks(modulesMap: ModulesMap, entryPath: string) {
       const child = modulesMap.get(imp.filepath)!;
       _aggregate(child);
     }
+
     for (const dimp of mod.dynamicImports) {
       if (chunks.find((x) => x.filepath === dimp.filepath)) {
         continue;
@@ -163,14 +179,16 @@ export function aggregateChunks(modulesMap: ModulesMap, entryPath: string) {
       const child = modulesMap.get(dimp.filepath)!;
       _aggregate(child);
     }
+
     chunks.push(mod);
     return chunks;
   }
 }
 
 // helper
-export function createMemoryFs(): IPromisesAPI {
+export function createMemoryFs(
   // files: { [k: string]: string }
+): IPromisesAPI {
   const vol = Volume.fromJSON(files, "/");
   return createFs(vol) as IPromisesAPI;
 }

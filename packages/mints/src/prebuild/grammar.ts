@@ -1051,7 +1051,10 @@ const jsxElement = $def(() =>
       $skip_opt(typeDeclareParameters),
       [ATTRIBUTES, jsxAttributes],
       ">",
-      [CHILDREN, $repeat($or([jsxSelfCloseElement, jsxInlineExpr, jsxText]))],
+      [
+        CHILDREN,
+        $repeat($or([jsxSelfCloseElement, jsxElement, jsxInlineExpr, jsxText])),
+      ],
       "<",
       "/",
       [
@@ -2011,7 +2014,6 @@ if (process.env.NODE_ENV === "test") {
     is(parse("<div></div>"), `React.createElement("div",{})`);
     is(parse("<div></xxx>"), { error: true });
     is(parse("<div></xxx></div>"), { error: true });
-
     is(parse("<div>a</div>"), `React.createElement("div",{},"a")`);
     is(parse("<div>a b</div>"), `React.createElement("div",{},"a b")`);
     is(parse("<div>{a}</div>"), `React.createElement("div",{},a)`);

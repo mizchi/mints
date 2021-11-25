@@ -7,20 +7,24 @@
   "module": "dist/index.js",
   "scripts": {
     "prepublishOnly": "yarn test && yarn build && yarn build:types",
-    "build": "rollup -c && ls -lh dist | cut -f 10,14 -d ' '",
+    "build": "node -r esbuild-register src/prebuild/prebuild.ts && rollup -c && cp src/runtime/snapshot.bin dist/",
     "build:types": "tsc -p tsconfig.types.json",
     "analyze": "rollup -c rollup.config.analyze.js",
-    "bench": "node -r esbuild-register benchmark/bench.ts",
+    "bench": "yarn build && node -r esbuild-register benchmark/bench.ts",
     "bench:0x": "0x -- node -r esbuild-register  benchmark/bench.ts",
-    "test": "NODE_ENV=test node -r esbuild-register src/"
+    "test": "NODE_ENV=test node -r esbuild-register src/prebuild/index.ts"
   },
   "devDependencies": {
     "0x": "^4.11.0",
     "@atomico/rollup-plugin-sizes": "^1.1.4",
+    "@rollup/plugin-json": "^4.1.0",
     "@rollup/plugin-node-resolve": "^13.0.6",
     "@rollup/plugin-replace": "^3.0.0",
     "@sosukesuzuki/rollup-plugin-bundle-size": "^0.1.0",
+    "@types/object-hash": "^2.2.1",
     "@types/prettier": "^2.4.1",
+    "esbuild": "^0.13.12",
+    "object-hash": "^2.2.0",
     "prettier": "^2.4.1",
     "rollup-plugin-analyzer": "^4.0.0",
     "rollup-plugin-define": "^1.0.1",
@@ -30,5 +34,9 @@
     "test262-harness": "^9.0.0",
     "typescript": "^4.4.4",
     "vite": "^2.6.10"
+  },
+  "dependencies": {
+    "minlink": "^2.0.1",
+    "sucrase": "^3.20.3"
   }
 }

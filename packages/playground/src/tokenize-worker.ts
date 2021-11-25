@@ -2,7 +2,7 @@
 import ProcessWorker from "./process-worker?worker&inline";
 import { expose, wrap } from "comlink";
 // @ts-ignore
-import { tokenizeBatch } from "../../mints-tokenized/dist/tokenizer.js";
+import { tokenizeBatch } from "@mizchi/mints/dist/tokenizer.js";
 
 type ProcessFunc = (tokens: string[][], opts: any) => Promise<string>;
 
