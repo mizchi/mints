@@ -46,6 +46,11 @@ const code5 = fs.readFileSync(
   "utf-8"
 );
 
+const code6 = fs.readFileSync(
+  path.join(__dirname, "cases/example6.tsx"),
+  "utf-8"
+);
+
 function tsc(input: string) {
   return ts.transpileModule(input, {
     fileName: "$.tsx",
@@ -101,7 +106,7 @@ export async function main() {
 
   // const targets = [code1, code2, code3];
   // const targets = [code_scratch];
-  const targets = [code0, code1, code2, code3, code4, code5];
+  const targets = [code0, code1, code2, code3, code4, code5, code6];
 
   // check mints can parse all
   console.log("=== mints-check");

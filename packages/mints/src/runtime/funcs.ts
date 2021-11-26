@@ -42,7 +42,7 @@ for (const word of reserved.map((x) => strings[x])) {
   __reservedWordsByLength.set(word.length, [...words, word].sort());
 }
 
-const identParser: InternalParser = (ctx, pos) => {
+const identifierParser: InternalParser = (ctx, pos) => {
   const token = ctx.t[pos] ?? "";
   const errorData = { code: 255, token } as any;
   const len = Array.from(token).length;
@@ -195,8 +195,8 @@ const buildJsxCode = (
 const reshapeJsxElement = (
   [input]: [
     {
-      [IDENT]: string[];
-      [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]: string[] }>;
+      [IDENT]?: string[];
+      [ATTRIBUTES]?: Array<{ [NAME]: string[]; [VALUE]: string[] }>;
       [CHILDREN]: Array<string[]>;
     }
   ],
@@ -206,13 +206,13 @@ const reshapeJsxElement = (
   return [
     buildJsxCode(
       ctx,
-      input[IDENT].join(""),
-      input[ATTRIBUTES].map((a) => {
+      input[IDENT]?.join("") ?? "",
+      input[ATTRIBUTES]?.map((a) => {
         return {
           [NAME]: a[NAME].join(""),
           [VALUE]: a[VALUE].join(""),
         };
-      }),
+      }) ?? [],
       input[CHILDREN].flat()
     ),
   ];
@@ -239,7 +239,7 @@ const reshapeJsxSelfClosingElement = (
   ];
 };
 
-export const identParserPtr = addFunc(identParser);
+export const identParserPtr = addFunc(identifierParser);
 export const createWhitespacePtr = addFunc(createWhitespace);
 export const reshapeClassConstructorArgPtr = addFunc(
   reshapeClassConstructorArg

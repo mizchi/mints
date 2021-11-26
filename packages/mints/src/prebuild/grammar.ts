@@ -111,6 +111,17 @@ const whitespace = $def(() => $any(0, createWhitespacePtr));
 
 const identifier = $def(() => $atom(identParserPtr));
 
+// console.log(
+//   "tokens",
+//   CONTROL_TOKENS.map((c) => `\\${c}`)
+//     .filter((c) => !["\n", "\t", "\r"].includes(c))
+//     .join("")
+// );
+
+const objectMemberIdentifier = $regex(
+  `^[^~&<>!:;,$='"\`\\{\\}\\(\\)\\[\\]\\^\\?\\.\\*\\\\]+$`
+);
+
 const typeDeclareParameter = $def(() =>
   $seq([
     typeExpression,
@@ -218,7 +229,7 @@ const typeObjectItem = $def(() =>
   $or([
     $seq([
       $opt($seq([K_ASYNC, whitespace])),
-      identifier,
+      objectMemberIdentifier,
       $opt(typeDeclareParameters),
       L_PAREN,
       typeFunctionArgs,
@@ -230,7 +241,8 @@ const typeObjectItem = $def(() =>
     // member
     $seq([
       $opt($seq([K_READONLY, whitespace])),
-      identifier,
+      objectMemberIdentifier,
+      // identifier,
       $opt(K_QUESTION),
       ":",
       typeExpression,
@@ -305,7 +317,7 @@ const destructiveArrayPattern = $def(() =>
     $repeat_seq([$opt($seq([destructive, $opt($seq([assign]))])), ","]),
     $or([
       $seq([dotDotDot, identifier]),
-      $seq([destructive, $opt(assign), $opt(",")]),
+      $seq([$or([$seq([destructive])]), $opt(assign), $opt(",")]),
       $seq([$opt(",")]),
     ]),
     "]",
@@ -313,7 +325,10 @@ const destructiveArrayPattern = $def(() =>
 );
 
 const destructiveObjectItem = $def(() =>
-  $seq([identifier, $opt($seq([":", destructive])), $opt(assign)])
+  $seq([
+    $or([$seq([objectMemberIdentifier, ":", destructive]), identifier]),
+    $opt(assign),
+  ])
 );
 
 const destructiveObjectPattern = $def(() =>
@@ -430,16 +445,24 @@ const objectItem = $def(() =>
     $seq([
       // function
       $opt($or([K_ASYNC, K_GET, K_SET])),
-      $or([stringLiteral, $seq(["[", anyExpression, "]"]), identifier]),
+      $or([
+        stringLiteral,
+        $seq(["[", anyExpression, "]"]),
+        objectMemberIdentifier,
+      ]),
       $seq([L_PAREN, funcArgs, R_PAREN, block]),
     ]),
     $seq([
-      $or([stringLiteral, $seq(["[", anyExpression, "]"]), identifier]),
+      $or([
+        stringLiteral,
+        $seq(["[", anyExpression, "]"]),
+        objectMemberIdentifier,
+      ]),
       ":",
       anyExpression,
     ]),
     // shothand
-    identifier,
+    objectMemberIdentifier,
   ])
 );
 
@@ -629,7 +652,8 @@ const access = $def(() =>
       $opt($or(["!", "?"])),
       ".",
       $opt("#"),
-      $or([identifier, K_DELETE, K_WITH]),
+      objectMemberIdentifier,
+      // $or([identifier, K_DELETE, K_WITH]),
     ]),
     $seq([$opt($seq(["?", "."])), "[", anyExpression, "]"]),
   ])
@@ -1029,18 +1053,36 @@ const jsxInlineExpr = $seq([$skip("{"), anyExpression, $skip("}")]);
 
 const jsxText = $def(() => $atom(parseJsxTextPtr));
 
-// JSX transform constants
-// const IDENT = "1";
-// const ATTRIBUTES = "2";
-// const CHILDREN = "3";
-// const NAME = "4";
-// const VALUE = "5";
-
 const jsxAttributes = $repeat(
   $seqo([
-    [NAME, identifier],
+    [NAME, objectMemberIdentifier],
     [VALUE, $seq([$skip_opt("="), $or([stringLiteral, jsxInlineExpr])])],
   ])
+);
+
+const jsxFragment = $def(() =>
+  $seqo(
+    [
+      "<",
+      ">",
+      [
+        CHILDREN,
+        $repeat(
+          $or([
+            jsxSelfCloseElement,
+            jsxElement,
+            jsxFragment,
+            jsxInlineExpr,
+            jsxText,
+          ])
+        ),
+      ],
+      "<",
+      "/",
+      ">",
+    ],
+    reshapeJsxElementPtr
+  )
 );
 
 const jsxElement = $def(() =>
@@ -1053,7 +1095,15 @@ const jsxElement = $def(() =>
       ">",
       [
         CHILDREN,
-        $repeat($or([jsxSelfCloseElement, jsxElement, jsxInlineExpr, jsxText])),
+        $repeat(
+          $or([
+            jsxSelfCloseElement,
+            jsxElement,
+            jsxFragment,
+            jsxInlineExpr,
+            jsxText,
+          ])
+        ),
       ],
       "<",
       "/",
@@ -1086,7 +1136,7 @@ const jsxSelfCloseElement = $def(() =>
   )
 );
 
-const jsxExpr = $def(() => $or([jsxSelfCloseElement, jsxElement]));
+const jsxExpr = $def(() => $or([jsxSelfCloseElement, jsxElement, jsxFragment]));
 
 const expressionStatement = $def(() =>
   $seq([anyExpression, $repeat_seq([",", anyExpression])])
@@ -1415,6 +1465,7 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "{a(){}}");
     expectSuccess(parse, "{a(b){1;}}");
     expectSuccess(parse, "{a(b=1,c=2){1;}}");
+    expectSuccess(parse, "{static:1}");
   });
 
   test("paren", () => {
@@ -1469,8 +1520,8 @@ if (process.env.NODE_ENV === "test") {
 
     expectFail(parse, "a..b");
     expectFail(parse, "a.()");
-    expectFail(parse, "a.this");
-    expectFail(parse, "a.import");
+    // expectFail(parse, "a.this");
+    // expectFail(parse, "a.import");
     expectFail(parse, "1.a");
     // function
     expectSuccess(parse, "f()");
@@ -1516,6 +1567,8 @@ if (process.env.NODE_ENV === "test") {
       "{a=1}",
       "{a:b=1}",
       "{a,...b}",
+      "{static:_static}",
+      "{get:_1}",
       "[]",
       "[]",
       "[,,,]",
@@ -2037,40 +2090,11 @@ if (process.env.NODE_ENV === "test") {
       `React.createElement("a",{href:"/",},"aaa")`
     );
   });
-
-  //     is(parse("<></>"), {
-  //       error: false,
-  //       result: `React.createElement(React.Fragment,{})`,
-  //     });
-  //     is(
-  //       parse(`<div>
-  //   <a href="/">
-  //     xxx
-  //   </a>
-  // </div>`),
-  //       {
-  //         error: false,
-  //         result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
-  //       }
-  //     );
-
-  //     is(
-  //       parse(`<div>
-  //   <a href="/">
-  //     xxx
-  //   </a>
-  // </div>`),
-  //       {
-  //         error: false,
-  //         result: `React.createElement("div",{},React.createElement("a",{href:"/",},"xxx"))`,
-  //       }
-  //     );
-
-  //     is(parse("<div><></></div>", { jsx: "h", jsxFragment: "Fragment" }), {
-  //       error: false,
-  //       result: `h("div",{},h(Fragment,{}))`,
-  //     });
-  // });
+  test("transform: jsx-fragment", () => {
+    const parse = compile(jsxExpr);
+    is(parse("<></>"), `React.createElement(React.Fragment,{})`);
+    is(parse("<>text</>"), `React.createElement(React.Fragment,{},"text")`);
+  });
 
   run({ stopOnFail: true, stub: true, isMain });
 }
