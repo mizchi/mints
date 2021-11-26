@@ -242,7 +242,12 @@ const typeObjectItem = $def(() =>
     // member
     $seq([
       $opt($seq([K_READONLY, whitespace])),
-      objectMemberIdentifier,
+      $or([
+        // [key:string]
+        $seq(["[", objectMemberIdentifier, ":", typeExpression, "]"]),
+        // key
+        objectMemberIdentifier,
+      ]),
       // identifier,
       $opt(K_QUESTION),
       ":",
@@ -1715,7 +1720,7 @@ if (process.env.NODE_ENV === "test") {
       "((...args:any[])=>A|B)|()=>void",
       "infer U",
       "{readonly x:number;}",
-      // "{ [routeId: string]: AppData }",
+      "{[key:string]:v}",
     ]);
   });
 

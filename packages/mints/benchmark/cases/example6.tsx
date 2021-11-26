@@ -618,7 +618,7 @@ export function Meta() {
   let location = useLocation();
 
   let meta: HtmlMetaDescriptor = {};
-  // let parentsData: { [routeId: string]: AppData } = {};
+  let parentsData: { [routeId: string]: AppData } = {};
 
   for (let match of matches) {
     let routeId = match.route.id;
@@ -665,17 +665,17 @@ export function Meta() {
   );
 }
 
-// type ScriptProps = Omit<
-//   React.HTMLProps<HTMLScriptElement>,
-//   | "children"
-//   | "async"
-//   | "defer"
-//   | "src"
-//   | "type"
-//   | "noModule"
-//   | "dangerouslySetInnerHTML"
-//   | "suppressHydrationWarning"
-// >;
+type ScriptProps = Omit<
+  React.HTMLProps<HTMLScriptElement>,
+  | "children"
+  | "async"
+  | "defer"
+  | "src"
+  | "type"
+  | "noModule"
+  | "dangerouslySetInnerHTML"
+  | "suppressHydrationWarning"
+>;
 
 // /**
 //  * Renders the `<script>` tags needed for the initial render. Bundles for
@@ -685,90 +685,90 @@ export function Meta() {
 //  * In addition to scripts, \<link rel="modulepreload"> tags receive the crossOrigin
 //  * property if provided.
 //  */
-// export function Scripts(props: ScriptProps) {
-//   let {
-//     manifest,
-//     matches,
-//     pendingLocation,
-//     clientRoutes,
-//     serverHandoffString
-//   } = useRemixEntryContext();
+export function Scripts(props: ScriptProps) {
+  let {
+    manifest,
+    matches,
+    pendingLocation,
+    clientRoutes,
+    serverHandoffString
+  } = useRemixEntryContext();
 
-//   let initialScripts = React.useMemo(() => {
-//     let contextScript = serverHandoffString
-//       ? `window.__remixContext = ${serverHandoffString};`
-//       : "";
+  let initialScripts = React.useMemo(() => {
+    let contextScript = serverHandoffString
+      ? `window.__remixContext = ${serverHandoffString};`
+      : "";
 
-//     let routeModulesScript = `${matches
-//       .map(
-//         (match, index) =>
-//           `import * as route${index} from ${JSON.stringify(
-//             manifest.routes[match.route.id].module
-//           )};`
-//       )
-//       .join("\n")}
-// window.__remixRouteModules = {${matches
-//       .map((match, index) => `${JSON.stringify(match.route.id)}:route${index}`)
-//       .join(",")}};`;
+    let routeModulesScript = `${matches
+      .map(
+        (match, index) =>
+          `import * as route${index} from ${JSON.stringify(
+            manifest.routes[match.route.id].module
+          )};`
+      )
+      .join("\n")}
+window.__remixRouteModules = {${matches
+      .map((match, index) => `${JSON.stringify(match.route.id)}:route${index}`)
+      .join(",")}};`;
 
-//     return (
-//       <>
-//         <script
-//           {...props}
-//           suppressHydrationWarning
-//           dangerouslySetInnerHTML={createHtml(contextScript)}
-//         />
-//         <script {...props} src={manifest.url} />
-//         <script
-//           {...props}
-//           dangerouslySetInnerHTML={createHtml(routeModulesScript)}
-//           type="module"
-//         />
-//         <script {...props} src={manifest.entry.module} type="module" />
-//       </>
-//     );
-//     // disabled deps array because we are purposefully only rendering this once
-//     // for hydration, after that we want to just continue rendering the initial
-//     // scripts as they were when the page first loaded
-//     // eslint-disable-next-line
-//   }, []);
+    return (
+      <>
+        <script
+          {...props}
+          // suppressHydrationWarning
+          dangerouslySetInnerHTML={createHtml(contextScript)}
+        />
+        <script {...props} src={manifest.url} />
+        <script
+          {...props}
+          dangerouslySetInnerHTML={createHtml(routeModulesScript)}
+          type="module"
+        />
+        <script {...props} src={manifest.entry.module} type="module" />
+      </>
+    );
+    // disabled deps array because we are purposefully only rendering this once
+    // for hydration, after that we want to just continue rendering the initial
+    // scripts as they were when the page first loaded
+    // eslint-disable-next-line
+  }, []);
 
-//   // avoid waterfall when importing the next route module
-//   let nextMatches = React.useMemo(() => {
-//     if (pendingLocation) {
-//       // FIXME: can probably use transitionManager `nextMatches`
-//       let matches = matchClientRoutes(clientRoutes, pendingLocation);
-//       invariant(matches, `No routes match path "${pendingLocation.pathname}"`);
-//       return matches;
-//     }
+  // avoid waterfall when importing the next route module
+  let nextMatches = React.useMemo(() => {
+    if (pendingLocation) {
+      // FIXME: can probably use transitionManager `nextMatches`
+      let matches = matchClientRoutes(clientRoutes, pendingLocation);
+      invariant(matches, `No routes match path "${pendingLocation.pathname}"`);
+      return matches;
+    }
 
-//     return [];
-//   }, [pendingLocation, clientRoutes]);
+    return [];
+  }, [pendingLocation, clientRoutes]);
 
-//   let routePreloads = matches
-//     .concat(nextMatches)
-//     .map(match => {
-//       let route = manifest.routes[match.route.id];
-//       return (route.imports || []).concat([route.module]);
-//     })
-//     .flat(1);
+  let routePreloads = matches
+    .concat(nextMatches)
+    .map(match => {
+      let route = manifest.routes[match.route.id];
+      return (route.imports || []).concat([route.module]);
+    })
+    .flat(1);
 
-//   let preloads = manifest.entry.imports.concat(routePreloads);
+  let preloads = manifest.entry.imports.concat(routePreloads);
 
-//   return (
-//     <>
-//       {dedupe(preloads).map(path => (
-//         <link
-//           key={path}
-//           rel="modulepreload"
-//           href={path}
-//           crossOrigin={props.crossOrigin}
-//         />
-//       ))}
-//       {initialScripts}
-//     </>
-//   );
-// }
+  return (
+    <>
+      {dedupe(preloads).map(path => (
+        <link
+          key={path}
+          rel="modulepreload"
+          href={path}
+          crossOrigin={props.crossOrigin}
+        />
+      ))}
+      {initialScripts}
+    </>
+  );
+}
 
 // function dedupe(array: any[]) {
 //   return [...new Set(array)];
