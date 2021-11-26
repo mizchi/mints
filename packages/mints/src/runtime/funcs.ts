@@ -178,11 +178,12 @@ const buildJsxCode = (
   if (attributes.length > 0) {
     data = ",{";
     for (const attr of attributes) {
-      if (attr[VALUE]) {
-        data += `${attr[NAME]}:${attr[VALUE] as string},`;
-      }
       if (attr[DOTDOTDOT]) {
         data += `...${attr[NAME]},`;
+      } else if (attr[VALUE]) {
+        data += `${attr[NAME]}:${attr[VALUE]},`;
+      } else {
+        data += `${attr[NAME]}:true,`;
       }
     }
     data += "}";
@@ -222,7 +223,7 @@ const reshapeJsxElement = (
       input[ATTRIBUTES]?.map((a) => {
         return {
           [NAME]: a[NAME].join(""),
-          [VALUE]: a[VALUE]?.join("") ?? "",
+          [VALUE]: a[VALUE]?.join(""),
           [DOTDOTDOT]: !!a[DOTDOTDOT],
         };
       }) ?? [],
@@ -235,7 +236,11 @@ const reshapeJsxSelfClosingElement = (
   [input]: [
     {
       [IDENT]: string[];
-      [ATTRIBUTES]: Array<{ [NAME]: string[]; [VALUE]?: string[] }>;
+      [ATTRIBUTES]: Array<{
+        [NAME]: string[];
+        [VALUE]?: string[];
+        [DOTDOTDOT]?: string[];
+      }>;
     }
   ],
   ctx: ParseContext
@@ -246,7 +251,8 @@ const reshapeJsxSelfClosingElement = (
       input[IDENT].join(""),
       input[ATTRIBUTES].map((a) => ({
         [NAME]: a[NAME].join(""),
-        [VALUE]: a[VALUE]?.join("") ?? "",
+        [VALUE]: a[VALUE]?.join(""),
+        [DOTDOTDOT]: !!a[DOTDOTDOT],
       }))
     ),
   ];

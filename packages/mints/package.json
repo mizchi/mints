@@ -12,7 +12,8 @@
     "analyze": "rollup -c rollup.config.analyze.js",
     "bench": "yarn build && node -r esbuild-register benchmark/bench.ts",
     "bench:0x": "0x -- node -r esbuild-register  benchmark/bench.ts",
-    "test": "NODE_ENV=test node -r esbuild-register src/prebuild/index.ts"
+    "test": "NODE_ENV=test node -r esbuild-register src/prebuild/index.ts",
+    "test262": "test262-harness --preprocessor test/preprocess.js test262/test262-checkout/test/language/expressions/array/11.1.4-0.js"
   },
   "devDependencies": {
     "0x": "^4.11.0",

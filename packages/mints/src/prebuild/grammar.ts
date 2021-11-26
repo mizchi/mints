@@ -120,7 +120,7 @@ const identifier = $def(() => $atom(identParserPtr));
 // );
 
 const objectMemberIdentifier = $regex(
-  `^[^~&<>!:;,$='"\`\\{\\}\\(\\)\\[\\]\\^\\?\\.\\*\\\\]+$`
+  `^[^~&<>!:;,$='"\`\\{\\}\\(\\)\\[\\]\\^\\?\\.\\*\\/\\\\]+$`
 );
 
 const typeDeclareParameter = $def(() =>
@@ -228,6 +228,16 @@ const typeFunctionArgs = $def(() =>
 
 const typeObjectItem = $def(() =>
   $or([
+    // call signature: {(): void;}
+    $seq([
+      // $opt(typeDeclareParameters),
+      L_PAREN,
+      typeFunctionArgs,
+      R_PAREN,
+      ":",
+      typeExpression,
+    ]),
+    // member
     $seq([
       $opt($seq([K_ASYNC, whitespace])),
       objectMemberIdentifier,
@@ -390,8 +400,8 @@ const callArguments = $def(() =>
 
 const stringLiteral = $def(() =>
   $or([
-    $seq(["'", $opt($regex(`^[^']+$`)), "'"]),
-    $seq(['"', $opt($regex(`^[^"]+$`)), '"']),
+    $seq(["'", $opt($seq([$not(["'"]), $any(1)])), "'"]),
+    $seq(['"', $opt($seq([$not(['"']), $any(1)])), '"']),
   ])
 );
 
@@ -400,7 +410,8 @@ const regexpLiteral = $def(() =>
 );
 
 const templateExpressionStart = $token("${");
-const templateLiteralString = $def(() => $regex("^[^`]+$")); // TODO: mu
+const templateLiteralString = $def(() => $seq([$not(["`"]), $any(1)])); // TODO: mu
+
 const templateLiteral = $def(() =>
   $seq([
     "`",
@@ -679,6 +690,7 @@ const unary = $def(() =>
         minusMinus,
         "~",
         "!",
+        "-",
       ]),
       unary,
     ]),
@@ -922,9 +934,10 @@ const typeStatement = $def(() =>
   $seq([
     $skip(
       $seq([
-        $opt($seq([K_EXPORT])),
+        $opt(K_EXPORT),
         K_TYPE,
         identifier,
+        $opt(typeDeclareParameters),
         "=",
         $not([">"]),
         typeExpression,
@@ -1063,9 +1076,11 @@ const jsxAttributes = $repeat(
   $or([
     $seqo([
       [NAME, objectMemberIdentifier],
-      [VALUE, $seq([$skip_opt("="), $or([stringLiteral, jsxInlineExpr])])],
+      [
+        { key: VALUE, opt: true },
+        $seq([$skip("="), $or([stringLiteral, jsxInlineExpr])]),
+      ],
     ]),
-    // {...v}
     $seqo(["{", [DOTDOTDOT, dotDotDot], [NAME, anyExpression], "}"]),
   ])
 );
@@ -1369,6 +1384,8 @@ if (process.env.NODE_ENV === "test") {
     const parse = compile(stringLiteral);
     expectSuccess(parse, "''");
     expectSuccess(parse, "'hello'");
+    expectSuccess(parse, "'\\''");
+
     expectFail(parse, "");
     is(parse("'hello"), {
       error: true,
@@ -1547,6 +1564,7 @@ if (process.env.NODE_ENV === "test") {
   test("unaryExpression", () => {
     const parse = compile(unary);
     expectSuccess(parse, "a");
+    expectSuccess(parse, "-a");
     expectSuccess(parse, "!a");
     expectSuccess(parse, "!!a");
     expectSuccess(parse, "++a");
@@ -1721,6 +1739,7 @@ if (process.env.NODE_ENV === "test") {
       "infer U",
       "{readonly x:number;}",
       "{[key:string]:v}",
+      "{():void;}",
     ]);
   });
 
@@ -1998,6 +2017,7 @@ if (process.env.NODE_ENV === "test") {
       "foo:1",
       "f(/[ ]{1,}/)",
     ]);
+    expectSuccess(parse, "type X<A>=T", "");
   });
 
   test("transform: class constructor", () => {
@@ -2100,6 +2120,7 @@ if (process.env.NODE_ENV === "test") {
       parse("<div {...x} y={1} {...z}></div>"),
       `React.createElement("div",{...x,y:1,...z,})`
     );
+    is(parse("<div a />"), `React.createElement("div",{a:true,})`);
   });
 
   test("transform: jsx-element nested", () => {

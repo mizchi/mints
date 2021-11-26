@@ -364,6 +364,11 @@ f(
       ">",
     ]);
   });
+  test("with escape", () => {
+    const code =
+      `Route "$\{id}" has no component! Please go add a \`default\` export in the route module file.\n` +
+      "If you were trying to navigate or submit to a resource route, use `<a>` instead of `<Link>` or `<Form reloadDocument>`.";
+  });
 
   // test("Multiline", () => {
   //   let lineEndCount = 0;

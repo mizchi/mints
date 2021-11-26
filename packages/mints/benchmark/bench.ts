@@ -104,9 +104,9 @@ export async function main() {
     mints_para,
   ];
 
-  // const targets = [code1, code2, code3];
+  const targets = [code1, code2, code3];
   // const targets = [code_scratch];
-  const targets = [code0, code1, code2, code3, code4, code5, code6];
+  // const targets = [code0, code1, code2, code3, code4, code5, code6];
 
   // check mints can parse all
   console.log("=== mints-check");
