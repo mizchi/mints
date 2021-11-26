@@ -1715,6 +1715,7 @@ if (process.env.NODE_ENV === "test") {
       "((...args:any[])=>A|B)|()=>void",
       "infer U",
       "{readonly x:number;}",
+      // "{ [routeId: string]: AppData }",
     ]);
   });
 
@@ -1996,6 +1997,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("transform: class constructor", () => {
     const parse = compile(classExpr);
+
     is(parse("class{constructor(){}}"), "class{constructor(){}}");
     is(parse("class{constructor(){foo}}"), "class{constructor(){foo}}");
     is(parse("class{constructor(x){}}"), "class{constructor(x){}}");

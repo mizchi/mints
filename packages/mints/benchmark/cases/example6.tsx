@@ -434,6 +434,10 @@ function usePrefetchBehavior(
     }
   ];
 }
+f(
+  {
+  }
+);
 
 export let NavLink = React.forwardRef<HTMLAnchorElement, RemixNavLinkProps>(
   ({ to, prefetch = "none", ...props }, forwardedRef) => {
@@ -447,8 +451,8 @@ export let NavLink = React.forwardRef<HTMLAnchorElement, RemixNavLinkProps>(
         <RouterNavLink
           ref={forwardedRef}
           to={to}
-          // {...prefetchHandlers}
-          // {...props}
+          {...prefetchHandlers}
+          {...props}
         />
         {shouldPrefetch && <PrefetchPageLinks page={href} />}
       </>
@@ -456,210 +460,210 @@ export let NavLink = React.forwardRef<HTMLAnchorElement, RemixNavLinkProps>(
   }
 );
 
-// export let Link = React.forwardRef<HTMLAnchorElement, RemixLinkProps>(
-//   ({ to, prefetch = "none", ...props }, forwardedRef) => {
-//     let href = useHref(to);
-//     let [shouldPrefetch, prefetchHandlers] = usePrefetchBehavior(
-//       prefetch,
-//       props
-//     );
-//     return (
-//       <>
-//         <RouterLink
-//           ref={forwardedRef}
-//           to={to}
-//           {...prefetchHandlers}
-//           {...props}
-//         />
-//         {shouldPrefetch && <PrefetchPageLinks page={href} />}
-//       </>
-//     );
-//   }
-// );
+export let Link = React.forwardRef<HTMLAnchorElement, RemixLinkProps>(
+  ({ to, prefetch = "none", ...props }, forwardedRef) => {
+    let href = useHref(to);
+    let [shouldPrefetch, prefetchHandlers] = usePrefetchBehavior(
+      prefetch,
+      props
+    );
+    return (
+      <>
+        <RouterLink
+          ref={forwardedRef}
+          to={to}
+          {...prefetchHandlers}
+          {...props}
+        />
+        {shouldPrefetch && <PrefetchPageLinks page={href} />}
+      </>
+    );
+  }
+);
 
-// export function composeEventHandlers<
-//   EventType extends React.SyntheticEvent | Event
-// >(
-//   theirHandler: ((event: EventType) => any) | undefined,
-//   ourHandler: (event: EventType) => any
-// ): (event: EventType) => any {
-//   return event => {
-//     theirHandler && theirHandler(event);
-//     if (!event.defaultPrevented) {
-//       ourHandler(event);
-//     }
-//   };
-// }
+export function composeEventHandlers<
+  EventType extends React.SyntheticEvent | Event
+>(
+  theirHandler: ((event: EventType) => any) | undefined,
+  ourHandler: (event: EventType) => any
+): (event: EventType) => any {
+  return event => {
+    theirHandler && theirHandler(event);
+    if (!event.defaultPrevented) {
+      ourHandler(event);
+    }
+  };
+}
 
-// /**
-//  * Renders the `<link>` tags for the current routes.
-//  */
-// export function Links() {
-//   let { matches, routeModules, manifest } = useRemixEntryContext();
+/**
+ * Renders the `<link>` tags for the current routes.
+ */
+export function Links() {
+  let { matches, routeModules, manifest } = useRemixEntryContext();
 
-//   let links = React.useMemo(
-//     () => getLinksForMatches(matches, routeModules, manifest),
-//     [matches, routeModules, manifest]
-//   );
+  let links = React.useMemo(
+    () => getLinksForMatches(matches, routeModules, manifest),
+    [matches, routeModules, manifest]
+  );
 
-//   return (
-//     <>
-//       {links.map(link =>
-//         isPageLinkDescriptor(link) ? (
-//           <PrefetchPageLinks key={link.page} {...link} />
-//         ) : (
-//           <link key={link.rel + link.href} {...link} />
-//         )
-//       )}
-//     </>
-//   );
-// }
+  return (
+    <>
+      {links.map(link =>
+        isPageLinkDescriptor(link) ? (
+          <PrefetchPageLinks key={link.page} {...link} />
+        ) : (
+          <link key={link.rel + link.href} {...link} />
+        )
+      )}
+    </>
+  );
+}
 
-// export function PrefetchPageLinks({
-//   page,
-//   ...dataLinkProps
-// }: PrefetchPageDescriptor) {
-//   let { clientRoutes } = useRemixEntryContext();
-//   let matches = React.useMemo(
-//     () => matchClientRoutes(clientRoutes, page),
-//     [clientRoutes, page]
-//   );
+export function PrefetchPageLinks({
+  page,
+  ...dataLinkProps
+}: PrefetchPageDescriptor) {
+  let { clientRoutes } = useRemixEntryContext();
+  let matches = React.useMemo(
+    () => matchClientRoutes(clientRoutes, page),
+    [clientRoutes, page]
+  );
 
-//   if (!matches) {
-//     console.warn(`Tried to prefetch ${page} but no routes matched.`);
-//     return null;
-//   }
+  if (!matches) {
+    console.warn(`Tried to prefetch ${page} but no routes matched.`);
+    return null;
+  }
 
-//   return (
-//     <PrefetchPageLinksImpl page={page} matches={matches} {...dataLinkProps} />
-//   );
-// }
+  return (
+    <PrefetchPageLinksImpl page={page} matches={matches} {...dataLinkProps} />
+  );
+}
 
-// function usePrefetchedStylesheets(matches: RouteMatch<ClientRoute>[]) {
-//   let { routeModules } = useRemixEntryContext();
+function usePrefetchedStylesheets(matches: RouteMatch<ClientRoute>[]) {
+  let { routeModules } = useRemixEntryContext();
 
-//   let [styleLinks, setStyleLinks] = React.useState<HtmlLinkDescriptor[]>([]);
+  let [styleLinks, setStyleLinks] = React.useState<HtmlLinkDescriptor[]>([]);
 
-//   React.useEffect(() => {
-//     let interrupted: boolean = false;
+  React.useEffect(() => {
+    let interrupted: boolean = false;
 
-//     getStylesheetPrefetchLinks(matches, routeModules).then(links => {
-//       if (!interrupted) setStyleLinks(links);
-//     });
+    getStylesheetPrefetchLinks(matches, routeModules).then(links => {
+      if (!interrupted) setStyleLinks(links);
+    });
 
-//     return () => {
-//       interrupted = true;
-//     };
-//   }, [matches, routeModules]);
+    return () => {
+      interrupted = true;
+    };
+  }, [matches, routeModules]);
 
-//   return styleLinks;
-// }
+  return styleLinks;
+}
 
-// function PrefetchPageLinksImpl({
-//   page,
-//   matches: nextMatches,
-//   ...linkProps
-// }: PrefetchPageDescriptor & {
-//   matches: RouteMatch<ClientRoute>[];
-// }) {
-//   let location = useLocation();
-//   let { matches, manifest } = useRemixEntryContext();
+function PrefetchPageLinksImpl({
+  page,
+  matches: nextMatches,
+  ...linkProps
+}: PrefetchPageDescriptor & {
+  matches: RouteMatch<ClientRoute>[];
+}) {
+  let location = useLocation();
+  let { matches, manifest } = useRemixEntryContext();
 
-//   let newMatchesForData = React.useMemo(
-//     () => getNewMatchesForLinks(page, nextMatches, matches, location, "data"),
-//     [page, nextMatches, matches, location]
-//   );
+  let newMatchesForData = React.useMemo(
+    () => getNewMatchesForLinks(page, nextMatches, matches, location, "data"),
+    [page, nextMatches, matches, location]
+  );
 
-//   let newMatchesForAssets = React.useMemo(
-//     () => getNewMatchesForLinks(page, nextMatches, matches, location, "assets"),
-//     [page, nextMatches, matches, location]
-//   );
+  let newMatchesForAssets = React.useMemo(
+    () => getNewMatchesForLinks(page, nextMatches, matches, location, "assets"),
+    [page, nextMatches, matches, location]
+  );
 
-//   let dataHrefs = React.useMemo(
-//     () => getDataLinkHrefs(page, newMatchesForData, manifest),
-//     [newMatchesForData, page, manifest]
-//   );
+  let dataHrefs = React.useMemo(
+    () => getDataLinkHrefs(page, newMatchesForData, manifest),
+    [newMatchesForData, page, manifest]
+  );
 
-//   let moduleHrefs = React.useMemo(
-//     () => getModuleLinkHrefs(newMatchesForAssets, manifest),
-//     [newMatchesForAssets, manifest]
-//   );
+  let moduleHrefs = React.useMemo(
+    () => getModuleLinkHrefs(newMatchesForAssets, manifest),
+    [newMatchesForAssets, manifest]
+  );
 
-//   // needs to be a hook with async behavior because we need the modules, not
-//   // just the manifest like the other links in here.
-//   let styleLinks = usePrefetchedStylesheets(newMatchesForAssets);
+  // needs to be a hook with async behavior because we need the modules, not
+  // just the manifest like the other links in here.
+  let styleLinks = usePrefetchedStylesheets(newMatchesForAssets);
 
-//   return (
-//     <>
-//       {dataHrefs.map(href => (
-//         <link key={href} rel="prefetch" as="fetch" href={href} {...linkProps} />
-//       ))}
-//       {moduleHrefs.map(href => (
-//         <link key={href} rel="modulepreload" href={href} {...linkProps} />
-//       ))}
-//       {styleLinks.map(link => (
-//         // these don't spread `linkProps` because they are full link descriptors
-//         // already with their own props
-//         <link key={link.href} {...link} />
-//       ))}
-//     </>
-//   );
-// }
+  return (
+    <>
+      {dataHrefs.map(href => (
+        <link key={href} rel="prefetch" as="fetch" href={href} {...linkProps} />
+      ))}
+      {moduleHrefs.map(href => (
+        <link key={href} rel="modulepreload" href={href} {...linkProps} />
+      ))}
+      {styleLinks.map(link => (
+        // these don't spread `linkProps` because they are full link descriptors
+        // already with their own props
+        <link key={link.href} {...link} />
+      ))}
+    </>
+  );
+}
 
-// /**
-//  * Renders the `<title>` and `<meta>` tags for the current routes.
-//  */
-// export function Meta() {
-//   let { matches, routeData, routeModules } = useRemixEntryContext();
-//   let location = useLocation();
+/**
+ * Renders the `<title>` and `<meta>` tags for the current routes.
+ */
+export function Meta() {
+  let { matches, routeData, routeModules } = useRemixEntryContext();
+  let location = useLocation();
 
-//   let meta: HtmlMetaDescriptor = {};
-//   let parentsData: { [routeId: string]: AppData } = {};
+  let meta: HtmlMetaDescriptor = {};
+  // let parentsData: { [routeId: string]: AppData } = {};
 
-//   for (let match of matches) {
-//     let routeId = match.route.id;
-//     let data = routeData[routeId];
-//     let params = match.params;
+  for (let match of matches) {
+    let routeId = match.route.id;
+    let data = routeData[routeId];
+    let params = match.params;
 
-//     let routeModule = routeModules[routeId];
+    let routeModule = routeModules[routeId];
 
-//     if (routeModule.meta) {
-//       let routeMeta =
-//         typeof routeModule.meta === "function"
-//           ? routeModule.meta({ data, parentsData, params, location })
-//           : routeModule.meta;
-//       Object.assign(meta, routeMeta);
-//     }
+    if (routeModule.meta) {
+      let routeMeta =
+        typeof routeModule.meta === "function"
+          ? routeModule.meta({ data, parentsData, params, location })
+          : routeModule.meta;
+      Object.assign(meta, routeMeta);
+    }
 
-//     parentsData[routeId] = data;
-//   }
+    parentsData[routeId] = data;
+  }
 
-//   return (
-//     <>
-//       {Object.keys(meta).map(name => {
-//         let value = meta[name];
-//         // Open Graph tags use the `property` attribute, while other meta tags
-//         // use `name`. See https://ogp.me/
-//         let isOpenGraphTag = name.startsWith("og:");
-//         return name === "title" ? (
-//           <title key="title">{meta[name]}</title>
-//         ) : Array.isArray(value) ? (
-//           value.map(content =>
-//             isOpenGraphTag ? (
-//               <meta key={name + content} property={name} content={content} />
-//             ) : (
-//               <meta key={name + content} name={name} content={content} />
-//             )
-//           )
-//         ) : isOpenGraphTag ? (
-//           <meta key={name} property={name} content={value} />
-//         ) : (
-//           <meta key={name} name={name} content={value} />
-//         );
-//       })}
-//     </>
-//   );
-// }
+  return (
+    <>
+      {Object.keys(meta).map(name => {
+        let value = meta[name];
+        // Open Graph tags use the `property` attribute, while other meta tags
+        // use `name`. See https://ogp.me/
+        let isOpenGraphTag = name.startsWith("og:");
+        return name === "title" ? (
+          <title key="title">{meta[name]}</title>
+        ) : Array.isArray(value) ? (
+          value.map(content =>
+            isOpenGraphTag ? (
+              <meta key={name + content} property={name} content={content} />
+            ) : (
+              <meta key={name + content} name={name} content={content} />
+            )
+          )
+        ) : isOpenGraphTag ? (
+          <meta key={name} property={name} content={value} />
+        ) : (
+          <meta key={name} name={name} content={value} />
+        );
+      })}
+    </>
+  );
+}
 
 // type ScriptProps = Omit<
 //   React.HTMLProps<HTMLScriptElement>,

@@ -112,7 +112,8 @@ function* parseStream(
           break;
         }
         // TODO: Regex
-        if (openBraceStack === 0 && nextChar === "\n") isEOL = true;
+        if (openBraceStack === 0 && openParenStack === 0 && nextChar === "\n")
+          isEOL = true;
       }
 
       // TODO: heuristic
@@ -268,12 +269,20 @@ if (process.env.NODE_ENV === "test") {
     const result = [...parseStream(code)].map((token) => token);
     eq(result, ["{", "}", "x"]);
   });
+
+  test("parse with newline", () => {
+    const code = `
+f(
+{}
+);
+`;
+    expectParseResult(code, ["f", "(", "{", "}", ")", ";", "\n"]);
+  });
   test("Unicode", () => {
     expectParseResult("あ あ", ["あ", "あ"]);
     expectParseResult("あ/*え*/あ", ["あ", "あ"]);
     expectParseResult("𠮷/*𠮷*/𠮷", ["𠮷", "𠮷"]);
   });
-
   test("; in For", () => {
     let lineEndCount = 0;
     for (const token of parseStream("for(;;)1;")) {
