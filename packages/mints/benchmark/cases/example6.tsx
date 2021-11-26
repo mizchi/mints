@@ -453,8 +453,8 @@ export let NavLink = React.forwardRef<HTMLAnchorElement, RemixNavLinkProps>(
         {shouldPrefetch && <PrefetchPageLinks page={href} />}
       </>
     );
-  })
-;
+  }
+);
 
 // export let Link = React.forwardRef<HTMLAnchorElement, RemixLinkProps>(
 //   ({ to, prefetch = "none", ...props }, forwardedRef) => {

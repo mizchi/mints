@@ -28,6 +28,7 @@ import {
   BODY,
   CHILDREN,
   CONTROL_TOKENS,
+  DOTDOTDOT,
   IDENT,
   INIT,
   ITEMS,
@@ -1054,9 +1055,13 @@ const jsxInlineExpr = $seq([$skip("{"), anyExpression, $skip("}")]);
 const jsxText = $def(() => $atom(parseJsxTextPtr));
 
 const jsxAttributes = $repeat(
-  $seqo([
-    [NAME, objectMemberIdentifier],
-    [VALUE, $seq([$skip_opt("="), $or([stringLiteral, jsxInlineExpr])])],
+  $or([
+    $seqo([
+      [NAME, objectMemberIdentifier],
+      [VALUE, $seq([$skip_opt("="), $or([stringLiteral, jsxInlineExpr])])],
+    ]),
+    // {...v}
+    $seqo(["{", [DOTDOTDOT, dotDotDot], [NAME, anyExpression], "}"]),
   ])
 );
 
@@ -2074,6 +2079,20 @@ if (process.env.NODE_ENV === "test") {
     is(parse("<div>{a}{b}</div>"), `React.createElement("div",{},a,b)`);
     is(parse("<div> {a}</div>"), `React.createElement("div",{},a)`);
     is(parse("<div> {a}</div>"), `React.createElement("div",{},a)`);
+    is(parse("<div a='1'></div>"), `React.createElement("div",{a:'1',})`);
+    is(parse("<div {...x}></div>"), `React.createElement("div",{...x,})`);
+    is(
+      parse("<div {...{x:1}}></div>"),
+      `React.createElement("div",{...{x:1},})`
+    );
+    is(
+      parse("<div {...x} y={1}></div>"),
+      `React.createElement("div",{...x,y:1,})`
+    );
+    is(
+      parse("<div {...x} y={1} {...z}></div>"),
+      `React.createElement("div",{...x,y:1,...z,})`
+    );
   });
 
   test("transform: jsx-element nested", () => {

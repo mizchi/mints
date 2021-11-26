@@ -11,6 +11,7 @@ import {
   BODY,
   CHILDREN,
   CODE,
+  DOTDOTDOT,
   IDENT,
   INIT,
   ITEMS,
@@ -165,7 +166,11 @@ const jsxFragment = "React.Fragment";
 const buildJsxCode = (
   ctx: ParseContext,
   ident: string,
-  attributes: Array<{ [NAME]: string; [VALUE]: string }>,
+  attributes: Array<{
+    [NAME]: string;
+    [VALUE]?: string;
+    [DOTDOTDOT]?: boolean;
+  }>,
   children: Array<string> = []
 ) => {
   // TODO: Detect dom name
@@ -173,7 +178,12 @@ const buildJsxCode = (
   if (attributes.length > 0) {
     data = ",{";
     for (const attr of attributes) {
-      data += `${attr[NAME]}:${attr[VALUE]},`;
+      if (attr[VALUE]) {
+        data += `${attr[NAME]}:${attr[VALUE] as string},`;
+      }
+      if (attr[DOTDOTDOT]) {
+        data += `...${attr[NAME]},`;
+      }
     }
     data += "}";
   }
@@ -185,7 +195,6 @@ const buildJsxCode = (
   }
   const isDomPrimitive = /^[a-z-]+$/.test(ident);
   let element = isDomPrimitive ? `"${ident}"` : ident;
-  // console.log("ctx", ctx.opts);
   if (ident === "") element = ctx.opts.jsxFragment ?? jsxFragment;
   const factory = ctx.opts.jsx ?? jsx;
   // console.log("jsx build", factory, ctx.opts);
@@ -196,13 +205,16 @@ const reshapeJsxElement = (
   [input]: [
     {
       [IDENT]?: string[];
-      [ATTRIBUTES]?: Array<{ [NAME]: string[]; [VALUE]: string[] }>;
+      [ATTRIBUTES]?: Array<{
+        [NAME]: string[];
+        [VALUE]?: string[];
+        [DOTDOTDOT]?: string[];
+      }>;
       [CHILDREN]: Array<string[]>;
     }
   ],
   ctx: ParseContext
 ) => {
-  // console.log("children", input[CHILDREN]);
   return [
     buildJsxCode(
       ctx,
@@ -210,7 +222,8 @@ const reshapeJsxElement = (
       input[ATTRIBUTES]?.map((a) => {
         return {
           [NAME]: a[NAME].join(""),
-          [VALUE]: a[VALUE].join(""),
+          [VALUE]: a[VALUE]?.join("") ?? "",
+          [DOTDOTDOT]: !!a[DOTDOTDOT],
         };
       }) ?? [],
       input[CHILDREN].flat()
