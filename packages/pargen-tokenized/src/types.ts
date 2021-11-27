@@ -23,19 +23,23 @@ import type {
   CODE_TOKEN_UNMATCH,
 } from "./constants";
 
-export type RuleBase = {
-  t: number;
+export type Ptr<T> = number & {
+  t: T;
 };
+
+export type ReshapePtr<In = any, Out = any> = Ptr<
+  (input: In, ctx: ParseContext) => Out
+>;
 
 export type Atom = {
   t: typeof RULE_ATOM;
-  c: number;
+  c: Ptr<(ctx: ParseContext, pos: number) => ParseResult>;
 };
 
 export type Any<T = any> = {
   t: typeof RULE_ANY;
-  c: number;
-  r: number;
+  c: number; // size
+  r: ReshapePtr;
 };
 
 export type Eof = {
@@ -44,7 +48,7 @@ export type Eof = {
 
 export type Not = {
   t: typeof RULE_NOT;
-  c: Rule[] | number[];
+  c: Rule[];
 };
 
 export type Flags = {
@@ -59,27 +63,27 @@ export type Seq<T = string, U = string> = {
   t: typeof RULE_SEQ;
   c: Rule[] | number[];
   f: (Flags | null)[];
-  r: number;
+  r: ReshapePtr;
 };
 
 export type SeqObject<T = any, U = any> = {
   t: typeof RULE_SEQ_OBJECT;
   c: Rule[] | number[];
   f: (Flags | null)[];
-  r: number;
+  r: ReshapePtr;
 };
 
 export type Ref<T = any, U = any> = {
   t: typeof RULE_REF;
   c: number;
-  r: number;
+  r: ReshapePtr;
 };
 
 export type Repeat<T = string, U = T, R = U[]> = {
   t: typeof RULE_REPEAT;
   c: Rule | number;
   e: number;
-  r: number;
+  r: ReshapePtr;
 };
 
 export type Or = {
@@ -90,13 +94,13 @@ export type Or = {
 export type Token<T = string> = {
   t: typeof RULE_TOKEN;
   c: string;
-  r: number;
+  r: ReshapePtr;
 };
 
-export type Regex = {
+export type Regex<T = string> = {
   t: typeof RULE_REGEX;
   c: string;
-  r: number;
+  r: ReshapePtr;
 };
 
 export type Rule =
@@ -112,10 +116,6 @@ export type Rule =
   | Regex
   | Any;
 
-// ==== public interface
-// export type RootCompilerOptions = {
-//   end?: boolean;
-// };
 export type RootCompiler = (node: Rule | number) => RootParser;
 
 export type RootParser = (
@@ -189,11 +189,8 @@ type SeqStop = [
 
 type SeqNoStack = [code: typeof CODE_SEQ_NO_STACK_ON_POP, index: number];
 type SeqStackLeft = [code: typeof CODE_SEQ_STACK_LEFT];
-
 type SeqUnmatchStack = [code: typeof CODE_SEQ_UNMATCH_STACK, index: number];
-
 type UnmatchAll = [code: typeof CODE_OR_UNMATCH_ALL, errors: Array<ParseError>];
-
 type AtomError = [code: typeof CODE_ATOM_PARSE_ERROR, childError: ParseError];
 
 export type ParseErrorData =

@@ -15,5 +15,8 @@
     "src",
     "types",
     "dist"
-  ]
+  ],
+  "devDependencies": {
+    "ts-opaque": "^3.0.1"
+  }
 }

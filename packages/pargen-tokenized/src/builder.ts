@@ -28,6 +28,7 @@ import type {
   SeqObject,
   Any,
   Snapshot,
+  ReshapePtr,
 } from "./types";
 
 import {
@@ -49,14 +50,19 @@ import {
   SKIP_MASK,
 } from "./constants";
 
-const __strings: string[] = [];
-export const $s = (s: string) => {
-  const idx = __strings.indexOf(s);
-  if (idx > -1) return idx;
+// import type { Opaque } from "ts-opaque";
 
-  const ptr = __strings.length;
-  __strings.push(s);
-  return ptr;
+export type Ptr<T> = number & {
+  t: T;
+};
+
+export const _strings: string[] = [];
+export const $str = (s: string): Ptr<string> => {
+  const idx = _strings.indexOf(s);
+  if (idx > -1) return idx as Ptr<string>;
+  const ptr = _strings.length;
+  _strings.push(s);
+  return ptr as Ptr<string>;
 };
 
 const __tokenCache = new Map<string, Token>();
@@ -233,7 +239,6 @@ const toFlags = (
   opt?: boolean,
   skip?: boolean,
   push?: boolean,
-  // pop?: (a: any[], b: any[], ctx: ParseContext) => boolean,
   pop?: number
 ): Flags => {
   return { key, skip, opt, push, pop };
@@ -394,7 +399,7 @@ export function $repeat<T = any, U = T, R = T[]>(
     t: RULE_REPEAT,
     c: toNode(pattern),
     e: reshapeEach,
-    r: reshape,
+    r: reshape as ReshapePtr,
   };
 }
 
@@ -405,7 +410,7 @@ export function $token<T = string>(
   return {
     t: RULE_TOKEN,
     c: expr,
-    r: reshape,
+    r: reshape as ReshapePtr,
   };
 }
 
@@ -413,7 +418,7 @@ export function $regex<T = string>(expr: string, reshape: number = 0): Regex {
   return {
     t: RULE_REGEX,
     c: expr,
-    r: reshape,
+    r: reshape as ReshapePtr,
   };
 }
 
@@ -427,9 +432,9 @@ export function $eof(): Eof {
   };
 }
 
-export function $atom(parse: number): Atom {
+export function $atom(parsePtr: number): Atom {
   return {
     t: RULE_ATOM,
-    c: parse,
+    c: parsePtr as Ptr<any>,
   };
 }

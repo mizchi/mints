@@ -92,7 +92,6 @@ import {
   toNode,
 } from "./builder";
 import {
-  CODE_OR_UNMATCH_ALL,
   CODE_SEQ_STOP,
   CODE_SEQ_UNMATCH_STACK,
   CODE_TOKEN_UNMATCH,
