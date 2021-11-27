@@ -49,6 +49,16 @@ import {
   SKIP_MASK,
 } from "./constants";
 
+const __strings: string[] = [];
+export const $s = (s: string) => {
+  const idx = __strings.indexOf(s);
+  if (idx > -1) return idx;
+
+  const ptr = __strings.length;
+  __strings.push(s);
+  return ptr;
+};
+
 const __tokenCache = new Map<string, Token>();
 export const toNode = (input: RuleExpr): Rule => {
   if (typeof input === "object") return input;

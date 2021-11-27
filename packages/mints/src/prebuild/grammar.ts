@@ -1,7 +1,4 @@
-import type {
-  InternalParser,
-  ParseError,
-} from "../../../pargen-tokenized/src/types";
+import type { ParseError } from "../../../pargen-tokenized/src/types";
 import {
   $any,
   $atom,

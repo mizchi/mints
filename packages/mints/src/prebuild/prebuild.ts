@@ -1,10 +1,11 @@
 // import assert from "assert";
 import { createSnapshot } from "../../../pargen-tokenized/src/index";
 import { encodeSnapshotToBinary } from "../../../pargen-tokenized/encoder/encoder";
+import { E_strings } from "../../../pargen-tokenized/src/constants";
 import { line } from "./grammar";
+
 import fs from "fs";
 import path from "path";
-import { E_strings } from "../../../pargen-tokenized/src/constants";
 import { CONTROL_TOKENS, RESERVED_WORDS } from "./constants";
 
 const snapshot = createSnapshot(line);
