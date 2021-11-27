@@ -5,6 +5,7 @@ import { parseTokens } from "../runtime/tokenizer";
 const parse = compile(line);
 
 function processLine(tokens: string[], opts: any): string {
+  if (tokens.length === 0) return "";
   const parsed = parse(tokens.slice(), opts);
   if (parsed.error) {
     throw new Error(JSON.stringify(parsed, null, 2));
@@ -35,10 +36,6 @@ export function transform(
       tokens.push(t);
     }
   }
-  if (tokens.length > 0) {
-    results.push(processLine(tokens, opts));
-  }
-  // console.timeEnd("preprocess");
   return results.join("");
 }
 

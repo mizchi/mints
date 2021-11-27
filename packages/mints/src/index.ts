@@ -1,15 +1,15 @@
-import type { Snapshot } from "../../pargen-tokenized/src/types";
+import type { ParseSuccess, Snapshot } from "../../pargen-tokenized/src/types";
 import { funcs } from "./runtime/funcs";
 import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
 import { parseTokens } from "./runtime/tokenizer";
-import { loadSnapshot } from "./runtime/load_b64_snapshot";
+import { loadSnapshot } from "./runtime/load_snapshot";
 import { detectPragma } from "./runtime/preprocess";
-import { Opts } from "./types";
+import { Opts, TransformResult } from "./types";
 
 const snapshot = loadSnapshot();
 const parse = createParserWithSnapshot(funcs, snapshot as Snapshot);
 
-export function transformSync(input: string, opts?: Opts) {
+export function transformSync(input: string, opts?: Opts): TransformResult {
   if (!opts) {
     opts = detectPragma(input);
     opts.jsx = opts.jsx ?? "React.createElement";
@@ -18,27 +18,26 @@ export function transformSync(input: string, opts?: Opts) {
   let tokens: string[] = [];
   let results: string[] = [];
   for (const t of parseTokens(input)) {
-    if (t === "\n") {
-      results.push(processLine(tokens.slice(), opts));
+    if (t === "\n" && tokens.length > 0) {
+      const result = process(tokens.slice(), opts);
+      if (result.error) return result;
+      results.push(result.code);
       tokens = [];
     } else {
       tokens.push(t);
     }
   }
-  if (tokens.length > 0) {
-    results.push(processLine(tokens, opts));
-  }
-  return results.join("");
+  return {
+    code: results.join(""),
+  };
 }
 
-function processLine(tokens: string[], opts: Opts): string {
+function process(tokens: string[], opts: Opts): TransformResult {
   const parsed = parse(tokens.slice(), opts);
-  if (parsed.error) {
-    throw new Error(JSON.stringify(parsed, null, 2));
-  } else {
-    const s = parsed.xs
-      .map((r) => (typeof r === "string" ? r : tokens[r]))
-      .join("");
-    return s;
-  }
+  if (parsed.error) return parsed;
+  return {
+    code: parsed.xs
+      .map((r) => (typeof r === "number" ? tokens[r] : r))
+      .join(""),
+  };
 }

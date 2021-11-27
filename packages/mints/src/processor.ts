@@ -1,7 +1,7 @@
 import type { RootParser } from "../../pargen-tokenized/src/types";
 import { funcs } from "./runtime/funcs";
 import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
-import { loadSnapshot } from "./runtime/load_b64_snapshot";
+import { loadSnapshot } from "./runtime/load_snapshot";
 import { Opts } from "./types";
 
 let _parse: RootParser = createParserWithSnapshot(funcs, loadSnapshot());

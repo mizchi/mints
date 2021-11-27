@@ -164,6 +164,10 @@ function* parseStream(
     _buf = "";
   }
 
+  // EOF
+  if (i === chars.length) {
+    yield "\n";
+  }
   if (!root) yield i;
 }
 
@@ -188,86 +192,106 @@ if (process.env.NODE_ENV === "test") {
   const assert = require("assert");
   const eq = assert.deepStrictEqual;
   const expectParseResult = (input: string, expected: string[]) => {
-    for (const token of parseStream(input)) {
-      eq(expected.shift(), token);
-    }
+    // let expectedCount = expected.length;
+    // let count = 0;
+    let tokens = [...parseStream(input)];
+    // for (const token of parseStream(input)) {
+    //   eq(expected.shift(), token);
+    //   count++;
+    //   tokens.push(expected.shift())
+    // }
+    // console.log(expectedCount, count);
+    assert.deepEqual(expected, tokens);
+    // eq(count, expectedCount);
   };
   test("parse tokens", () => {
     const input = "a;bb cccc  d+e";
-    let expected = ["a", ";", "\n", "bb", "cccc", "d", "+", "e"];
+    let expected = ["a", ";", "\n", "bb", "cccc", "d", "+", "e", "\n"];
     expectParseResult(input, expected);
   });
   test("parse string", () => {
     const input = "'x y '";
-    let expected = ["'", "x y ", "'"];
+    let expected = ["'", "x y ", "'", "\n"];
     expectParseResult(input, expected);
   });
   test("parse regex", () => {
     const input = "/x y/";
-    let expected = ["/", "x y", "/"];
+    let expected = ["/", "x y", "/", "\n"];
     expectParseResult(input, expected);
 
-    expectParseResult("1 / 2", ["1", "/", "2"]);
-    expectParseResult("1 / 2 / 3", ["1", "/", "2", "/", "3"]);
-    expectParseResult("2/1\n1/1", ["2", "/", "1", "1", "/", "1"]);
-    expectParseResult("/a\\/b/", ["/", "a\\/b", "/"]);
-    expectParseResult("/a\nb/", ["/", "a", "b", "/"]);
+    expectParseResult("1 / 2", ["1", "/", "2", "\n"]);
+    expectParseResult("1 / 2 / 3", ["1", "/", "2", "/", "3", "\n"]);
+    expectParseResult("2/1\n1/1", ["2", "/", "1", "1", "/", "1", "\n"]);
+    expectParseResult("/a\\/b/", ["/", "a\\/b", "/", "\n"]);
+    expectParseResult("/a\nb/", ["/", "a", "b", "/", "\n"]);
   });
 
   test("parse template", () => {
     const input = "`xxx`";
-    let expected = ["`", "xxx", "`"];
+    let expected = ["`", "xxx", "`", "\n"];
     expectParseResult(input, expected);
   });
   test("parse template expression", () => {
     const input = "`a${b+ c}d`";
-    let expected = ["`", "a", "${", "b", "+", "c", "}", "d", "`"];
+    let expected = ["`", "a", "${", "b", "+", "c", "}", "d", "`", "\n"];
     expectParseResult(input, expected);
   });
   test("parse template expression 2", () => {
     const input = "`aaa ${bb + c } dd `";
-    let expected = ["`", "aaa ", "${", "bb", "+", "c", "}", " dd ", "`"];
+    let expected = ["`", "aaa ", "${", "bb", "+", "c", "}", " dd ", "`", "\n"];
     expectParseResult(input, expected);
   });
 
   test("parse template expression 3", () => {
     const input = "`${a} x x ${b}`";
-    let expected = ["`", "${", "a", "}", " x x ", "${", "b", "}", "`"];
+    let expected = ["`", "${", "a", "}", " x x ", "${", "b", "}", "`", "\n"];
     expectParseResult(input, expected);
   });
 
   test("parse template expression 4 nested", () => {
     const input = "`${`xxx`}`";
-    let expected = ["`", "${", "`", "xxx", "`", "}", "`"];
+    let expected = ["`", "${", "`", "xxx", "`", "}", "`", "\n"];
     expectParseResult(input, expected);
   });
 
   test("parse template expression 5 nested", () => {
     const input = "`${`xxx ${1}`}`";
-    let expected = ["`", "${", "`", "xxx ", "${", "1", "}", "`", "}", "`"];
+    let expected = [
+      "`",
+      "${",
+      "`",
+      "xxx ",
+      "${",
+      "1",
+      "}",
+      "`",
+      "}",
+      "`",
+      "\n",
+    ];
     expectParseResult(input, expected);
   });
 
   test("line comment", () => {
-    expectParseResult("//aaa", []);
-    expectParseResult("a//aaa", ["a"]);
-    expectParseResult("a//aaa \nb\n//", ["a", "b"]);
+    expectParseResult("//aaa", ["\n"]);
+    expectParseResult("a//aaa", ["a", "\n"]);
+    expectParseResult("a//aaa \nb\n//", ["a", "b", "\n"]);
     // expectParseResult("a//aaa \nb", ["a", "b"]);
   });
 
-  test("inline comment2 ", () => {
-    expectParseResult("/* */", []);
-    expectParseResult("/**/", []);
-    expectParseResult("a/**/", ["a"]);
-    expectParseResult("a/* */", ["a"]);
-    expectParseResult("a/* */a", ["a", "a"]);
-    expectParseResult("a/* */a/**/a", ["a", "a", "a"]);
+  test("inline comment 2 ", () => {
+    expectParseResult("/* */", ["\n"]);
+    expectParseResult("/**/", ["\n"]);
+    expectParseResult("a/**/", ["a", "\n"]);
+    expectParseResult("a/* */", ["a", "\n"]);
+    expectParseResult("a/* */a", ["a", "a", "\n"]);
+    expectParseResult("a/* */a/**/a", ["a", "a", "a", "\n"]);
   });
 
   test("inline comment 3", () => {
     const code = `{  /* Invalid session is passed. Ignore. */}x`;
     const result = [...parseStream(code)].map((token) => token);
-    eq(result, ["{", "}", "x"]);
+    eq(result, ["{", "}", "x", "\n"]);
   });
 
   test("parse with newline", () => {
@@ -276,12 +300,12 @@ f(
 {}
 );
 `;
-    expectParseResult(code, ["f", "(", "{", "}", ")", ";", "\n"]);
+    expectParseResult(code, ["f", "(", "{", "}", ")", ";", "\n", "\n"]);
   });
   test("Unicode", () => {
-    expectParseResult("あ あ", ["あ", "あ"]);
-    expectParseResult("あ/*え*/あ", ["あ", "あ"]);
-    expectParseResult("𠮷/*𠮷*/𠮷", ["𠮷", "𠮷"]);
+    expectParseResult("あ あ", ["あ", "あ", "\n"]);
+    expectParseResult("あ/*え*/あ", ["あ", "あ", "\n"]);
+    expectParseResult("𠮷/*𠮷*/𠮷", ["𠮷", "𠮷", "\n"]);
   });
   test("; in For", () => {
     let lineEndCount = 0;
@@ -290,7 +314,7 @@ f(
         lineEndCount += 1;
       }
     }
-    eq(lineEndCount, 1);
+    eq(lineEndCount, 2);
   });
 
   test("Multiline", () => {
@@ -300,7 +324,7 @@ f(
         lineEndCount += 1;
       }
     }
-    eq(lineEndCount, 3);
+    eq(lineEndCount, 4);
   });
 
   test("Multiline with Func", () => {
@@ -322,7 +346,7 @@ f(
       }
     }
     eq(before, ["function", "f", "(", ")", "{", "}"]);
-    eq(lineEndCount, 1);
+    eq(lineEndCount, 2);
     eq(after, ["1"]);
   });
 
@@ -336,6 +360,7 @@ f(
       "/",
       "a",
       ">",
+      "\n",
     ]);
 
     expectParseResult("<a>a b</a>", [
@@ -348,6 +373,7 @@ f(
       "/",
       "a",
       ">",
+      "\n",
     ]);
 
     expectParseResult("<a><hr /></a>", [
@@ -362,23 +388,9 @@ f(
       "/",
       "a",
       ">",
+      "\n",
     ]);
   });
-  test("with escape", () => {
-    const code =
-      `Route "$\{id}" has no component! Please go add a \`default\` export in the route module file.\n` +
-      "If you were trying to navigate or submit to a resource route, use `<a>` instead of `<Link>` or `<Form reloadDocument>`.";
-  });
-
-  // test("Multiline", () => {
-  //   let lineEndCount = 0;
-  //   for (const token of parseStream("{}\n{};1")) {
-  //     if (token === "\n") {
-  //       lineEndCount += 1;
-  //     }
-  //   }
-  //   eq(lineEndCount, 2);
-  // });
 
   run({ stopOnFail: true, stub: true, isMain });
 }

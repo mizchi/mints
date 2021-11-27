@@ -4,7 +4,7 @@ import { expose } from "./rpc/node";
 import { parentPort } from "worker_threads";
 import { funcs } from "./runtime/funcs";
 import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
-import { loadSnapshot } from "./runtime/load_b64_snapshot";
+import { loadSnapshot } from "./runtime/load_snapshot";
 
 let _parse: RootParser = createParserWithSnapshot(funcs, loadSnapshot());
 

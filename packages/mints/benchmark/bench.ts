@@ -75,10 +75,10 @@ async function esbuild(input: string) {
 
 function mints(input: string) {
   const out = transformSync(input);
-  if (typeof out === "object") {
+  if (out.error) {
     throw out;
   }
-  return out as string;
+  return out.code as string;
 }
 
 const transformer = createTransformer(
@@ -104,18 +104,15 @@ export async function main() {
     mints_para,
   ];
 
-  const targets = [code1, code2, code3];
   // const targets = [code_scratch];
-  // const targets = [code0, code1, code2, code3, code4, code5, code6];
+  const targets = [code0, code1, code2, code3, code4, code5, code6];
 
   // check mints can parse all
   console.log("=== mints-check");
   for (const target of targets) {
-    const out = mints(target);
+    const _out = mints(target);
     console.log("pass", JSON.stringify(target.slice(0, 10)) + "...");
-    // console.log("output", out);
   }
-  // throw "stop";
 
   console.log("=== perf start");
   for (const code of targets) {

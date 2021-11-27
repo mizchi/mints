@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "test": "yarn test:pargen && yarn test:mints",
-    "test:pargen": "yarn workspace @mizchi/pargen run test",
+    "test:pargen": "yarn workspace @mizchi/pargen-tokenized run test",
     "test:mints": "yarn workspace @mizchi/mints run test"
   },
   "devDependencies": {
