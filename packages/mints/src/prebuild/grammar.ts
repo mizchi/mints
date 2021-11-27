@@ -1311,7 +1311,7 @@ import {
   reshapeJsxElementPtr,
   reshapeJsxSelfClosingElementPtr,
 } from "../runtime/funcs";
-import { detectPragma } from "../runtime/preprocess";
+import { detectInlineOptions } from "../runtime/options";
 
 if (process.env.NODE_ENV === "test") {
   const compile = (
@@ -1325,7 +1325,7 @@ if (process.env.NODE_ENV === "test") {
         tokens.push(next);
       }
 
-      const opts = detectPragma(input);
+      const opts = detectInlineOptions(input);
       // console.log("opts", opts);
       const out = parser(
         tokens,

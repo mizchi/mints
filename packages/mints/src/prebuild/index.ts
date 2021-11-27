@@ -22,7 +22,7 @@ export function transform(
   opts?: { jsx?: string; jsxFragment?: string }
 ) {
   if (!opts) {
-    opts = detectPragma(input);
+    opts = detectInlineOptions(input);
     opts.jsx ??= "React.createElement";
     opts.jsxFragment ??= "React.Fragment";
   }
@@ -40,7 +40,7 @@ export function transform(
 }
 
 import { run, test, is } from "@mizchi/test";
-import { detectPragma } from "../runtime/preprocess";
+import { detectInlineOptions } from "../runtime/options";
 const isMain = require.main === module;
 // import ts from "typescript";
 if (process.env.NODE_ENV === "test") {

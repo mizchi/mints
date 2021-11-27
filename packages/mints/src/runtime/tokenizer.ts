@@ -2,11 +2,10 @@ const regexRegex = /\/.+?(?<!\\)\//uy;
 
 export function parseTokens(input: string): Generator<string> {
   const chars = createCharSlice(input);
-  return parseStream(chars) as Generator<string>;
+  return parseTokenStream(chars) as Generator<string>;
 }
 
-function* parseStream(
-  // unicode slice or raw ascii string
+function* parseTokenStream(
   chars: string | string[],
   initialCursor: number = 0,
   root = true
@@ -60,7 +59,7 @@ function* parseStream(
           }
           yield "${";
           i += 2;
-          for (const tok of parseStream(chars, i, false)) {
+          for (const tok of parseTokenStream(chars, i, false)) {
             if (typeof tok === "string") {
               yield tok;
             } else {
@@ -194,7 +193,7 @@ if (process.env.NODE_ENV === "test") {
   const expectParseResult = (input: string, expected: string[]) => {
     // let expectedCount = expected.length;
     // let count = 0;
-    let tokens = [...parseStream(input)];
+    let tokens = [...parseTokenStream(input)];
     // for (const token of parseStream(input)) {
     //   eq(expected.shift(), token);
     //   count++;
@@ -290,7 +289,7 @@ if (process.env.NODE_ENV === "test") {
 
   test("inline comment 3", () => {
     const code = `{  /* Invalid session is passed. Ignore. */}x`;
-    const result = [...parseStream(code)].map((token) => token);
+    const result = [...parseTokenStream(code)].map((token) => token);
     eq(result, ["{", "}", "x", "\n"]);
   });
 
@@ -309,7 +308,7 @@ f(
   });
   test("; in For", () => {
     let lineEndCount = 0;
-    for (const token of parseStream("for(;;)1;")) {
+    for (const token of parseTokenStream("for(;;)1;")) {
       if (token === "\n") {
         lineEndCount += 1;
       }
@@ -319,7 +318,7 @@ f(
 
   test("Multiline", () => {
     let lineEndCount = 0;
-    for (const token of parseStream("{}\n{};;1")) {
+    for (const token of parseTokenStream("{}\n{};;1")) {
       if (token === "\n") {
         lineEndCount += 1;
       }

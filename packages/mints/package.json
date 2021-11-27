@@ -7,7 +7,7 @@
   "module": "dist/index.js",
   "scripts": {
     "prepublishOnly": "yarn test && yarn build && yarn build:types",
-    "build": "node -r esbuild-register src/prebuild/prebuild.ts && rollup -c && cp src/runtime/snapshot.bin dist/",
+    "build": "node -r esbuild-register src/prebuild/prebuild.ts && rollup -c",
     "build:types": "tsc -p tsconfig.types.json",
     "analyze": "rollup -c rollup.config.analyze.js",
     "bench": "yarn build && node -r esbuild-register benchmark/bench.ts",

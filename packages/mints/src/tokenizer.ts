@@ -1,5 +1,5 @@
 import type { Opts } from "./types";
-import { detectPragma } from "./runtime/preprocess";
+import { detectInlineOptions } from "./runtime/options";
 
 const DEFAULT_MAX_TOKENS = 512;
 
@@ -9,7 +9,7 @@ export async function tokenizeBatch(
   process: (tokens: string[][], opts: Opts) => Promise<string>
 ) {
   if (!opts) {
-    opts = detectPragma(input);
+    opts = detectInlineOptions(input);
     opts.jsx = opts.jsx ?? "React.createElement";
     opts.jsxFragment = opts.jsxFragment ?? "React.Fragment";
   }

@@ -1,9 +1,9 @@
-import type { ParseSuccess, Snapshot } from "../../pargen-tokenized/src/types";
+import type { Snapshot } from "../../pargen-tokenized/src/types";
 import { funcs } from "./runtime/funcs";
 import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
 import { parseTokens } from "./runtime/tokenizer";
 import { loadSnapshot } from "./runtime/load_snapshot";
-import { detectPragma } from "./runtime/preprocess";
+import { detectInlineOptions } from "./runtime/options";
 import { Opts, TransformResult } from "./types";
 
 const snapshot = loadSnapshot();
@@ -11,7 +11,7 @@ const parse = createParserWithSnapshot(funcs, snapshot as Snapshot);
 
 export function transformSync(input: string, opts?: Opts): TransformResult {
   if (!opts) {
-    opts = detectPragma(input);
+    opts = detectInlineOptions(input);
     opts.jsx = opts.jsx ?? "React.createElement";
     opts.jsxFragment = opts.jsxFragment ?? "React.Fragment";
   }

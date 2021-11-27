@@ -1,6 +1,4 @@
 test262
-# src/runtime/snapshot.json
-src/runtime/snapshot.bin
 src/runtime/snapshot_b64.ts
 src/runtime/strings.json
 src/runtime/reserved.json
