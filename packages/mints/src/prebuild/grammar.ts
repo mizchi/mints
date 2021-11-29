@@ -134,7 +134,13 @@ const typeParameters = $def(() =>
 );
 
 const typeParen = $def(() =>
-  $seq([L_PAREN, typeExpression, R_PAREN, $opt(typeParameters)])
+  $seq([
+    L_PAREN,
+    typeExpression,
+    R_PAREN,
+    $opt(typeParameters),
+    $not([$seq(["=", ">"])]),
+  ])
 );
 
 const typeIdentifier = $def(() =>
@@ -254,7 +260,6 @@ const typeObjectLiteral = $def(() =>
     $repeat_seq([typeObjectItem, $or([",", ";"])]),
     $opt(typeObjectItem),
     $opt($or([",", ";"])),
-    // R_BRACE,
     R_BRACE,
   ])
 );
@@ -302,10 +307,6 @@ const typeBinaryExpression = $def(() =>
 );
 
 const typeExpression = $def(() => typeBinaryExpression);
-
-/*
-  destructive patterns
-*/
 
 // Destructive Pattren
 const destructiveArrayPattern = $def(() =>
@@ -617,9 +618,7 @@ const primary = $def(() =>
     stringLiteral,
     regexpLiteral,
     templateLiteral,
-    identifier,
     K_SUPER,
-    // should be after identifier
     thisKeyword,
     importKeyword,
     objectLiteral,
@@ -627,6 +626,7 @@ const primary = $def(() =>
     stringLiteral,
     templateLiteral,
     regexpLiteral,
+    identifier,
     paren,
   ])
 );
@@ -651,9 +651,6 @@ const accessible = $def(() =>
     // before paren required
     arrowFunc,
     $seq([primary, $repeat(access)]),
-    // paren,
-    // $seq([paren, $repeat(access)]),
-
     booleanLiteral,
     numberLiteral,
     nullLiteral,
@@ -674,14 +671,14 @@ const unary = $def(() =>
       ]),
       unary,
     ]),
-    // tagged template
-    $seq([$or([accessible]), templateLiteral]),
     $seq([
       $or([classExpr, accessible]),
       $opt($or([plusPlus, minusMinus])),
-      // ts bang operator
       $skip_opt("!"),
+      $not(["`"]),
     ]),
+    // tagged template
+    $seq([accessible, templateLiteral]),
   ])
 );
 
@@ -854,11 +851,10 @@ const ifStatement = $def(() =>
       $seq([
         whitespace,
         K_ELSE,
-        whitespace,
         $or([
           // xx
-          $seq([block]),
-          $seq([anyStatement]),
+          block,
+          $seq([whitespace, anyStatement]),
         ]),
       ])
     ),
@@ -927,7 +923,6 @@ const typeStatement = $def(() =>
 
 const interfaceStatement = $def(() =>
   $seq([
-    // skip all
     $skip(
       $seq([
         $opt($seq([K_EXPORT])),
@@ -995,14 +990,11 @@ const tryCatchStatement = $def(() =>
     $seq([
       // try
       K_TRY,
-
       block,
-
       $or([
         $seq([
           K_CATCH,
           $opt($seq([L_PAREN, anyExpression, R_PAREN])),
-
           block,
           $opt($seq([_finally])),
         ]),
@@ -1198,6 +1190,7 @@ const semicolonRequiredStatement = $def(() =>
 );
 
 export const anyStatement = $def(() =>
+  //  $or([semicolonlessStatement, semicolonRequiredStatement])
   $or([
     // "debbuger"
     debuggerStmt,
@@ -1891,7 +1884,7 @@ if (process.env.NODE_ENV === "test") {
       "if(1)1",
       `if(1){return 1;}`,
       `if(1){} else 2`,
-      `if(1){} else {}`,
+      `if(1){} else{}`,
       `if(1){} else if(1){}`,
       `if(1){} else if(1){} else 1`,
       `if(1){if(2)return 1}`,
