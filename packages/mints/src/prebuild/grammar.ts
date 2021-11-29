@@ -557,7 +557,7 @@ const classField = $def(() =>
 
 const classExpr = $def(() =>
   $seq([
-    $skip_opt($seq([K_ABSTRACT])),
+    $skip_opt(K_ABSTRACT),
     K_CLASS,
     $opt($seq([whitespace, identifier])),
     $skip_opt(typeDeclareParameters),
@@ -627,6 +627,7 @@ const primary = $def(() =>
     stringLiteral,
     templateLiteral,
     regexpLiteral,
+    paren,
   ])
 );
 
@@ -647,7 +648,12 @@ const access = $def(() =>
 
 const accessible = $def(() =>
   $or([
+    // before paren required
+    arrowFunc,
     $seq([primary, $repeat(access)]),
+    // paren,
+    // $seq([paren, $repeat(access)]),
+
     booleanLiteral,
     numberLiteral,
     nullLiteral,
@@ -669,9 +675,9 @@ const unary = $def(() =>
       unary,
     ]),
     // tagged template
-    $seq([$or([accessible, paren]), templateLiteral]),
+    $seq([$or([accessible]), templateLiteral]),
     $seq([
-      $or([classExpr, accessible, paren]),
+      $or([classExpr, accessible]),
       $opt($or([plusPlus, minusMinus])),
       // ts bang operator
       $skip_opt("!"),
