@@ -20,8 +20,8 @@ import {
   VALUE,
 } from "../prebuild/constants";
 
-import reserved from "./reserved.json";
-import strings from "./strings.json";
+import reserved from "./__reserved.json";
+import strings from "./__strings.json";
 
 type ParsedCostructorArg = {
   [INIT]: string | null;
@@ -39,6 +39,7 @@ function addFunc(fn: Function) {
 // TODO: prebuild
 const __reservedWordsByLength: Map<number, string[]> = new Map();
 for (const word of reserved.map((x) => strings[x])) {
+  if (word == null) continue; // FIXME
   const words = __reservedWordsByLength.get(word.length) ?? [];
   __reservedWordsByLength.set(word.length, [...words, word]);
 }

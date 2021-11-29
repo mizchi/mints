@@ -7,6 +7,7 @@ import { line } from "./grammar";
 import fs from "fs";
 import path from "path";
 import { RESERVED_WORDS } from "./constants";
+import { CONTROL_TOKENS } from "../runtime/tokenizer";
 
 const snapshot = createSnapshot(line);
 const strings = snapshot[E_strings];
@@ -17,37 +18,38 @@ fs.writeFileSync(
   `export const snapshot = '${Buffer.from(serialized).toString("base64")}';`
 );
 
-// console.log("c", controlTokens, reservedWords);
-// const controlTokens = CONTROL_TOKENS.map((x) => {
-//   const strPtr = strings.indexOf(x);
-//   if (strPtr > -1) {
-//     return strPtr;
-//   }
-//   const id = strings.length;
-//   // strings.push(x);
-//   return id;
-// });
+fs.writeFileSync(
+  path.join(__dirname, "../runtime/__strings.json"),
+  JSON.stringify(strings)
+);
+console.log("gen>", "src/runtime/__strings.json");
 
-const reservedWords = RESERVED_WORDS.map((x) => {
-  const idx = strings.indexOf(x);
-  if (idx > -1) {
-    return idx;
+// console.log("c", controlTokens, reservedWords);
+const controlTokens = CONTROL_TOKENS.map((x) => {
+  const strPtr = strings.indexOf(x);
+  if (strPtr > -1) {
+    return strPtr;
   }
-  // console.log("push rw", x);
   const id = strings.length;
   strings.push(x);
   return id;
 });
 
-fs.writeFileSync(
-  path.join(__dirname, "../runtime/strings.json"),
-  JSON.stringify(strings)
+const reservedWords = RESERVED_WORDS.map((x) => {
+  const idx = strings.indexOf(x);
+  if (idx > -1) return idx;
+  const id = strings.length;
+  strings.push(x);
+  return id;
+});
+
+const rw = [...new Set([...reservedWords, ...controlTokens])].sort(
+  (a, b) => a - b
 );
 
-// const rw = [...new Set([...reservedWords, ...controlTokens])].sort(
-//   (a, b) => a - b
-// );
-// fs.writeFileSync(
-//   path.join(__dirname, "../runtime/reserved.json"),
-//   JSON.stringify(rw)
-// );
+console.log("rw");
+fs.writeFileSync(
+  path.join(__dirname, "../runtime/__reserved.json"),
+  JSON.stringify(rw)
+);
+console.log("gen>", "src/runtime/__reserved.json");

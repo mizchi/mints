@@ -1,5 +1,5 @@
 const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
-const CONTROL_TOKENS = [
+export const CONTROL_TOKENS = [
   ";",
   ",",
   "{",

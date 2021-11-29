@@ -54,6 +54,33 @@ export const K_ENUM = "enum";
 export const K_WITH = "with";
 export const K_SUPER = "super";
 
+export const DOUBLE_QUOTE = '"';
+export const SINGLE_QUOTE = "'";
+export const BACK_QUOTE = "`";
+export const SLASH = "/";
+export const L_BRACE = "{";
+export const R_BRACE = "}";
+export const L_PAREN = "(";
+export const R_PAREN = ")";
+export const K_QUESTION = "?";
+export const K_BANG = "!";
+export const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE] as const;
+
+export const IDENT = "1";
+export const ATTRIBUTES = "2";
+export const CHILDREN = "3";
+export const NAME = "4";
+export const VALUE = "5";
+export const ACCESS = "6";
+export const INIT = "7";
+export const LAST = "8";
+export const CODE = "9";
+export const ARGS = "10";
+export const BODY = "11";
+export const ASSIGN = "12";
+export const ITEMS = "13";
+export const DOTDOTDOT = "14";
+
 const KEYWORDS = [
   K_BREAK,
   K_DO,
@@ -102,29 +129,3 @@ const KEYWORDS = [
 
 export const LITERAL_KEYWORDS = [K_NULL, K_TRUE, K_FALSE] as const;
 export const RESERVED_WORDS = [...KEYWORDS, ...LITERAL_KEYWORDS] as const;
-export const DOUBLE_QUOTE = '"';
-export const SINGLE_QUOTE = "'";
-export const BACK_QUOTE = "`";
-export const SLASH = "/";
-export const L_BRACE = "{";
-export const R_BRACE = "}";
-export const L_PAREN = "(";
-export const R_PAREN = ")";
-export const K_QUESTION = "?";
-export const K_BANG = "!";
-export const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE] as const;
-
-export const IDENT = "1";
-export const ATTRIBUTES = "2";
-export const CHILDREN = "3";
-export const NAME = "4";
-export const VALUE = "5";
-export const ACCESS = "6";
-export const INIT = "7";
-export const LAST = "8";
-export const CODE = "9";
-export const ARGS = "10";
-export const BODY = "11";
-export const ASSIGN = "12";
-export const ITEMS = "13";
-export const DOTDOTDOT = "14";
