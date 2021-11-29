@@ -622,6 +622,8 @@ const paren = $def(() =>
 
 const primary = $def(() =>
   $or([
+    func,
+    arrowFunc,
     jsxExpr,
     paren,
     newExpr,
@@ -680,7 +682,7 @@ const unary = $def(() =>
     // tagged template
     $seq([$or([accessible, paren]), templateLiteral]),
     $seq([
-      $or([classExpr, func, arrowFunc, accessible, paren]),
+      $or([classExpr, accessible, paren]),
       $opt($or([plusPlus, minusMinus])),
       // ts bang operator
       $skip_opt("!"),
