@@ -101,7 +101,7 @@ const whitespace = $def(() => $any(0, createWhitespacePtr));
 const identifier = $def(() => $atom(identParserPtr));
 
 const objectMemberIdentifier = $regex(
-  `^[^~&<>!:;,$='"\`\\{\\}\\(\\)\\[\\]\\^\\?\\.\\*\\/\\\\]+$`
+  `^[^~&<>!:;,@$='"\`\\{\\}\\(\\)\\[\\]\\^\\?\\.\\*\\/\\\\]+$`
 );
 
 const typeDeclareParameter = $def(() =>
@@ -1145,7 +1145,6 @@ const semicolonlessStatement = $def(() =>
     $or([
       // export function/class
       $seq([K_EXPORT, whitespace, $or([func, classExpr])]),
-      // anyStatement,
       classExpr,
       enumStatement,
       func,
@@ -1160,7 +1159,6 @@ const semicolonlessStatement = $def(() =>
       forItemStatement,
       blockStmt,
     ]),
-    // $seq([$opt(";")]),
   ])
 );
 
@@ -1177,19 +1175,19 @@ const semicolonRequiredStatement = $def(() =>
       K_INTERFACE,
       K_TRY,
     ]),
-    anyStatement,
-    // $or([
-    //   debuggerStmt,
-    //   breakStmt,
-    //   returnLikeStmt,
-    //   declareVariableStatement,
-    //   variableStatement,
-    //   typeStatement,
-    //   importStmt,
-    //   exportStatement,
-    //   labeledStmt,
-    //   expressionStatement,
-    // ]),
+    $or([
+      debuggerStmt,
+      breakStmt,
+      throwStmt,
+      returnLikeStmt,
+      declareVariableStatement,
+      variableStatement,
+      typeStatement,
+      importStmt,
+      exportStatement,
+      labeledStmt,
+      expressionStatement,
+    ]),
   ])
 );
 
@@ -1271,7 +1269,6 @@ import { parseTokens } from "../runtime/tokenizer";
 const isMain = require.main === module;
 
 import { compile as compileRaw } from "./ctx";
-// import { fail, success } from "../../pargen-tokenized/src/runtime";
 import { CODE_SEQ_STOP } from "../../../pargen-tokenized/src/constants";
 import {
   createWhitespacePtr,
