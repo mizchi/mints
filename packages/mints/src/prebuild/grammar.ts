@@ -80,13 +80,11 @@ import {
   K_VAR,
   K_VOID,
   K_WHILE,
-  K_WITH,
   K_YIELD,
   LAST,
   L_BRACE,
   L_PAREN,
   NAME,
-  RESERVED_WORDS,
   R_BRACE,
   R_PAREN,
   VALUE,
@@ -476,19 +474,6 @@ const objectLiteral = $def(() =>
   ])
 );
 
-const anyLiteral = $def(() =>
-  $or([
-    objectLiteral,
-    arrayLiteral,
-    stringLiteral,
-    templateLiteral,
-    regexpLiteral,
-    numberLiteral,
-    booleanLiteral,
-    nullLiteral,
-  ])
-);
-
 /* Class */
 const accessModifier = $or([K_PRIVATE, K_PUBLIC, K_PROTECTED]);
 const getOrSetModifier = $or([K_GET, K_SET]);
@@ -579,7 +564,7 @@ const classExpr = $def(() =>
     $opt($seq([whitespace, K_EXTENDS, whitespace, anyExpression])),
     $skip_opt($seq([K_IMPLEMENTS, typeExpression])),
     L_BRACE,
-    $repeat_seq([classField]),
+    $repeat(classField),
     R_BRACE,
   ])
 );
@@ -637,6 +622,11 @@ const primary = $def(() =>
     // should be after identifier
     thisKeyword,
     importKeyword,
+    objectLiteral,
+    arrayLiteral,
+    stringLiteral,
+    templateLiteral,
+    regexpLiteral,
   ])
 );
 
@@ -650,13 +640,7 @@ const access = $def(() =>
       callArguments,
       R_PAREN,
     ]),
-    $seq([
-      $opt($or(["!", "?"])),
-      ".",
-      $opt("#"),
-      objectMemberIdentifier,
-      // $or([identifier, K_DELETE, K_WITH]),
-    ]),
+    $seq([$opt($or(["!", "?"])), ".", $opt("#"), objectMemberIdentifier]),
     $seq([$opt($seq(["?", "."])), "[", anyExpression, "]"]),
   ])
 );
@@ -698,7 +682,6 @@ const binaryOperator = $or([
   $seq(["!", "=", "="]),
   // 2 chars
   $seq(["=", "="]),
-  $seq(["|", "|"]),
   $seq(["|", "|"]),
   $seq(["&", "&"]),
   $seq(["*", "*"]),
@@ -1532,8 +1515,6 @@ if (process.env.NODE_ENV === "test") {
 
     expectFail(parse, "a..b");
     expectFail(parse, "a.()");
-    // expectFail(parse, "a.this");
-    // expectFail(parse, "a.import");
     expectFail(parse, "1.a");
     // function
     expectSuccess(parse, "f()");
