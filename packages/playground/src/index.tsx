@@ -3,8 +3,7 @@ import { h, render } from "preact";
 import { useState, useEffect, useCallback, useRef } from "preact/hooks";
 // import { wrap } from "comlink";
 // import type { TokenizerApi } from "./tokenize-worker";
-// @ts-ignore
-import { transformSync } from "@mizchi/mints/dist/index.js";
+import { transformSync } from "@mizchi/mints";
 // @ts-ignore
 // import TokenizeWorker from "./tokenize-worker?worker";
 
@@ -67,7 +66,7 @@ function App() {
             setOutput(JSON.stringify(out, null, 2));
           } else {
             setBuildTime(Date.now() - now);
-            setOutput(out);
+            setOutput(out.code);
             if (!firstCompileDone) {
               firstCompileDone = true;
               console.timeEnd("first-compile");

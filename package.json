@@ -1,7 +1,7 @@
 {
-  "name": "@mizchi/parser",
+  "name": "mints-workspace",
   "private": true,
-  "repository": "git@github.com:mizchi/pargen.git",
+  "repository": "git@github.com:mizchi/mints.git",
   "author": "mizchi <miz404@gmail.com>",
   "license": "MIT",
   "scripts": {

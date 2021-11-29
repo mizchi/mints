@@ -345,7 +345,6 @@ const destructive = $def(() =>
 const funcArgWithAssign = $def(() =>
   $seq([
     $or([
-      // pattern(:T)?
       destructiveObjectPattern,
       destructiveArrayPattern,
       identifier,
@@ -367,7 +366,6 @@ const callArguments = $def(() =>
   $seq([
     $repeat_seq([anyExpression, ","]),
     $or([
-      // rest spread
       $seq([dotDotDot, anyExpression]),
       anyExpression,
       $any(0),
