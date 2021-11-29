@@ -27,12 +27,11 @@ module.exports = function (test) {
     // console.log("transformed", test.file, test.contents.slice(0, 10));
     console.log("test.contents", test.contents);
     const transformed = mints.transformSync(test.contents);
-    // console.log("transformed", transformed.result);
-    // console.log("input", test.contents, "\n====\n", transformed);
     if (transformed.error) {
+      console.log("====", test.contents, "\n====\n");
       throw new Error("parse-error");
     }
-    test.contents = transformed;
+    test.contents = transformed.code;
   } catch (error) {
     // console.log("failed", test.file);
     test.result = {

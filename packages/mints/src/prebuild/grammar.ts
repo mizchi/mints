@@ -1292,7 +1292,6 @@ if (process.env.NODE_ENV === "test") {
       }
 
       const opts = detectInlineOptions(input);
-      // console.log("opts", opts);
       const out = parser(
         tokens,
         {
