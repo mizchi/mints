@@ -646,7 +646,12 @@ const access = $def(() =>
 );
 
 const accessible = $def(() =>
-  $or([$seq([primary, $repeat(access)]), anyLiteral])
+  $or([
+    $seq([primary, $repeat(access)]),
+    booleanLiteral,
+    numberLiteral,
+    nullLiteral,
+  ])
 );
 
 const unary = $def(() =>
