@@ -6,7 +6,7 @@ import { line } from "./grammar";
 
 import fs from "fs";
 import path from "path";
-import { CONTROL_TOKENS, RESERVED_WORDS } from "./constants";
+import { RESERVED_WORDS } from "./constants";
 
 const snapshot = createSnapshot(line);
 const strings = snapshot[E_strings];
@@ -18,15 +18,15 @@ fs.writeFileSync(
 );
 
 // console.log("c", controlTokens, reservedWords);
-const controlTokens = CONTROL_TOKENS.map((x) => {
-  const strPtr = strings.indexOf(x);
-  if (strPtr > -1) {
-    return strPtr;
-  }
-  const id = strings.length;
-  // strings.push(x);
-  return id;
-});
+// const controlTokens = CONTROL_TOKENS.map((x) => {
+//   const strPtr = strings.indexOf(x);
+//   if (strPtr > -1) {
+//     return strPtr;
+//   }
+//   const id = strings.length;
+//   // strings.push(x);
+//   return id;
+// });
 
 const reservedWords = RESERVED_WORDS.map((x) => {
   const idx = strings.indexOf(x);
@@ -44,10 +44,10 @@ fs.writeFileSync(
   JSON.stringify(strings)
 );
 
-const rw = [...new Set([...reservedWords, ...controlTokens])].sort(
-  (a, b) => a - b
-);
-fs.writeFileSync(
-  path.join(__dirname, "../runtime/reserved.json"),
-  JSON.stringify(rw)
-);
+// const rw = [...new Set([...reservedWords, ...controlTokens])].sort(
+//   (a, b) => a - b
+// );
+// fs.writeFileSync(
+//   path.join(__dirname, "../runtime/reserved.json"),
+//   JSON.stringify(rw)
+// );

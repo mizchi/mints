@@ -1,3 +1,42 @@
+const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
+const CONTROL_TOKENS = [
+  ";",
+  ",",
+  "{",
+  "}",
+  "(",
+  ")",
+  "+",
+  "-",
+  "/",
+  "%",
+  ">",
+  "<",
+  "'",
+  '"',
+  "`",
+  "=",
+  "!",
+  "&",
+  "|",
+  "^",
+  "~",
+  "?",
+  ":",
+  ".",
+  "*",
+  "#",
+  "[",
+  "]",
+  "\n",
+  "\r",
+  "\t",
+  " ",
+  "@",
+];
+
+const STRING_PAIR = ["'", '"', "`"] as const;
+
 const regexRegex = /\/.+?(?<!\\)\//uy;
 
 export function parseTokens(input: string): Generator<string> {
@@ -48,11 +87,7 @@ function* parseTokenStream(
         yield char;
       } else {
         // detect ${expr} in ``
-        if (
-          wrapStringContext === "`" &&
-          char === "$" &&
-          chars[i + 1] === L_BRACE
-        ) {
+        if (wrapStringContext === "`" && char === "$" && chars[i + 1] === "{") {
           if (_buf.length > 0) {
             yield _buf;
             _buf = "";
@@ -80,7 +115,7 @@ function* parseTokenStream(
     if (CONTROL_TOKENS.includes(char)) {
       let isEOL = false;
       // comment, line-comment, regex
-      if (char === SLASH) {
+      if (char === "/") {
         if (nextChar === "*") {
           if (_buf.length > 0) {
             yield _buf;
@@ -89,7 +124,7 @@ function* parseTokenStream(
           isInlineComment = true;
           continue;
         }
-        if (nextChar === SLASH) {
+        if (nextChar === "/") {
           if (_buf.length > 0) {
             yield _buf;
             _buf = "";
@@ -101,10 +136,10 @@ function* parseTokenStream(
       }
 
       // Handle negative stack to go out parent
-      if (char === L_PAREN) openParenStack++;
-      if (char === R_PAREN) openParenStack--;
-      if (char === L_BRACE) openBraceStack++;
-      if (char === R_BRACE) {
+      if (char === "(") openParenStack++;
+      if (char === ")") openParenStack--;
+      if (char === "{") openBraceStack++;
+      if (char === "}") {
         openBraceStack--;
         if (!root && openBraceStack < 0) {
           i--; // back to prev char
@@ -119,7 +154,7 @@ function* parseTokenStream(
       // not </
       // not / /
       if (
-        char === SLASH &&
+        char === "/" &&
         nextChar !== " " &&
         // />
         nextChar !== ">" &&
@@ -176,16 +211,6 @@ function createCharSlice(input: string) {
 }
 
 import { test, run } from "@mizchi/test";
-import {
-  CONTROL_TOKENS,
-  L_BRACE,
-  L_PAREN,
-  R_BRACE,
-  R_PAREN,
-  SKIP_TOKENS,
-  SLASH,
-  STRING_PAIR,
-} from "../prebuild/constants";
 const isMain = require.main === module;
 if (process.env.NODE_ENV === "test") {
   const assert = require("assert");

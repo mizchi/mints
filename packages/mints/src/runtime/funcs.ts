@@ -40,7 +40,7 @@ function addFunc(fn: Function) {
 const __reservedWordsByLength: Map<number, string[]> = new Map();
 for (const word of reserved.map((x) => strings[x])) {
   const words = __reservedWordsByLength.get(word.length) ?? [];
-  __reservedWordsByLength.set(word.length, [...words, word].sort());
+  __reservedWordsByLength.set(word.length, [...words, word]);
 }
 
 const identifierParser: InternalParser = (ctx, pos) => {

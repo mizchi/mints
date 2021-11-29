@@ -24,7 +24,6 @@ import {
   ATTRIBUTES,
   BODY,
   CHILDREN,
-  CONTROL_TOKENS,
   DOTDOTDOT,
   IDENT,
   INIT,
@@ -99,22 +98,9 @@ const plusPlus = $seq(["+", "+"]);
 const minusMinus = $seq(["-", "-"]);
 const dotDotDot = $def(() => $seq([".", ".", "."]));
 
-const reservedWordsByLength: Map<number, string[]> = new Map();
-for (const word of [...CONTROL_TOKENS, ...RESERVED_WORDS]) {
-  const words = reservedWordsByLength.get(word.length) ?? [];
-  reservedWordsByLength.set(word.length, [...words, word].sort());
-}
-
 const whitespace = $def(() => $any(0, createWhitespacePtr));
 
 const identifier = $def(() => $atom(identParserPtr));
-
-// console.log(
-//   "tokens",
-//   CONTROL_TOKENS.map((c) => `\\${c}`)
-//     .filter((c) => !["\n", "\t", "\r"].includes(c))
-//     .join("")
-// );
 
 const objectMemberIdentifier = $regex(
   `^[^~&<>!:;,$='"\`\\{\\}\\(\\)\\[\\]\\^\\?\\.\\*\\/\\\\]+$`

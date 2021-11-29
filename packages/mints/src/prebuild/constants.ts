@@ -114,43 +114,6 @@ export const K_QUESTION = "?";
 export const K_BANG = "!";
 export const STRING_PAIR = [SINGLE_QUOTE, DOUBLE_QUOTE, BACK_QUOTE] as const;
 
-export const CONTROL_TOKENS = [
-  ";",
-  ",",
-  L_BRACE,
-  R_BRACE,
-  L_PAREN,
-  R_PAREN,
-  "+",
-  "-",
-  SLASH,
-  "%",
-  ">",
-  "<",
-  SINGLE_QUOTE,
-  DOUBLE_QUOTE,
-  BACK_QUOTE,
-  "=",
-  K_BANG,
-  "&",
-  "|",
-  "^",
-  "~",
-  "?",
-  ":",
-  ".",
-  "*",
-  "#",
-  "[",
-  "]",
-  "\n",
-  "\r",
-  "\t",
-  " ",
-];
-
-export const SKIP_TOKENS = ["\n", " ", "\t", "\r"];
-
 export const IDENT = "1";
 export const ATTRIBUTES = "2";
 export const CHILDREN = "3";

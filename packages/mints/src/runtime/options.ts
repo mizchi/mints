@@ -1,4 +1,4 @@
-import { Opts } from "../types";
+import type { Opts } from "../types";
 
 const jsxRegex = /\/\*\s?@jsx\s+([a-zA-Z\.]+)\s*\*\//;
 const jsxFragmentRegex = /\/\*\s?@jsxFrag\s+([a-zA-Z\.]+)\s*\*\//;
