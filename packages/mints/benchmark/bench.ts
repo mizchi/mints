@@ -121,7 +121,8 @@ export async function main() {
 
   console.log("=== perf start");
   for (const code of targets) {
-    const caseName = "example:" + targets.indexOf(code);
+    const caseName =
+      "example:" + targets.indexOf(code) + ":" + code.length + "chars";
     console.log("---------", caseName);
     for (const compiler of compilers) {
       const results: number[] = [];

@@ -3,7 +3,6 @@ import { terser } from "rollup-plugin-terser";
 import replace from "@rollup/plugin-replace";
 import nodeResolve from "@rollup/plugin-node-resolve";
 import json from "@rollup/plugin-json";
-// import type {RollupOptions} from "rollup";
 
 const plugins = [
   json(),
@@ -18,7 +17,7 @@ const plugins = [
   }),
   terser({
     module: true,
-    // compress: { drop_console: true },
+    compress: { drop_console: true },
     compress: {
       passes: 3,
       pure_funcs: [],
