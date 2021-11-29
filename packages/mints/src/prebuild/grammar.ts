@@ -157,12 +157,9 @@ const typePrimary = $def(() =>
 const typeReference = $def(() =>
   $seq([
     typePrimary,
-    $repeat_seq([
-      $or([
-        $seq([".", typeIdentifier]),
-        $seq(["[", $opt(typeExpression), "]"]),
-      ]),
-    ]),
+    $repeat(
+      $or([$seq([".", typeIdentifier]), $seq(["[", $opt(typeExpression), "]"])])
+    ),
   ])
 );
 
@@ -300,7 +297,7 @@ const typeBinaryExpression = $def(() =>
     $opt($or(["|", "&"])),
     $repeat_seq([
       typeUnaryExpression,
-      $or([$seq(["|"]), $seq(["&"]), $seq([whitespace, "is", whitespace])]),
+      $or(["|", "&", $seq([whitespace, "is", whitespace])]),
     ]),
     typeUnaryExpression,
   ])
@@ -312,7 +309,7 @@ const typeExpression = $def(() => typeBinaryExpression);
 const destructiveArrayPattern = $def(() =>
   $seq([
     "[",
-    $repeat_seq([$opt($seq([destructive, $opt($seq([assign]))])), ","]),
+    $repeat_seq([$opt($seq([destructive, $opt(assign)])), ","]),
     $or([
       $seq([dotDotDot, identifier]),
       $seq([$or([$seq([destructive])]), $opt(assign), $opt(",")]),
@@ -535,11 +532,11 @@ const classField = $def(() =>
       $opt("*"),
       $opt("#"),
       identifier,
-      $skip_opt($seq([typeDeclareParameters])),
+      $skip_opt(typeDeclareParameters),
       L_PAREN,
       funcArgs,
       R_PAREN,
-      $skip_opt($seq([typeAnnotation])),
+      $skip_opt(typeAnnotation),
       block,
     ]),
     // field
@@ -549,7 +546,7 @@ const classField = $def(() =>
       $skip_opt($seq([K_READONLY, whitespace])),
       $opt_seq(["#"]),
       identifier,
-      $skip_opt($seq([typeAnnotation])),
+      $skip_opt(typeAnnotation),
       $opt_seq(["=", $not([">"]), anyExpression]),
       ";",
     ]),
@@ -574,7 +571,7 @@ const func = $def(() =>
   $seq([
     $opt($seq([K_ASYNC, whitespace])),
     K_FUNCTION,
-    $opt($seq(["*"])),
+    $opt("*"),
     $opt($seq([whitespace, identifier])),
     $skip_opt(typeDeclareParameters),
     L_PAREN,
