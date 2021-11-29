@@ -1,3 +1,4 @@
+import { E_strings } from "../../../pargen-tokenized/src/constants";
 import { fail, success } from "../../../pargen-tokenized/src/runtime";
 import type {
   InternalParser,
@@ -20,8 +21,7 @@ import {
   VALUE,
 } from "../prebuild/constants";
 
-import reserved from "./__reserved.json";
-import strings from "./__strings.json";
+import reserved from "../gen/__reserved.json";
 
 type ParsedCostructorArg = {
   [INIT]: string | null;
@@ -36,15 +36,19 @@ function addFunc(fn: Function) {
   return id;
 }
 
-// TODO: prebuild
-const __reservedWordsByLength: Map<number, string[]> = new Map();
-for (const word of reserved.map((x) => strings[x])) {
-  if (word == null) continue; // FIXME
-  const words = __reservedWordsByLength.get(word.length) ?? [];
-  __reservedWordsByLength.set(word.length, [...words, word]);
-}
+// TODO: prebuild decision tree
+let __reservedWordsByLength: Map<number, string[]>;
 
 const identifierParser: InternalParser = (ctx, pos) => {
+  if (!__reservedWordsByLength) {
+    // build at first
+    __reservedWordsByLength = new Map();
+    for (const word of reserved.map((x) => ctx[E_strings][x])) {
+      if (word == null) continue; // FIXME
+      const words = __reservedWordsByLength.get(word.length) ?? [];
+      __reservedWordsByLength.set(word.length, [...words, word]);
+    }
+  }
   const token = ctx.t[pos] ?? "";
   const errorData = { code: 255, token } as any;
   const len = Array.from(token).length;

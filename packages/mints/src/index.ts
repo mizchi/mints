@@ -15,6 +15,7 @@ export function transformSync(input: string, opts?: Opts): TransformResult {
     opts.jsx = opts.jsx ?? "React.createElement";
     opts.jsxFragment = opts.jsxFragment ?? "React.Fragment";
   }
+
   let tokens: string[] = [];
   let results: string[] = [];
   for (const t of parseTokens(input)) {

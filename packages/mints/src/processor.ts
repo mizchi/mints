@@ -1,10 +1,11 @@
+import type { Opts } from "./types";
 import type { RootParser } from "../../pargen-tokenized/src/types";
 import { funcs } from "./runtime/funcs";
 import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
 import { loadSnapshot } from "./runtime/load_snapshot";
-import { Opts } from "./types";
 
 let _parse: RootParser = createParserWithSnapshot(funcs, loadSnapshot());
+
 function process(tokens: string[], opts?: Opts): string {
   const parsed = _parse(tokens.slice(), opts);
   if (parsed.error) {

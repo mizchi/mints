@@ -14,15 +14,15 @@ const strings = snapshot[E_strings];
 const serialized = encodeSnapshotToBinary(snapshot);
 
 fs.writeFileSync(
-  path.join(__dirname, "../runtime/snapshot_b64.ts"),
+  path.join(__dirname, "../gen/snapshot_b64.ts"),
   `export const snapshot = '${Buffer.from(serialized).toString("base64")}';`
 );
 
 fs.writeFileSync(
-  path.join(__dirname, "../runtime/__strings.json"),
+  path.join(__dirname, "../gen/__strings.json"),
   JSON.stringify(strings)
 );
-console.log("gen>", "src/runtime/__strings.json");
+console.log("gen>", "src/gen/__strings.json");
 
 // console.log("c", controlTokens, reservedWords);
 const controlTokens = CONTROL_TOKENS.map((x) => {
@@ -49,7 +49,7 @@ const rw = [...new Set([...reservedWords, ...controlTokens])].sort(
 
 console.log("rw");
 fs.writeFileSync(
-  path.join(__dirname, "../runtime/__reserved.json"),
+  path.join(__dirname, "../gen/__reserved.json"),
   JSON.stringify(rw)
 );
-console.log("gen>", "src/runtime/__reserved.json");
+console.log("gen>", "src/gen/__reserved.json");
