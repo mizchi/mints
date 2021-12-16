@@ -216,13 +216,17 @@ if (process.env.NODE_ENV === "test") {
     // export default 1;
   });
 
-  test("fix", () => {
+  test("default", () => {
     is(transform(`export default 1;`), `export default 1;`);
 
     is(
       transform(`export const x = 1;export default 1;`),
       `export const x=1;export default 1;`
     );
+  });
+
+  test("type", () => {
+    is(transform(`export type a = x;`), `;`);
   });
 
   test("jsx: no pragma", () => {

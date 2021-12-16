@@ -801,7 +801,6 @@ const defaultOrIdentifer = $or([K_DEFAULT, identifier]);
 
 const exportStatement = $def(() =>
   $or([
-    // TODO: skip: export type|interface
     // export clause
     $seq([
       K_EXPORT,
@@ -824,6 +823,7 @@ const exportStatement = $def(() =>
     ]),
     // export named expression
     $seq([K_EXPORT, whitespace, $or([variableStatement, func, classExpr])]),
+    $seq([$skip($seq([K_EXPORT, $or([typeStatement, interfaceStatement])]))]),
     // default export
     $seq([K_EXPORT, whitespace, K_DEFAULT, whitespace, anyExpression]),
   ])
@@ -898,7 +898,6 @@ const typeStatement = $def(() =>
   $seq([
     $skip(
       $seq([
-        $opt(K_EXPORT),
         K_TYPE,
         identifier,
         $opt(typeDeclareParameters),
@@ -914,7 +913,6 @@ const interfaceStatement = $def(() =>
   $seq([
     $skip(
       $seq([
-        $opt($seq([K_EXPORT])),
         K_INTERFACE,
         identifier,
         $opt($seq([K_EXTENDS, whitespace, typeExpression])),
@@ -1169,9 +1167,9 @@ const semicolonRequiredStatement = $def(() =>
       returnLikeStmt,
       declareVariableStatement,
       variableStatement,
-      typeStatement,
       importStmt,
       exportStatement,
+      typeStatement,
       labeledStmt,
       expressionStatement,
     ]),
@@ -1693,6 +1691,7 @@ if (process.env.NODE_ENV === "test") {
       "{readonly x:number;}",
       "{[key:string]:v}",
       "{():void;}",
+      "typeof api",
     ]);
   });
 
@@ -1971,6 +1970,7 @@ if (process.env.NODE_ENV === "test") {
       "f(/[ ]{1,}/)",
     ]);
     expectSuccess(parse, "type X<A>=T", "");
+    expectSuccess(parse, "export type X<A>=T", "");
   });
 
   test("transform: class constructor", () => {
