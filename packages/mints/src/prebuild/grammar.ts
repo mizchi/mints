@@ -344,11 +344,7 @@ const destructive = $def(() =>
 
 const funcArgWithAssign = $def(() =>
   $seq([
-    $or([
-      destructiveObjectPattern,
-      destructiveArrayPattern,
-      identifier,
-    ]),
+    $or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
     $skip_opt($seq([$skip_opt(K_QUESTION), ":", typeExpression])),
     $opt_seq([$skip_opt(K_QUESTION), "=", $not([">"]), anyExpression]),
   ])
@@ -365,11 +361,7 @@ const funcArgs = $def(() =>
 const callArguments = $def(() =>
   $seq([
     $repeat_seq([anyExpression, ","]),
-    $or([
-      $seq([dotDotDot, anyExpression]),
-      anyExpression,
-      $any(0),
-    ]),
+    $or([$seq([dotDotDot, anyExpression]), anyExpression, $any(0)]),
   ])
 );
 
@@ -832,6 +824,8 @@ const exportStatement = $def(() =>
     ]),
     // export named expression
     $seq([K_EXPORT, whitespace, $or([variableStatement, func, classExpr])]),
+    // default export
+    $seq([K_EXPORT, whitespace, K_DEFAULT, whitespace, anyExpression]),
   ])
 );
 

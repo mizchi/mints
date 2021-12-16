@@ -92,6 +92,7 @@ if (process.env.NODE_ENV === "test") {
 
     // const parse = compile(program, { end: true });
     expectTransformSuccess([
+      "export default 1;",
       `;`,
       `;;;;;`,
       `a;`,

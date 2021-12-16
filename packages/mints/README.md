@@ -1,11 +1,25 @@
-# mints: minimum typescript compiler (7.6kb, gzip)
+# mints
+
+minimum typescript compiler (7.6kb, gzip)
 
 ## Goal
 
-- Extreme lightweight
-- Just drop type annotations
+- Lightweight
+- Just drop type annotations like `:number` and transform `enum`, `constructor`'s `public/private/proctected` and `jsx`.
 - Fast first compile (use prebuild binary format)
 - Support parallel compile
+
+## Syntax Limitations
+
+- All statements except those terminated by `}` require `;` (expect prettier format)
+- mints tokenizer is unstable for RegExp Literal `/.../` yet.
+  - `/ ` can not parse as RexExp (expect binary divider). use `/[ ]...`.
+  - `/>` can not parse as RegExp (expect jsx)
+  - `</` can not parse as RegExp (expect jsx)
+- Not Support
+  - `with`
+  - `namespace`
+  - `decorator`
 
 ## How to use
 
@@ -25,15 +39,7 @@ if (!out.error) {
 }
 ```
 
-TODO: add worker format
-
-## NOTICE:
-
-- mints works with prettier formatted source.
-- RegExp literal(`/.../`) is unstable
-  - `/[whitespace]` can not parse as RexExp (expect divide)
-  - `/>` can not parse as RegExp (expect jsx)
-  - `</` can not parse as RegExp (expect jsx)
+TODO: add worker mode example
 
 ## Benchmark
 
@@ -98,12 +104,6 @@ yarn test
 yarn bench
 yarn test262 # not pass yet
 ```
-
-## May not support
-
-- with
-- namespace
-- decorator
 
 ## LICENSE
 
