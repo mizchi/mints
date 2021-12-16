@@ -1229,14 +1229,12 @@ export const anyStatement = $def(() =>
 
 export const line = $def(() =>
   $or([
-    $seq([semicolonlessStatement, $skip_opt(";")]),
+    $seq([semicolonlessStatement, $opt(";")]),
     $seq([$opt(semicolonRequiredStatement), ";"]),
   ])
 );
 
-const lines = $def(() =>
-  $seq([$repeat_seq([line]), $opt(anyStatement), $skip_opt(";")])
-);
+const lines = $def(() => $seq([$repeat(line), $opt(anyStatement), $opt(";")]));
 
 const block = $def(() => $seq([L_BRACE, lines, R_BRACE]));
 

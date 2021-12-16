@@ -72,8 +72,8 @@ if (process.env.NODE_ENV === "test") {
   test("multiline", () => {
     is(transform(`1;`), "1;");
     is(transform(`debugger;debugger;`), "debugger;debugger;");
-    is(transform("class{};1;"), "class{}1;");
-    is(transform(`function f(){};1;2;`), "function f(){}1;2;");
+    is(transform("class{};1;"), "class{};1;");
+    is(transform(`function f(){};1;2;`), "function f(){};1;2;");
     is(transform(`x=class{};function f(){}`), "x=class{};function f(){}");
     is(
       transform(`class{
@@ -212,6 +212,16 @@ if (process.env.NODE_ENV === "test") {
     is(
       transform(`enum X { a = "foo", b = "bar" }`),
       `const X={a:"foo",b:"bar",};`
+    );
+    // export default 1;
+  });
+
+  test("fix", () => {
+    is(transform(`export default 1;`), `export default 1;`);
+
+    is(
+      transform(`export const x = 1;export default 1;`),
+      `export const x=1;export default 1;`
     );
   });
 
