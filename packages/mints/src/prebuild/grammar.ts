@@ -445,7 +445,13 @@ const objectItem = $def(() =>
         $seq(["[", anyExpression, "]"]),
         objectMemberIdentifier,
       ]),
-      $seq([L_PAREN, funcArgs, R_PAREN, block]),
+      $seq([
+        L_PAREN,
+        funcArgs,
+        R_PAREN,
+        $skip_opt($seq([":", typeExpression])),
+        block,
+      ]),
     ]),
     $seq([
       $or([
@@ -1460,6 +1466,7 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "{get x(){}}");
     expectSuccess(parse, "{get get(){}}");
     expectSuccess(parse, "{get(){}}");
+    expectSuccess(parse, "{get():void{}}", "{get(){}}");
   });
 
   test("paren", () => {
