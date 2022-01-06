@@ -430,7 +430,16 @@ const objectItem = $def(() =>
     $seq([".", ".", ".", anyExpression]),
     $seq([
       // function
-      $opt($or([K_ASYNC, K_GET, K_SET])),
+
+      $opt(
+        $seq([
+          $or([K_ASYNC, K_GET, K_SET]),
+          // avoid: get(), async(), set()
+          $not(["("]),
+          whitespace,
+        ])
+      ),
+
       $or([
         stringLiteral,
         $seq(["[", anyExpression, "]"]),
@@ -1446,6 +1455,11 @@ if (process.env.NODE_ENV === "test") {
     expectSuccess(parse, "{a(b){1;}}");
     expectSuccess(parse, "{a(b=1,c=2){1;}}");
     expectSuccess(parse, "{static:1}");
+
+    // NOTE: get() function
+    expectSuccess(parse, "{get x(){}}");
+    expectSuccess(parse, "{get get(){}}");
+    expectSuccess(parse, "{get(){}}");
   });
 
   test("paren", () => {

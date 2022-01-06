@@ -60,3 +60,21 @@ info: |
 
 // f();
 // assert.sameValue(callCount, 1, 'arrow function invoked exactly once');
+
+// const xxx = {
+//     get x(): number {
+//         return 1;
+//     }
+// }
+
+// const xxx1 = {
+//     get x() {
+//         return 1;
+//     }
+// }
+
+const xxx1 = {
+    get() {
+        return 1;
+    }
+}

@@ -81,7 +81,14 @@ async function esbuild(input: string) {
 function mints(input: string) {
   const out = transformSync(input);
   if (out.error) {
-    throw out;
+    // console.log(out.error);
+    const errorText = (out.tokens as string[])
+      .map((t, i) => {
+        if (i === out.pos) return "<[ " + t + " ]>";
+        return t;
+      })
+      .join(" ");
+    throw new Error(`[Mints:ParseError]\n${errorText}`);
   }
   return out.code as string;
 }
