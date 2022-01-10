@@ -41,6 +41,20 @@ if (!out.error) {
 
 TODO: add worker mode example
 
+## Run with cache
+
+```ts
+import { transformSync } from "@mizchi/mints";
+const cache = new Map();
+const out1 = transformSync(`const x: number = 1;const y = 2;`, { cache });
+
+const out2 = transformSync(`const x: number = 1; const y = 3;`, { cache });
+
+cache.clear();
+```
+
+`transformSync` caches result by each line. In this case, compile only `const y = 3;` line.
+
 ## Benchmark
 
 ```
@@ -53,7 +67,7 @@ $ yarn bench
 [esbuild] 14ms
 [mints] 6ms
 [mints_para] 12ms
---------- e2981chars
+--------- 2981chars
 [tsc] 14ms
 [esbuild] 1ms
 [mints] 9ms
