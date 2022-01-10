@@ -123,3 +123,23 @@ class _Point<Num extends number = number> {
   private z: Num = 0;
   constructor(private x: Num, private y: Num) {}
 }
+
+
+class X {
+  async * f() {
+      return 1;
+  }
+}
+
+const itr = {
+  async * [Symbol.asyncIterator]() {
+      for (const c of []) {
+          yield c;
+      }
+  },
+};
+
+function * f() {
+  yield 1;
+  yield 2;
+}

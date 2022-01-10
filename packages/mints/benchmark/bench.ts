@@ -88,6 +88,7 @@ function mints(input: string) {
         return t;
       })
       .join(" ");
+    console.log("---\n", out, "\n");
     throw new Error(`[Mints:ParseError]\n${errorText}`);
   }
   return out.code as string;

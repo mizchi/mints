@@ -73,8 +73,51 @@ info: |
 //     }
 // }
 
-const xxx1 = {
-    get() {
+class X {
+    async * f() {
         return 1;
     }
 }
+
+const x = {
+    async * [Symbol.asyncIterator]() {
+        for (const c of []) {
+            yield c;
+        }
+    },
+};
+
+function * f() {
+    yield 1;
+    yield 2;
+}
+
+
+
+// const _createListener = (): Deno.Listener => {
+//     const rid = _genRid();
+//     const connections: Deno.Conn[] = [];
+//     return {
+//       rid,
+//       /** Waits for and resolves to the next connection to the `Listener`. */
+//       async accept(): Promise<Deno.Conn> {
+//         return null as any;
+//       },
+//       /** Close closes the listener. Any pending accept promises will be rejected
+//        * with errors. */
+//       close() {
+//         _deleteResource(rid);
+//       },
+//       addr: {
+//         transport: "tcp",
+//         hostname: "0.0.0.0",
+//         port: 1400,
+//       },
+//       async *[Symbol.asyncIterator]() {
+//         for (const c of connections) {
+//           yield c;
+//         }
+//       },
+//     };
+//   };
+  

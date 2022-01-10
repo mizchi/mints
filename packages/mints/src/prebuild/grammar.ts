@@ -431,14 +431,10 @@ const objectItem = $def(() =>
     $seq([
       // function
 
-      $opt(
-        $seq([
-          $or([K_ASYNC, K_GET, K_SET]),
-          // avoid: get(), async(), set()
-          $not(["("]),
-          whitespace,
-        ])
-      ),
+      $opt_seq([$or([K_ASYNC, K_GET, K_SET]), $not(["("]), whitespace]),
+
+      // generator
+      $opt("*"),
 
       $or([
         stringLiteral,
@@ -956,6 +952,7 @@ const variableType = $or([K_VAR, K_CONST, K_LET]);
 const forItemStatement = $def(() =>
   $seq([
     K_FOR,
+    // $opt_seq([K_AWAIT, whitespace]),
     L_PAREN,
     $seq([variableType, whitespace]),
     destructive,

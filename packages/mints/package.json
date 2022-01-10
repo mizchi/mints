@@ -1,6 +1,6 @@
 {
   "name": "@mizchi/mints",
-  "version": "0.1.4",
+  "version": "0.1.6",
   "license": "MIT",
   "types": "types/mints/src/index.d.ts",
   "main": "dist/index.cjs",
