@@ -2,6 +2,8 @@
 
 minimum typescript compiler (7.6kb, gzip)
 
+Demo https://mints-playground.netlify.app/
+
 ## Goal
 
 - Lightweight

@@ -1,10 +1,12 @@
 import fs from "fs";
 import { transformSync } from "./src/index";
 
-const code = fs.readFileSync(
-  __dirname + "/benchmark/cases/example6.tsx",
-  "utf-8"
-);
+// const code = fs.readFileSync(
+//   __dirname + "/benchmark/cases/example6.tsx",
+//   "utf-8"
+// );
+
+const code = `x = 1 !== 1;`;
 
 const cache = new Map();
 
@@ -15,5 +17,7 @@ console.timeEnd("1st");
 console.time("with cache");
 const out2 = transformSync(code, { cache });
 console.timeEnd("with cache");
+
+console.log("out", out);
 
 // console.log(out.code);

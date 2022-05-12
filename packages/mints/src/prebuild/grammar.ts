@@ -640,6 +640,7 @@ const access = $def(() =>
       R_PAREN,
     ]),
     $seq([$opt($or(["!", "?"])), ".", $opt("#"), objectMemberIdentifier]),
+    // $seq([$opt($or(["!", "?"])), ".", $opt("#"), objectMemberIdentifier]),
     $seq([$opt($seq(["?", "."])), "[", anyExpression, "]"]),
   ])
 );
@@ -665,6 +666,7 @@ const unary = $def(() =>
         minusMinus,
         "~",
         "!",
+        // $seq(["!", $not(["="])]),
         "-",
       ]),
       unary,
@@ -672,7 +674,10 @@ const unary = $def(() =>
     $seq([
       $or([classExpr, accessible]),
       $opt($or([plusPlus, minusMinus])),
-      $skip_opt("!"),
+      // $not(["!", "="]),
+      $skip_opt(
+        $seq(["!", $not(["="])]),
+      ),
       $not(["`"]),
     ]),
     // tagged template
@@ -1587,6 +1592,7 @@ if (process.env.NODE_ENV === "test") {
   });
   test("binary", () => {
     const parse = compile(binary);
+    expectSuccess(parse, "1!==1");
     expectSuccessList(parse, [
       "a",
       "a+a",

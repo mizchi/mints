@@ -114,9 +114,9 @@ function App() {
         <div style={{ height: "100%", width: "100%", paddingLeft: 15 }}>
           <h3>Mints Playground</h3>
           <div>
-            by{" "}
-            <a href="https://twitter.com/mizchi" style={{ color: "#89f" }}>
-              @mizchi
+            {" | "}
+            <a href="https://github.com/mizchi/mints" style={{ color: "#89f" }}>
+              GitHub
             </a>
           </div>
         </div>

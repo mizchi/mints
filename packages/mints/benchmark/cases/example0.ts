@@ -143,3 +143,11 @@ function * f() {
   yield 1;
   yield 2;
 }
+
+type Unpacked<T> = T extends (infer U)[]
+  ? U
+  : T extends (...args: any[]) => infer U
+  ? U
+  : T extends Promise<infer U>
+  ? U
+  : T;
