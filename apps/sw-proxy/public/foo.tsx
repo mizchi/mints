@@ -24,7 +24,7 @@ type T = any;
 declare const _hidden: number;
 
 class Point<Num extends number = number> {
-  private z: Num = 0;
+  private z: Number = 0;
   constructor(private x: Num, private y: Num) {}
 }
 

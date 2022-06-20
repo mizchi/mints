@@ -25,6 +25,7 @@
     "vite": "^2.4.2"
   },
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "apps/*"
   ]
 }
