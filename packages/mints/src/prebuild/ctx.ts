@@ -1,4 +1,4 @@
-import { createContext } from "../../../pargen-tokenized/src/index";
+import { createContext } from "../../../pargen/src/index";
 import { funcs } from "../runtime/funcs";
 
 const compile = createContext(funcs);

@@ -4,8 +4,7 @@
     "declaration": true,
     "target": "ESNext",
     "module": "ESNext",
-    "rootDir": "src",
     "outDir": "types"
   },
-  "include": ["src"]
+  "include": ["src", "encoder", "decoder"]
 }

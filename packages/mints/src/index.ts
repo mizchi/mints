@@ -1,6 +1,6 @@
-import type { Snapshot } from "../../pargen-tokenized/src/types";
+import type { Snapshot } from "../../pargen/src/types";
 import { funcs } from "./runtime/funcs";
-import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
+import { createParserWithSnapshot } from "../../pargen/src/index";
 import { parseTokens } from "./runtime/tokenizer";
 import { loadSnapshot } from "./runtime/load_snapshot";
 import { detectInlineOptions } from "./runtime/options";

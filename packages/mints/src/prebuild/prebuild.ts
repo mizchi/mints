@@ -1,7 +1,7 @@
 // import assert from "assert";
-import { createSnapshot } from "../../../pargen-tokenized/src/index";
-import { encodeSnapshotToBinary } from "../../../pargen-tokenized/encoder/encoder";
-import { E_strings } from "../../../pargen-tokenized/src/constants";
+import { createSnapshot } from "../../../pargen/src/index";
+import { encodeSnapshotToBinary } from "../../../pargen/encoder/encoder";
+import { E_strings } from "../../../pargen/src/constants";
 import { line } from "./grammar";
 
 import fs from "fs";

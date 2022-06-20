@@ -1,4 +1,4 @@
-import type { ParseError } from "../../../pargen-tokenized/src/types";
+import type { ParseError } from "../../../pargen/src/types";
 import {
   $any,
   $atom,
@@ -15,7 +15,7 @@ import {
   $skip,
   $skip_opt,
   $token,
-} from "../../../pargen-tokenized/src/builder";
+} from "../../../pargen/src/builder";
 
 import {
   ACCESS,
@@ -1264,13 +1264,13 @@ const caseClause = $def(() =>
 export const program = lines;
 
 import { test, run, is } from "@mizchi/test";
-import { Rule } from "../../../pargen-tokenized/src/types";
+import { Rule } from "../../../pargen/src/types";
 import { parseTokens } from "../runtime/tokenizer";
 
 const isMain = require.main === module;
 
 import { compile as compileRaw } from "./ctx";
-import { CODE_SEQ_STOP } from "../../../pargen-tokenized/src/constants";
+import { CODE_SEQ_STOP } from "../../../pargen/src/constants";
 import {
   createWhitespacePtr,
   identParserPtr,

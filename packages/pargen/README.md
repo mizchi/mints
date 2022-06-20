@@ -1,6 +1,6 @@
 # @mizchi/pargen
 
-lightweight parser generator
+tokenized input version of @mizchi/pargen
 
 ```bash
 $ npm install @mizchi/pargen --save
@@ -20,5 +20,3 @@ TBD
 ## LICENSE
 
 MIT
-
-
