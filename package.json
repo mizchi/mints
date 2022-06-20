@@ -3,6 +3,7 @@
   "private": true,
   "repository": "git@github.com:mizchi/mints.git",
   "author": "mizchi <miz404@gmail.com>",
+  "packageManager": "pnpm@7.2.1",
   "license": "MIT",
   "scripts": {
     "test": "yarn test:pargen && yarn test:mints",
