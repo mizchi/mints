@@ -6,3 +6,4 @@ dist-ssr
 types
 # Local Netlify folder
 .netlify
+.turbo

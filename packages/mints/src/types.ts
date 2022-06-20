@@ -1,4 +1,4 @@
-import type { ParseError } from "../../pargen-tokenized/src/types";
+import type { ParseError } from "../../pargen/src/types";
 
 export type Opts = {
   jsx?: string;

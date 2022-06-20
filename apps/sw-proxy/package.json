@@ -8,6 +8,7 @@
     "serve": "vite preview"
   },
   "devDependencies": {
+    "@mizchi/mints": "workspace:*",
     "typescript": "^4.3.2",
     "vite": "^2.6.4"
   }

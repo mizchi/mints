@@ -3,11 +3,11 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build-deps": "yarn workspace @mizchi/mints build",
-    "build": "yarn build-deps && vite build",
-    "dev": "yarn build-deps && vite"
+    "build": "vite build",
+    "dev": "vite"
   },
   "devDependencies": {
+    "@mizchi/mints": "workspace:*",
     "comlink": "^4.3.1",
     "vite": "^2.6.10"
   },

@@ -1,17 +1,16 @@
-# @mizchi/pargen-tokenized
+# @mizchi/pargen
 
 tokenized input version of @mizchi/pargen
 
 ```bash
-$ npm install @mizchi/pargen-tokenized --save
+$ npm install @mizchi/pargen --save
 # or
-$ yarn add @mizchi/pargen-tokenized
+$ yarn add @mizchi/pargen
 ```
 
 ## How to use
 
 TBD
-
 
 ## TODO
 
@@ -21,5 +20,3 @@ TBD
 ## LICENSE
 
 MIT
-
-

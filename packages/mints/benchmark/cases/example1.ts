@@ -1,5 +1,5 @@
 import ts from "typescript";
-import { ErrorType, ParseError } from "../../../pargen-tokenized/src/types";
+import { ErrorType, ParseError } from "../../../pargen/src/types";
 import { preprocessLight } from "../../src/preprocess";
 import prettier from "prettier";
 

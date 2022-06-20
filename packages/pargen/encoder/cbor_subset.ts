@@ -30,7 +30,7 @@
 
 // const POW_2_24 = 5.960464477539063e-8;
 const POW_2_32 = 4294967296;
-const POW_2_53 = 9007199254740992;
+// const POW_2_53 = 9007199254740992;
 
 export function encode(value: any): ArrayBuffer {
   let data = new ArrayBuffer(256);

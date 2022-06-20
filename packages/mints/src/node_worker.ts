@@ -1,9 +1,9 @@
-import type { RootParser } from "../../pargen-tokenized/src/types";
+import type { RootParser } from "../../pargen/src/types";
 import type { Opts } from "./types";
 import { expose } from "./rpc/node";
 import { parentPort } from "worker_threads";
 import { funcs } from "./runtime/funcs";
-import { createParserWithSnapshot } from "../../pargen-tokenized/src/index";
+import { createParserWithSnapshot } from "../../pargen/src/index";
 import { loadSnapshot } from "./runtime/load_snapshot";
 
 let _parse: RootParser = createParserWithSnapshot(funcs, loadSnapshot());

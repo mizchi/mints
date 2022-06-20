@@ -1,9 +1,9 @@
-import { E_strings } from "../../../pargen-tokenized/src/constants";
-import { fail, success } from "../../../pargen-tokenized/src/runtime";
+import { E_strings } from "../../../pargen/src/constants";
+import { fail, success } from "../../../pargen/src/runtime";
 import type {
   InternalParser,
   ParseContext,
-} from "../../../pargen-tokenized/src/types";
+} from "../../../pargen/src/types";
 import {
   ACCESS,
   ARGS,
