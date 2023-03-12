@@ -587,10 +587,8 @@ if (import.meta.vitest) {
   test("paired close: like jsx", () => {
     const compile = createContext([
       dummyFn,
-      ([a]: number[], [b]: number[], { tokens }: { tokens: string[] }) => {
-        // console.log("tokens", tokens);
-        // , a[1] === b[1];
-        return tokens[a] === tokens[b];
+      ([a]: number[], [b]: number[], ctx: ParseContext) => {
+        return ctx.t[a] === ctx.t[b];
       },
     ]);
     const parser = compile(
@@ -613,75 +611,76 @@ if (import.meta.vitest) {
       // detail: [CODE_SEQ_UNMATCH_STACK],
     });
   });
-  // test("paired close: like jsx nested", () => {
-  //   const compile = createContext([
-  //     dummyFn,
-  //     ([a]: number[], [b]: number[], { tokens }: { tokens: string[] }) =>
-  //       tokens[a] === tokens[b],
-  //   ]);
-  //   const parser = compile(
-  //     $seqo([
-  //       "<",
-  //       [{ key: "tag1", push: true }, $regex("[a-z]+")],
-  //       ">",
-  //       "<",
-  //       [{ key: "tag2", push: true }, $regex("[a-z]+")],
-  //       ">",
-  //       "<",
-  //       "/",
-  //       [{ pop: 1 }, $regex("[a-z]+")],
-  //       ">",
-  //       "<",
-  //       "/",
-  //       [{ pop: 1 }, $regex("[a-z]+")],
-  //       ">",
-  //     ])
-  //   );
-  //   is(
-  //     parser([
-  //       "<",
-  //       "div",
-  //       ">",
-  //       "<",
-  //       "a",
-  //       ">",
-  //       "<",
-  //       "/",
-  //       "a",
-  //       ">",
-  //       "<",
-  //       "/",
-  //       "div",
-  //       ">",
-  //     ]),
-  //     {
-  //       xs: [{ tag1: ["div"], tag2: ["a"] }],
-  //     }
-  //   );
+  test("paired close: like jsx nested", () => {
+    const compile = createContext([
+      dummyFn,
+      ([a]: number[], [b]: number[], ctx: ParseContext) => {
+        return ctx.t[a] === ctx.t[b];
+      },
+    ]);
+    const parser = compile(
+      $seqo([
+        "<",
+        [{ key: "tag1", push: true }, $regex("[a-z]+")],
+        ">",
+        "<",
+        [{ key: "tag2", push: true }, $regex("[a-z]+")],
+        ">",
+        "<",
+        "/",
+        [{ pop: 1 }, $regex("[a-z]+")],
+        ">",
+        "<",
+        "/",
+        [{ pop: 1 }, $regex("[a-z]+")],
+        ">",
+      ]),
+    );
+    is(
+      parser([
+        "<",
+        "div",
+        ">",
+        "<",
+        "a",
+        ">",
+        "<",
+        "/",
+        "a",
+        ">",
+        "<",
+        "/",
+        "div",
+        ">",
+      ]),
+      {
+        xs: [{ tag1: ["div"], tag2: ["a"] }],
+      },
+    );
 
-  //   is(
-  //     parser([
-  //       "<",
-  //       "div",
-  //       ">",
-  //       "<",
-  //       "a",
-  //       ">",
-  //       "<",
-  //       "/",
-  //       "div",
-  //       ">",
-  //       "<",
-  //       "/",
-  //       "div",
-  //       ">",
-  //     ]),
-  //     {
-  //       error: true,
-  //       // detail: [CODE_SEQ_UNMATCH_STACK],
-  //     }
-  //   );
-  // });
+    is(
+      parser([
+        "<",
+        "div",
+        ">",
+        "<",
+        "a",
+        ">",
+        "<",
+        "/",
+        "div",
+        ">",
+        "<",
+        "/",
+        "div",
+        ">",
+      ]),
+      {
+        error: true,
+        // detail: [CODE_SEQ_UNMATCH_STACK],
+      },
+    );
+  });
 
   test("atom: jsx string", () => {
     const compile = createContext([
@@ -709,6 +708,4 @@ if (import.meta.vitest) {
       xs: [0, "ab cd", 3],
     });
   });
-
-  // run({ stopOnFail: true, stub: true });
 }
