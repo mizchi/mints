@@ -1,16 +1,16 @@
 // https://github.com/electron/fiddle/blob/master/src/renderer/binary.ts
-import * as fs from 'fs-extra';
-import * as path from 'path';
-import extract from 'extract-zip';
+import * as fs from "fs-extra";
+import * as path from "path";
+import extract from "extract-zip";
 
 import {
-  RunnableVersion,
-  Version,
-  VersionSource,
-  VersionState,
-} from '../interfaces';
-import { USER_DATA_PATH } from './constants';
-import { download as electronDownload } from '@electron/get';
+	RunnableVersion,
+	Version,
+	VersionSource,
+	VersionState,
+} from "../interfaces";
+import { USER_DATA_PATH } from "./constants";
+import { download as electronDownload } from "@electron/get";
 
 // versions that are currently being downloaded
 const downloading: Map<string, Promise<void>> = new Map();
@@ -25,19 +25,19 @@ const unzipping: Set<string> = new Set();
  * @returns {VersionState} the state of the version
  */
 export function getVersionState(ver: Version): VersionState {
-  const { localPath, version } = ver;
+	const { localPath, version } = ver;
 
-  if (downloading.has(version)) {
-    return VersionState.downloading;
-  }
+	if (downloading.has(version)) {
+		return VersionState.downloading;
+	}
 
-  if (unzipping.has(version)) {
-    return VersionState.unzipping;
-  }
+	if (unzipping.has(version)) {
+		return VersionState.unzipping;
+	}
 
-  const dir = localPath || getDownloadPath(version);
-  const exec = path.join(dir, execSubpath());
-  return fs.existsSync(exec) ? VersionState.ready : VersionState.unknown;
+	const dir = localPath || getDownloadPath(version);
+	const exec = path.join(dir, execSubpath());
+	return fs.existsSync(exec) ? VersionState.ready : VersionState.unknown;
 }
 
 /**
@@ -48,63 +48,63 @@ export function getVersionState(ver: Version): VersionState {
  * @returns {Promise<void>}
  */
 export function setupBinary(ver: RunnableVersion): Promise<void> {
-  const { version } = ver;
+	const { version } = ver;
 
-  // Only remote versions can be downloaded
-  if (ver.source !== VersionSource.remote) {
-    return Promise.resolve();
-  }
+	// Only remote versions can be downloaded
+	if (ver.source !== VersionSource.remote) {
+		return Promise.resolve();
+	}
 
-  // Return a promise that resolves when the download completes
-  let pending = downloading.get(version);
-  if (!pending) {
-    pending = downloadBinary(ver);
-    downloading.set(version, pending);
-  }
-  return pending;
+	// Return a promise that resolves when the download completes
+	let pending = downloading.get(version);
+	if (!pending) {
+		pending = downloadBinary(ver);
+		downloading.set(version, pending);
+	}
+	return pending;
 }
 
 async function downloadBinary(ver: RunnableVersion): Promise<void> {
-  const { version } = ver;
+	const { version } = ver;
 
-  ver.state = VersionState.downloading;
-  console.log(`Binary: Downloading Electron ${version}`);
+	ver.state = VersionState.downloading;
+	console.log(`Binary: Downloading Electron ${version}`);
 
-  let zipPath;
-  try {
-    zipPath = await download(ver);
-  } catch (error) {
-    console.warn(`Binary: Failure to download ${version}`, error);
-    ver.state = VersionState.unknown;
-    downloading.delete(version);
-    return;
-  }
+	let zipPath;
+	try {
+		zipPath = await download(ver);
+	} catch (error) {
+		console.warn(`Binary: Failure to download ${version}`, error);
+		ver.state = VersionState.unknown;
+		downloading.delete(version);
+		return;
+	}
 
-  const extractPath = getDownloadPath(version);
-  console.log(`Binary: Unpacking ${version} to ${extractPath}`);
+	const extractPath = getDownloadPath(version);
+	console.log(`Binary: Unpacking ${version} to ${extractPath}`);
 
-  try {
-    unzipping.add(version);
-    downloading.delete(version);
-    ver.state = VersionState.unzipping;
+	try {
+		unzipping.add(version);
+		downloading.delete(version);
+		ver.state = VersionState.unzipping;
 
-    // Ensure the target path exists
-    await fs.mkdirp(extractPath);
+		// Ensure the target path exists
+		await fs.mkdirp(extractPath);
 
-    // Ensure the target path is empty
-    await fs.emptyDir(extractPath);
+		// Ensure the target path is empty
+		await fs.emptyDir(extractPath);
 
-    await unzip(zipPath, extractPath);
-    console.log(`Binary: Unzipped ${version}`);
-    ver.state = VersionState.ready;
-  } catch (error) {
-    console.warn(`Binary: Failure while unzipping ${version}`, error);
-    ver.state = VersionState.unknown;
-    downloading.delete(version);
-  } finally {
-    // This task is done, so remove it from the pending tasks list
-    unzipping.delete(version);
-  }
+		await unzip(zipPath, extractPath);
+		console.log(`Binary: Unzipped ${version}`);
+		ver.state = VersionState.ready;
+	} catch (error) {
+		console.warn(`Binary: Failure while unzipping ${version}`, error);
+		ver.state = VersionState.unknown;
+		downloading.delete(version);
+	} finally {
+		// This task is done, so remove it from the pending tasks list
+		unzipping.delete(version);
+	}
 }
 
 /**
@@ -115,49 +115,49 @@ async function downloadBinary(ver: RunnableVersion): Promise<void> {
  * @returns {Promise<void>}
  */
 export async function removeBinary(ver: RunnableVersion) {
-  const { version } = ver;
-  let isDeleted = false;
+	const { version } = ver;
+	let isDeleted = false;
 
-  // utility to re-run removal functions upon failure
-  // due to windows filesystem lockfile jank
-  const rerunner = async (func: () => Promise<void>, counter = 1) => {
-    try {
-      await func();
-    } catch (error) {
-      console.warn(
-        `Binary Manager: failed to run ${func.name} for ${version}, but failed`,
-        error,
-      );
-      if (counter < 4) {
-        console.log(`Binary Manager: Trying again to run ${func.name}`);
-        await rerunner(func, counter + 1);
-      }
-    }
-  };
+	// utility to re-run removal functions upon failure
+	// due to windows filesystem lockfile jank
+	const rerunner = async (func: () => Promise<void>, counter = 1) => {
+		try {
+			await func();
+		} catch (error) {
+			console.warn(
+				`Binary Manager: failed to run ${func.name} for ${version}, but failed`,
+				error,
+			);
+			if (counter < 4) {
+				console.log(`Binary Manager: Trying again to run ${func.name}`);
+				await rerunner(func, counter + 1);
+			}
+		}
+	};
 
-  const binaryCleaner = async () => {
-    if (getIsDownloaded(version)) {
-      // This is necessary since we're messing with .asar files inside
-      // the Electron binaries. Electron, powering Fiddle, will try to
-      // "correct" our calls, but we don't want that right here.
-      process.noAsar = true;
-      await fs.remove(getDownloadPath(version));
-      process.noAsar = false;
+	const binaryCleaner = async () => {
+		if (getIsDownloaded(version)) {
+			// This is necessary since we're messing with .asar files inside
+			// the Electron binaries. Electron, powering Fiddle, will try to
+			// "correct" our calls, but we don't want that right here.
+			process.noAsar = true;
+			await fs.remove(getDownloadPath(version));
+			process.noAsar = false;
 
-      isDeleted = true;
-    }
-  };
+			isDeleted = true;
+		}
+	};
 
-  const typeDefsCleaner = async () => {
-    window.ElectronFiddle.app.electronTypes.uncache(ver);
-  };
+	const typeDefsCleaner = async () => {
+		window.ElectronFiddle.app.electronTypes.uncache(ver);
+	};
 
-  await rerunner(binaryCleaner);
+	await rerunner(binaryCleaner);
 
-  if (isDeleted) {
-    ver.state = VersionState.unknown;
-    await rerunner(typeDefsCleaner);
-  }
+	if (isDeleted) {
+		ver.state = VersionState.unknown;
+		await rerunner(typeDefsCleaner);
+	}
 }
 
 /* Did we already download a given version?
@@ -167,23 +167,23 @@ export async function removeBinary(ver: RunnableVersion) {
  * @returns {boolean}
  */
 export function getIsDownloaded(version: string, dir?: string): boolean {
-  const expectedPath = getElectronBinaryPath(version, dir);
-  return fs.existsSync(expectedPath);
+	const expectedPath = getElectronBinaryPath(version, dir);
+	return fs.existsSync(expectedPath);
 }
 
 function execSubpath() {
-  const { platform } = process;
-  switch (platform) {
-    case 'darwin':
-      return 'Electron.app/Contents/MacOS/Electron';
-    case 'linux':
-    case 'freebsd':
-      return 'electron';
-    case 'win32':
-      return 'electron.exe';
-    default:
-      throw new Error(`Electron builds are not available for ${platform}`);
-  }
+	const { platform } = process;
+	switch (platform) {
+		case "darwin":
+			return "Electron.app/Contents/MacOS/Electron";
+		case "linux":
+		case "freebsd":
+			return "electron";
+		case "win32":
+			return "electron.exe";
+		default:
+			throw new Error(`Electron builds are not available for ${platform}`);
+	}
 }
 
 /**
@@ -194,10 +194,10 @@ function execSubpath() {
  * @returns {string}
  */
 export function getElectronBinaryPath(
-  version: string,
-  dir: string = getDownloadPath(version),
+	version: string,
+	dir: string = getDownloadPath(version),
 ): string {
-  return path.join(dir, execSubpath());
+	return path.join(dir, execSubpath());
 }
 
 /**
@@ -207,30 +207,30 @@ export function getElectronBinaryPath(
  * @returns {Promise<string>} path to the downloaded file
  */
 async function download(ver: RunnableVersion): Promise<string> {
-  const { version } = ver;
+	const { version } = ver;
 
-  const getProgressCallback = (progress: Progress) => {
-    const percent = Math.round(progress.percent * 100) / 100;
-    if (ver.downloadProgress !== percent) {
-      ver.downloadProgress = percent;
-      console.info(`Binary: Version ${version} download progress: ${percent}`);
-    }
-  };
+	const getProgressCallback = (progress: Progress) => {
+		const percent = Math.round(progress.percent * 100) / 100;
+		if (ver.downloadProgress !== percent) {
+			ver.downloadProgress = percent;
+			console.info(`Binary: Version ${version} download progress: ${percent}`);
+		}
+	};
 
-  const zipFilePath = await electronDownload(version, {
-    downloadOptions: {
-      quiet: true,
-      getProgressCallback,
-      timeout: {
-        lookup: 15000,
-        connect: 15000,
-        response: 15000,
-        socket: 15000,
-      },
-    },
-  });
+	const zipFilePath = await electronDownload(version, {
+		downloadOptions: {
+			quiet: true,
+			getProgressCallback,
+			timeout: {
+				lookup: 15000,
+				connect: 15000,
+				response: 15000,
+				socket: 15000,
+			},
+		},
+	});
 
-  return zipFilePath;
+	return zipFilePath;
 }
 
 /**
@@ -240,7 +240,7 @@ async function download(ver: RunnableVersion): Promise<string> {
  * @returns {string}
  */
 function getDownloadPath(version: string): string {
-  return path.join(USER_DATA_PATH, 'electron-bin', version);
+	return path.join(USER_DATA_PATH, "electron-bin", version);
 }
 
 /**
@@ -251,18 +251,18 @@ function getDownloadPath(version: string): string {
  * @returns {Promise<void>}
  */
 async function unzip(zipPath: string, dir: string): Promise<void> {
-  process.noAsar = true;
+	process.noAsar = true;
 
-  try {
-    await extract(zipPath, { dir });
-    console.log(`Binary: Unpacked!`);
-  } finally {
-    process.noAsar = false;
-  }
+	try {
+		await extract(zipPath, { dir });
+		console.log(`Binary: Unpacked!`);
+	} finally {
+		process.noAsar = false;
+	}
 }
 
 interface Progress {
-  percent: number;
-  transferred: number;
-  total: number;
+	percent: number;
+	transferred: number;
+	total: number;
 }

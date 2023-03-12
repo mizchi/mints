@@ -1,0 +1,12 @@
+{
+  "linter": {
+    "enabled": false,
+    "rules": {
+      "style": {
+        "useBlockStatements": "error",
+        "useShorthandArrayType": "error",
+        "noShoutyConstants": "warn"
+      }
+    }
+  }
+}
