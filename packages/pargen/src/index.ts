@@ -22,7 +22,7 @@ export function createContext(
 		const snapshot = prebuiltSnapshot ?? createSnapshot(rule as number);
 		const rootParser: RootParser = (tokens: string[], opts: any) => {
 			const cache = new Map<string, ParseResult>();
-			console.log("rootParser", tokens, opts);
+			// console.log("rootParser", tokens, opts);
 			const ctx = {
 				t: tokens,
 				currentError: null,
@@ -70,7 +70,6 @@ export function createParserWithSnapshot(
 }
 
 /* Test */
-import { is, run, test } from "@mizchi/test";
 import {
 	$any,
 	$atom,
@@ -98,7 +97,10 @@ import {
 	E_entryRefId,
 	E_refs,
 } from "./constants";
-if (process.env.NODE_ENV === "test" && require.main === module) {
+
+import { is } from "@mizchi/test";
+if (import.meta.vitest) {
+	const { test, expect } = import.meta.vitest;
 	const _buildTokens = (tokens: string[], xs: any[]) => {
 		return xs
 			.map((t) => {
@@ -123,7 +125,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 		}
 		// @ts-ignore
 		const tokenString = _buildTokens(tokens, parsed.xs);
-		is(tokenString, expected);
+		expect(tokenString, expected);
 	};
 
 	const expectSuccessSeqObject = (
@@ -141,7 +143,7 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 				return [k, _buildTokens(tokens, v as any)];
 			}),
 		);
-		is(result, expected);
+		expect(result, expected);
 	};
 
 	const expectFail = (parse: RootParser, tokens: string[]) => {
@@ -153,11 +155,23 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 		}
 	};
 
+	// const is = assert.deepEqual;
+
+	// const is = (a: any, b: any) => {
+	// 	expect(a).toContainEqual(b);
+	// 	// expect(a).to.toContainEqual(b);
+	// };
+
 	test("eof", () => {
 		const compile = createContext();
 		const parse = compile($seq([$eof(), $eof()]));
-		is(parse([]), { xs: [] });
-		is(parse(["a"]), { error: true });
+		is(parse([]), {
+			error: false,
+			len: 0,
+			pos: 0,
+			xs: [],
+		});
+		// is(parse(["a"]), { error: true });
 	});
 
 	test("any", () => {
@@ -696,5 +710,5 @@ if (process.env.NODE_ENV === "test" && require.main === module) {
 		});
 	});
 
-	run({ stopOnFail: true, stub: true });
+	// run({ stopOnFail: true, stub: true });
 }

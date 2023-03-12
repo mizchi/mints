@@ -1,10 +1,13 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
-	define: {
-		"require.main": JSON.stringify(undefined),
-		"process.env.NODE_ENV": JSON.stringify("production"),
-	},
+	define: process.env.LIB
+		? {
+				"import.meta.vitest": false,
+				// "require.main": JSON.stringify(undefined),
+				// "process.env.NODE_ENV": JSON.stringify("production"),
+		  }
+		: {},
 	build: {
 		target: "esnext",
 		// @ts-ignore
@@ -12,7 +15,6 @@ export default defineConfig({
 			entry: "src/index",
 			// formats: ["es", "cjs"],
 			formats: ["es"],
-
 			fileName: (format) => {
 				if (format === "cjs") {
 					return `index.cjs`;
@@ -23,5 +25,8 @@ export default defineConfig({
 				return "";
 			},
 		},
+	},
+	test: {
+		includeSource: ["src/**/*.{js,ts}"],
 	},
 });
