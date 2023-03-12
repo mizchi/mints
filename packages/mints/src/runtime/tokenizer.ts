@@ -210,9 +210,8 @@ function createCharSlice(input: string) {
   return chars.length === input.length ? input : chars;
 }
 
-import { test, run } from "@mizchi/test";
-const isMain = require.main === module;
-if (process.env.NODE_ENV === "test") {
+if (import.meta.vitest) {
+  const { test } = import.meta.vitest;
   const assert = require("assert");
   const eq = assert.deepStrictEqual;
   const expectParseResult = (input: string, expected: string[]) => {
@@ -416,14 +415,14 @@ f(
     ]);
   });
 
-  run({ stopOnFail: true, stub: true, isMain });
-}
+  // run({ stopOnFail: true, stub: true, isMain });
+  // }
 
-if (process.env.NODE_ENV === "perf" && isMain) {
+  // if (process.env.NODE_ENV === "perf" && isMain) {
   const fs = require("fs");
   const path = require("path");
   const code = fs.readFileSync(
-    path.join(__dirname, "../benchmark/cases/example4.ts"),
+    path.join(__dirname, "../../benchmark/cases/example4.ts"),
     "utf8",
   );
   for (let i = 0; i < 10; i++) {

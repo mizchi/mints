@@ -6,7 +6,10 @@
     "target": "ESNext",
     "module": "ESNext",
     "outDir": "types",
-    "noUnusedLocals": false
+    "noUnusedLocals": false,
+    "types": [
+      "vitest/importMeta"
+    ],
   },
   "include": ["src", "../pargen/src"],
   "exclude": ["benchmark/cases"]

@@ -9,8 +9,9 @@ const plugins = [
   nodeResolve(),
   replace({
     preventAssignment: true,
-    "require.main === module": JSON.stringify(false),
-    "process.env.NODE_ENV": JSON.stringify("production"),
+    "import.meta.vitest": false,
+    // "require.main === module": JSON.stringify(false),
+    // "process.env.NODE_ENV": JSON.stringify("production"),
   }),
   esbuild({
     target: "esnext",

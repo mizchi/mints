@@ -1264,11 +1264,8 @@ const caseClause = $def(() =>
 
 export const program = lines;
 
-import { test, run, is } from "@mizchi/test";
 import { Rule } from "../../../pargen/src/types";
 import { parseTokens } from "../runtime/tokenizer";
-
-const isMain = require.main === module;
 
 import { compile as compileRaw } from "./ctx";
 import { CODE_SEQ_STOP } from "../../../pargen/src/constants";
@@ -1285,7 +1282,11 @@ import {
 } from "../runtime/funcs";
 import { detectInlineOptions } from "../runtime/options";
 
-if (process.env.NODE_ENV === "test") {
+// if (process.env.NODE_ENV === "test") {
+import { is } from "@mizchi/test";
+
+if (import.meta.vitest) {
+  const { test } = import.meta.vitest;
   const compile = (
     inputRule: Rule | number,
   ): ((input: string) => string | ParseError) => {
@@ -2120,6 +2121,4 @@ if (process.env.NODE_ENV === "test") {
     is(parse("<></>"), `React.createElement(React.Fragment,{})`);
     is(parse("<>text</>"), `React.createElement(React.Fragment,{},"text")`);
   });
-
-  run({ stopOnFail: true, stub: true, isMain });
 }
