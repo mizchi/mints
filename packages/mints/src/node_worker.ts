@@ -9,19 +9,19 @@ import { loadSnapshot } from "./runtime/load_snapshot";
 let _parse: RootParser = createParserWithSnapshot(funcs, loadSnapshot());
 
 function transformLine(tokens: string[], opts?: Opts): string {
-	const parsed = _parse(tokens.slice(), opts);
-	if (parsed.error) {
-		throw new Error(JSON.stringify(parsed, null, 2));
-	} else {
-		const s = parsed.xs
-			.map((r) => (typeof r === "string" ? r : tokens[r]))
-			.join("");
-		return s;
-	}
+  const parsed = _parse(tokens.slice(), opts);
+  if (parsed.error) {
+    throw new Error(JSON.stringify(parsed, null, 2));
+  } else {
+    const s = parsed.xs
+      .map((r) => (typeof r === "string" ? r : tokens[r]))
+      .join("");
+    return s;
+  }
 }
 
 async function transform(tokensList: string[][], opts: Opts = {}) {
-	return tokensList.map((tokens) => transformLine(tokens, opts));
+  return tokensList.map((tokens) => transformLine(tokens, opts));
 }
 
 expose(parentPort, { transform });

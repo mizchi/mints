@@ -2,268 +2,268 @@ import { E_strings } from "../../../pargen/src/constants";
 import { fail, success } from "../../../pargen/src/runtime";
 import type { InternalParser, ParseContext } from "../../../pargen/src/types";
 import {
-	ACCESS,
-	ARGS,
-	ASSIGN,
-	ATTRIBUTES,
-	BODY,
-	CHILDREN,
-	CODE,
-	DOTDOTDOT,
-	IDENT,
-	INIT,
-	ITEMS,
-	LAST,
-	NAME,
-	VALUE,
+  ACCESS,
+  ARGS,
+  ASSIGN,
+  ATTRIBUTES,
+  BODY,
+  CHILDREN,
+  CODE,
+  DOTDOTDOT,
+  IDENT,
+  INIT,
+  ITEMS,
+  LAST,
+  NAME,
+  VALUE,
 } from "../prebuild/constants";
 
 import reserved from "../gen/__reserved.json";
 
 type ParsedCostructorArg = {
-	[INIT]: string | null;
-	[CODE]: string;
+  [INIT]: string | null;
+  [CODE]: string;
 };
 
 export const funcs: Array<Function> = [() => {}];
 
 function addFunc(fn: Function) {
-	const id = funcs.length;
-	funcs.push(fn);
-	return id;
+  const id = funcs.length;
+  funcs.push(fn);
+  return id;
 }
 
 // TODO: prebuild decision tree
 let __reservedWordsByLength: Map<number, string[]>;
 
 const identifierParser: InternalParser = (ctx, pos) => {
-	if (!__reservedWordsByLength) {
-		// build at first
-		__reservedWordsByLength = new Map();
-		for (const word of reserved.map((x) => ctx[E_strings][x])) {
-			if (word == null) continue; // FIXME
-			const words = __reservedWordsByLength.get(word.length) ?? [];
-			__reservedWordsByLength.set(word.length, [...words, word]);
-		}
-	}
-	const token = ctx.t[pos] ?? "";
-	const errorData = { code: 255, token } as any;
-	const len = Array.from(token).length;
-	const charCode = token.charCodeAt(0);
-	if (len === 0) return fail(pos, errorData);
-	const words = __reservedWordsByLength.get(len);
-	if (len === 1 && charCode > 127) {
-		// Nothing
-	} else {
-		if (words?.includes(token)) return fail(pos, errorData);
-	}
-	if (48 <= charCode && charCode <= 57) {
-		return fail(pos, errorData);
-	}
-	return success(pos, 1, [pos]);
+  if (!__reservedWordsByLength) {
+    // build at first
+    __reservedWordsByLength = new Map();
+    for (const word of reserved.map((x) => ctx[E_strings][x])) {
+      if (word == null) continue; // FIXME
+      const words = __reservedWordsByLength.get(word.length) ?? [];
+      __reservedWordsByLength.set(word.length, [...words, word]);
+    }
+  }
+  const token = ctx.t[pos] ?? "";
+  const errorData = { code: 255, token } as any;
+  const len = Array.from(token).length;
+  const charCode = token.charCodeAt(0);
+  if (len === 0) return fail(pos, errorData);
+  const words = __reservedWordsByLength.get(len);
+  if (len === 1 && charCode > 127) {
+    // Nothing
+  } else {
+    if (words?.includes(token)) return fail(pos, errorData);
+  }
+  if (48 <= charCode && charCode <= 57) {
+    return fail(pos, errorData);
+  }
+  return success(pos, 1, [pos]);
 };
 
 const createWhitespace = () => " ";
 
 const reshapeClassConstructorArg = ([input]: [
-	{
-		[IDENT]: (string | { [ACCESS]: string; [IDENT]: string })[] | [{}];
-		[INIT]: string[];
-	},
+  {
+    [IDENT]: (string | { [ACCESS]: string; [IDENT]: string })[] | [{}];
+    [INIT]: string[];
+  },
 ]): ParsedCostructorArg => {
-	if (typeof input[IDENT][0] === "object") {
-		// @ts-ignore
-		const ident = input[IDENT][0][IDENT].join("");
-		return {
-			[INIT]: ident,
-			[CODE]: ident + (input[INIT]?.join("") ?? ""),
-		};
-	}
-	// @ts-ignore
-	return [
-		{
-			[INIT]: null,
-			[CODE]: input[IDENT].join("") + (input[INIT]?.join("") ?? ""),
-		},
-	];
+  if (typeof input[IDENT][0] === "object") {
+    // @ts-ignore
+    const ident = input[IDENT][0][IDENT].join("");
+    return {
+      [INIT]: ident,
+      [CODE]: ident + (input[INIT]?.join("") ?? ""),
+    };
+  }
+  // @ts-ignore
+  return [
+    {
+      [INIT]: null,
+      [CODE]: input[IDENT].join("") + (input[INIT]?.join("") ?? ""),
+    },
+  ];
 };
 
 const reshapeClassConstructor = ([input]: [
-	{
-		[ARGS]: Array<ParsedCostructorArg>;
-		[LAST]: Array<ParsedCostructorArg>;
-		[BODY]: number[];
-	},
+  {
+    [ARGS]: Array<ParsedCostructorArg>;
+    [LAST]: Array<ParsedCostructorArg>;
+    [BODY]: number[];
+  },
 ]) => {
-	const argList = [...(input[ARGS] ?? []), ...(input[LAST] ?? [])];
-	let bodyIntro = "";
-	let args: string[] = [];
-	for (const arg of argList) {
-		if (arg[INIT]) bodyIntro += `this.${arg[INIT]}=${arg[INIT]};`;
-		args.push(arg[CODE]);
-	}
-	const bodyCode = input[BODY].join("");
-	return [`constructor(${args.join(",")}){${bodyIntro}${bodyCode}}`];
+  const argList = [...(input[ARGS] ?? []), ...(input[LAST] ?? [])];
+  let bodyIntro = "";
+  let args: string[] = [];
+  for (const arg of argList) {
+    if (arg[INIT]) bodyIntro += `this.${arg[INIT]}=${arg[INIT]};`;
+    args.push(arg[CODE]);
+  }
+  const bodyCode = input[BODY].join("");
+  return [`constructor(${args.join(",")}){${bodyIntro}${bodyCode}}`];
 };
 
 const reshapeEnum = ([input]: [
-	{
-		[NAME]: string;
-		[ITEMS]: Array<{ [IDENT]: string[]; [ASSIGN]?: string[] }>;
-		[LAST]?: Array<{ [IDENT]: string[]; [ASSIGN]?: string[] }>;
-	},
+  {
+    [NAME]: string;
+    [ITEMS]: Array<{ [IDENT]: string[]; [ASSIGN]?: string[] }>;
+    [LAST]?: Array<{ [IDENT]: string[]; [ASSIGN]?: string[] }>;
+  },
 ]) => {
-	let baseValue = 0;
-	let out = `const ${input[NAME]}={`;
-	for (const item of [...(input[ITEMS] ?? []), ...(input[LAST] ?? [])]) {
-		let val: string | number;
-		if (item[ASSIGN]) {
-			const num = Number(item[ASSIGN]);
-			if (isNaN(num)) {
-				console.log(item, ASSIGN);
-				val = item[ASSIGN]!.join("") as string;
-			} else {
-				val = num;
-				baseValue = num + 1;
-			}
-		} else {
-			val = baseValue;
-			baseValue++;
-		}
-		const key = item[IDENT].join("");
-		if (typeof val === "number") {
-			out += `${key}:${val},"${val}":"${key}",`;
-		} else {
-			out += `${key}:${val},`;
-		}
-	}
-	return [out + "};"];
+  let baseValue = 0;
+  let out = `const ${input[NAME]}={`;
+  for (const item of [...(input[ITEMS] ?? []), ...(input[LAST] ?? [])]) {
+    let val: string | number;
+    if (item[ASSIGN]) {
+      const num = Number(item[ASSIGN]);
+      if (isNaN(num)) {
+        console.log(item, ASSIGN);
+        val = item[ASSIGN]!.join("") as string;
+      } else {
+        val = num;
+        baseValue = num + 1;
+      }
+    } else {
+      val = baseValue;
+      baseValue++;
+    }
+    const key = item[IDENT].join("");
+    if (typeof val === "number") {
+      out += `${key}:${val},"${val}":"${key}",`;
+    } else {
+      out += `${key}:${val},`;
+    }
+  }
+  return [out + "};"];
 };
 
 const parseJsxText = (ctx: ParseContext, pos: number) => {
-	let i = 0;
-	const results: string[] = [];
-	while (i < ctx.t.length) {
-		const token = ctx.t[pos + i];
-		if ([">", "<", "{"].includes(token)) {
-			break;
-		}
-		results.push(token);
-		i++;
-	}
-	if (results.length === 0) {
-		return fail(pos, {} as any);
-	}
-	return success(pos, i, ['"' + results.join(" ") + '"']);
+  let i = 0;
+  const results: string[] = [];
+  while (i < ctx.t.length) {
+    const token = ctx.t[pos + i];
+    if ([">", "<", "{"].includes(token)) {
+      break;
+    }
+    results.push(token);
+    i++;
+  }
+  if (results.length === 0) {
+    return fail(pos, {} as any);
+  }
+  return success(pos, i, ['"' + results.join(" ") + '"']);
 };
 
 const popJsxElement = (a: number[], b: number[], ctx: ParseContext) => {
-	// TODO: Multi token equality
-	return ctx.t[a[0]] === ctx.t[b[0]];
+  // TODO: Multi token equality
+  return ctx.t[a[0]] === ctx.t[b[0]];
 };
 
 const jsx = "React.createElement";
 const jsxFragment = "React.Fragment";
 
 const buildJsxCode = (
-	ctx: ParseContext,
-	ident: string,
-	attributes: Array<{
-		[NAME]: string;
-		[VALUE]?: string;
-		[DOTDOTDOT]?: boolean;
-	}>,
-	children: Array<string> = [],
+  ctx: ParseContext,
+  ident: string,
+  attributes: Array<{
+    [NAME]: string;
+    [VALUE]?: string;
+    [DOTDOTDOT]?: boolean;
+  }>,
+  children: Array<string> = [],
 ) => {
-	// TODO: Detect dom name
-	let data = ",{}";
-	if (attributes.length > 0) {
-		data = ",{";
-		for (const attr of attributes) {
-			if (attr[DOTDOTDOT]) {
-				data += `...${attr[NAME]},`;
-			} else if (attr[VALUE]) {
-				data += `${attr[NAME]}:${attr[VALUE]},`;
-			} else {
-				data += `${attr[NAME]}:true,`;
-			}
-		}
-		data += "}";
-	}
-	let childrenCode = "";
-	if (children.length > 0) {
-		for (const child of children) {
-			childrenCode += `,${child}`;
-		}
-	}
-	const isDomPrimitive = /^[a-z-]+$/.test(ident);
-	let element = isDomPrimitive ? `"${ident}"` : ident;
-	if (ident === "") element = ctx.opts.jsxFragment ?? jsxFragment;
-	const factory = ctx.opts.jsx ?? jsx;
-	// console.log("jsx build", factory, ctx.opts);
-	return `${factory}(${element}${data}${childrenCode})`;
+  // TODO: Detect dom name
+  let data = ",{}";
+  if (attributes.length > 0) {
+    data = ",{";
+    for (const attr of attributes) {
+      if (attr[DOTDOTDOT]) {
+        data += `...${attr[NAME]},`;
+      } else if (attr[VALUE]) {
+        data += `${attr[NAME]}:${attr[VALUE]},`;
+      } else {
+        data += `${attr[NAME]}:true,`;
+      }
+    }
+    data += "}";
+  }
+  let childrenCode = "";
+  if (children.length > 0) {
+    for (const child of children) {
+      childrenCode += `,${child}`;
+    }
+  }
+  const isDomPrimitive = /^[a-z-]+$/.test(ident);
+  let element = isDomPrimitive ? `"${ident}"` : ident;
+  if (ident === "") element = ctx.opts.jsxFragment ?? jsxFragment;
+  const factory = ctx.opts.jsx ?? jsx;
+  // console.log("jsx build", factory, ctx.opts);
+  return `${factory}(${element}${data}${childrenCode})`;
 };
 
 const reshapeJsxElement = (
-	[input]: [
-		{
-			[IDENT]?: string[];
-			[ATTRIBUTES]?: Array<{
-				[NAME]: string[];
-				[VALUE]?: string[];
-				[DOTDOTDOT]?: string[];
-			}>;
-			[CHILDREN]: Array<string[]>;
-		},
-	],
-	ctx: ParseContext,
+  [input]: [
+    {
+      [IDENT]?: string[];
+      [ATTRIBUTES]?: Array<{
+        [NAME]: string[];
+        [VALUE]?: string[];
+        [DOTDOTDOT]?: string[];
+      }>;
+      [CHILDREN]: Array<string[]>;
+    },
+  ],
+  ctx: ParseContext,
 ) => {
-	return [
-		buildJsxCode(
-			ctx,
-			input[IDENT]?.join("") ?? "",
-			input[ATTRIBUTES]?.map((a) => {
-				return {
-					[NAME]: a[NAME].join(""),
-					[VALUE]: a[VALUE]?.join(""),
-					[DOTDOTDOT]: !!a[DOTDOTDOT],
-				};
-			}) ?? [],
-			input[CHILDREN].flat(),
-		),
-	];
+  return [
+    buildJsxCode(
+      ctx,
+      input[IDENT]?.join("") ?? "",
+      input[ATTRIBUTES]?.map((a) => {
+        return {
+          [NAME]: a[NAME].join(""),
+          [VALUE]: a[VALUE]?.join(""),
+          [DOTDOTDOT]: !!a[DOTDOTDOT],
+        };
+      }) ?? [],
+      input[CHILDREN].flat(),
+    ),
+  ];
 };
 
 const reshapeJsxSelfClosingElement = (
-	[input]: [
-		{
-			[IDENT]: string[];
-			[ATTRIBUTES]: Array<{
-				[NAME]: string[];
-				[VALUE]?: string[];
-				[DOTDOTDOT]?: string[];
-			}>;
-		},
-	],
-	ctx: ParseContext,
+  [input]: [
+    {
+      [IDENT]: string[];
+      [ATTRIBUTES]: Array<{
+        [NAME]: string[];
+        [VALUE]?: string[];
+        [DOTDOTDOT]?: string[];
+      }>;
+    },
+  ],
+  ctx: ParseContext,
 ) => {
-	return [
-		buildJsxCode(
-			ctx,
-			input[IDENT].join(""),
-			input[ATTRIBUTES].map((a) => ({
-				[NAME]: a[NAME].join(""),
-				[VALUE]: a[VALUE]?.join(""),
-				[DOTDOTDOT]: !!a[DOTDOTDOT],
-			})),
-		),
-	];
+  return [
+    buildJsxCode(
+      ctx,
+      input[IDENT].join(""),
+      input[ATTRIBUTES].map((a) => ({
+        [NAME]: a[NAME].join(""),
+        [VALUE]: a[VALUE]?.join(""),
+        [DOTDOTDOT]: !!a[DOTDOTDOT],
+      })),
+    ),
+  ];
 };
 
 export const identParserPtr = addFunc(identifierParser);
 export const createWhitespacePtr = addFunc(createWhitespace);
 export const reshapeClassConstructorArgPtr = addFunc(
-	reshapeClassConstructorArg,
+  reshapeClassConstructorArg,
 );
 export const reshapeClassConstructorPtr = addFunc(reshapeClassConstructor);
 
@@ -272,5 +272,5 @@ export const parseJsxTextPtr = addFunc(parseJsxText);
 export const popJsxElementPtr = addFunc(popJsxElement);
 export const reshapeJsxElementPtr = addFunc(reshapeJsxElement);
 export const reshapeJsxSelfClosingElementPtr = addFunc(
-	reshapeJsxSelfClosingElement,
+  reshapeJsxSelfClosingElement,
 );

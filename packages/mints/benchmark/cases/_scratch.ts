@@ -74,22 +74,22 @@ info: |
 // }
 
 class X {
-	async *f() {
-		return 1;
-	}
+  async *f() {
+    return 1;
+  }
 }
 
 const x = {
-	async *[Symbol.asyncIterator]() {
-		for (const c of []) {
-			yield c;
-		}
-	},
+  async *[Symbol.asyncIterator]() {
+    for (const c of []) {
+      yield c;
+    }
+  },
 };
 
 function* f() {
-	yield 1;
-	yield 2;
+  yield 1;
+  yield 2;
 }
 
 // const _createListener = (): Deno.Listener => {
