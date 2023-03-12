@@ -415,36 +415,34 @@ f(
     ]);
   });
 
-  // run({ stopOnFail: true, stub: true, isMain });
-  // }
-
-  // if (process.env.NODE_ENV === "perf" && isMain) {
-  const fs = require("fs");
-  const path = require("path");
-  const code = fs.readFileSync(
-    path.join(__dirname, "../../benchmark/cases/example4.ts"),
-    "utf8",
-  );
-  for (let i = 0; i < 10; i++) {
-    const start = process.hrtime.bigint();
-    let result = [];
-    let tokenCount = 0;
-    for (const token of parseTokens(code)) {
-      if (token === "\n") {
-        tokenCount += result.length;
-        result = [];
-      } else {
-        result.push(token);
-      }
-    }
-    console.log(
-      "finish",
-      `${i}`,
-      tokenCount + "tokens",
-      Number(process.hrtime.bigint() - start) / 1_000_000 + "ms",
-      Math.floor(
-        tokenCount / (Number(process.hrtime.bigint() - start) / 1_000_000),
-      ) + "tokens/ms",
+  if (process.env.BENCHMARK) {
+    const fs = require("fs");
+    const path = require("path");
+    const code = fs.readFileSync(
+      path.join(__dirname, "../../benchmark/cases/example4.ts"),
+      "utf8",
     );
+    for (let i = 0; i < 10; i++) {
+      const start = process.hrtime.bigint();
+      let result = [];
+      let tokenCount = 0;
+      for (const token of parseTokens(code)) {
+        if (token === "\n") {
+          tokenCount += result.length;
+          result = [];
+        } else {
+          result.push(token);
+        }
+      }
+      console.log(
+        "finish",
+        `${i}`,
+        tokenCount + "tokens",
+        Number(process.hrtime.bigint() - start) / 1_000_000 + "ms",
+        Math.floor(
+          tokenCount / (Number(process.hrtime.bigint() - start) / 1_000_000),
+        ) + "tokens/ms",
+      );
+    }
   }
 }

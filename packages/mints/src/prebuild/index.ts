@@ -87,8 +87,8 @@ if (import.meta.vitest) {
   });
 
   test("multiline program control", () => {
-    // is(transform(`1;2;3;`), "1;2;3;");
-    console.log([...parseTokens(`input.replace(/[ ]{1,}/gmu, '');`)]);
+    is(transform(`1;2;3;`), "1;2;3;");
+    // console.log([...parseTokens(`input.replace(/[ ]{1,}/gmu, '');`)]);
     // is(transform(`throw new Error('xxx');`), "throw new Error('xxx');");
 
     // const parse = compile(program, { end: true });

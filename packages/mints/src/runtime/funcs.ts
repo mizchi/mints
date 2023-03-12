@@ -120,7 +120,7 @@ const reshapeEnum = ([input]: [
     if (item[ASSIGN]) {
       const num = Number(item[ASSIGN]);
       if (isNaN(num)) {
-        console.log(item, ASSIGN);
+        // console.log(item, ASSIGN);
         val = item[ASSIGN]!.join("") as string;
       } else {
         val = num;
