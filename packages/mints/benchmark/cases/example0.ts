@@ -143,10 +143,17 @@ function* f() {
   yield 2;
 }
 
-type Unpacked<T> = T extends (infer U)[]
-  ? U
-  : T extends (...args: any[]) => infer U
-  ? U
-  : T extends Promise<infer U>
-  ? U
-  : T;
+// TODO
+// type Unpacked<T> = T extends (infer U)[]
+//   ? U
+//   : T extends (...args: any[]) => infer U
+//   ? U
+//   : T extends Promise<infer U>
+//   ? U
+//   : T;
+
+// TODO
+// prettier-ignore
+// function f2<A,>() {}
+
+// function f2<A extends Event | Event,>() {}

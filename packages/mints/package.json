@@ -12,7 +12,7 @@
     "analyze": "rollup -c rollup.config.analyze.js",
     "bench": "pnpm build && node -r esbuild-register benchmark/bench.ts",
     "bench:0x": "0x -- node -r esbuild-register  benchmark/bench.ts",
-    "test": "NODE_ENV=test node -r esbuild-register src/prebuild/index.ts",
+    "test": "vitest --run",
     "test262": "test262-harness --preprocessor test/preprocess.js test262/test262-checkout/test/language/expressions/array/*.js"
   },
   "devDependencies": {

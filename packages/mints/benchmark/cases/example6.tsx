@@ -162,8 +162,8 @@ export function RemixEntry({
   // `componentDidCatch`
   let ssrErrorBeforeRoutesRendered =
     clientState.error &&
-    clientState.renderBoundaryRouteId === null &&
-    clientState.loaderBoundaryRouteId === null
+      clientState.renderBoundaryRouteId === null &&
+      clientState.loaderBoundaryRouteId === null
       ? deserializeError(clientState.error)
       : undefined;
 
@@ -246,7 +246,7 @@ function useRemixRouteContext(): RemixRouteContextType {
 function DefaultRouteComponent({ id }: { id: string }): React.ReactElement {
   throw new Error(
     `Route "${id}" has no component! Please go add a \`default\` export in the route module file.\n` +
-      "If you were trying to navigate or submit to a resource route, use `<a>` instead of `<Link>` or `<Form reloadDocument>`.",
+    "If you were trying to navigate or submit to a resource route, use `<a>` instead of `<Link>` or `<Form reloadDocument>`.",
   );
 }
 
@@ -266,7 +266,7 @@ export function RemixRoute({ id }: { id: string }) {
     // and pass it to the ErrorBoundary to emulate `componentDidCatch`
     let maybeServerCaught =
       componentDidCatchEmulator.catch &&
-      componentDidCatchEmulator.catchBoundaryRouteId === id
+        componentDidCatchEmulator.catchBoundaryRouteId === id
         ? componentDidCatchEmulator.catch
         : undefined;
 
@@ -279,12 +279,12 @@ export function RemixRoute({ id }: { id: string }) {
 
     context = maybeServerCaught
       ? {
-          id,
-          get data() {
-            console.error("You cannot `useLoaderData` in a catch boundary.");
-            return undefined;
-          },
-        }
+        id,
+        get data() {
+          console.error("You cannot `useLoaderData` in a catch boundary.");
+          return undefined;
+        },
+      }
       : { id, data };
 
     element = (
@@ -317,8 +317,8 @@ export function RemixRoute({ id }: { id: string }) {
     // and pass it to the ErrorBoundary to emulate `componentDidCatch`
     let maybeServerRenderError =
       componentDidCatchEmulator.error &&
-      (componentDidCatchEmulator.renderBoundaryRouteId === id ||
-        componentDidCatchEmulator.loaderBoundaryRouteId === id)
+        (componentDidCatchEmulator.renderBoundaryRouteId === id ||
+          componentDidCatchEmulator.loaderBoundaryRouteId === id)
         ? deserializeError(componentDidCatchEmulator.error)
         : undefined;
 
@@ -331,12 +331,12 @@ export function RemixRoute({ id }: { id: string }) {
 
     context = maybeServerRenderError
       ? {
-          id,
-          get data() {
-            console.error("You cannot `useLoaderData` in an error boundary.");
-            return undefined;
-          },
-        }
+        id,
+        get data() {
+          console.error("You cannot `useLoaderData` in an error boundary.");
+          return undefined;
+        },
+      }
       : { id, data };
 
     element = (
@@ -480,7 +480,7 @@ export let Link = React.forwardRef<HTMLAnchorElement, RemixLinkProps>(
 );
 
 export function composeEventHandlers<
-  EventType extends React.SyntheticEvent | Event,
+  EventType extends React.SyntheticEvent | Event
 >(
   theirHandler: ((event: EventType) => any) | undefined,
   ourHandler: (event: EventType) => any,
@@ -706,8 +706,8 @@ export function Scripts(props: ScriptProps) {
       )
       .join("\n")}
 window.__remixRouteModules = {${matches
-      .map((match, index) => `${JSON.stringify(match.route.id)}:route${index}`)
-      .join(",")}};`;
+        .map((match, index) => `${JSON.stringify(match.route.id)}:route${index}`)
+        .join(",")}};`;
 
     return (
       <>
@@ -897,16 +897,16 @@ export let FormImpl = React.forwardRef<HTMLFormElement, FormImplProps>(
           reloadDocument
             ? undefined
             : (event) => {
-                onSubmit && onSubmit(event);
-                if (event.defaultPrevented) return;
-                event.preventDefault();
+              onSubmit && onSubmit(event);
+              if (event.defaultPrevented) return;
+              event.preventDefault();
 
-                submit(clickedButtonRef.current || event.currentTarget, {
-                  method,
-                  replace,
-                });
-                clickedButtonRef.current = null;
-              }
+              submit(clickedButtonRef.current || event.currentTarget, {
+                method,
+                replace,
+              });
+              clickedButtonRef.current = null;
+            }
         }
         {...props}
       />
@@ -1065,7 +1065,7 @@ export function useSubmitImpl(key?: string): SubmitFunction {
         if (isHtmlElement(target)) {
           throw new Error(
             `Cannot submit element that is not <form>, <button>, or ` +
-              `<input type="submit|image">`,
+            `<input type="submit|image">`,
           );
         }
 
@@ -1304,7 +1304,7 @@ function useComposedRefs<RefValueType = any>(
       } else {
         try {
           (ref as React.MutableRefObject<RefValueType>).current = node!;
-        } catch (_) {}
+        } catch (_) { }
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

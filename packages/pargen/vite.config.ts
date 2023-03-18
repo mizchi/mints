@@ -4,7 +4,7 @@ export default defineConfig({
   define: process.env.LIB
     ? {
         "import.meta.vitest": false,
-        // "process.env.NODE_ENV": JSON.stringify("production"),
+        "process.env.NODE_ENV": JSON.stringify("production"),
       }
     : {},
   build: {
@@ -13,7 +13,7 @@ export default defineConfig({
     lib: process.env.LIB && {
       entry: "src/index",
       // formats: ["es", "cjs"],
-      formats: ["es"],
+      formats: ["es", "cjs"],
       fileName: (format) => {
         if (format === "cjs") {
           return `index.cjs`;

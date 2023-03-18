@@ -114,6 +114,7 @@ const typeDeclareParameter = $def(() =>
 );
 
 // declare parameters
+// ex. <T extends U = V>
 const typeDeclareParameters = $def(() =>
   $seq([
     "<",
@@ -571,7 +572,7 @@ const classExpr = $def(() =>
   ]),
 );
 
-const func = $def(() =>
+const functionExpression = $def(() =>
   $seq([
     $opt($seq([K_ASYNC, whitespace])),
     K_FUNCTION,
@@ -586,7 +587,7 @@ const func = $def(() =>
   ]),
 );
 
-const arrowFunc = $def(() =>
+const arrowFunctionExpression = $def(() =>
   $seq([
     $opt($seq([K_ASYNC, whitespace])),
     $skip_opt(typeDeclareParameters),
@@ -609,8 +610,8 @@ const paren = $def(() =>
 
 const primary = $def(() =>
   $or([
-    func,
-    arrowFunc,
+    functionExpression,
+    arrowFunctionExpression,
     jsxExpr,
     paren,
     newExpr,
@@ -651,7 +652,7 @@ const access = $def(() =>
 const accessible = $def(() =>
   $or([
     // before paren required
-    arrowFunc,
+    arrowFunctionExpression,
     $seq([primary, $repeat(access)]),
     booleanLiteral,
     numberLiteral,
@@ -839,7 +840,11 @@ const exportStatement = $def(() =>
       $opt($seq([K_FROM, stringLiteral])),
     ]),
     // export named expression
-    $seq([K_EXPORT, whitespace, $or([variableStatement, func, classExpr])]),
+    $seq([
+      K_EXPORT,
+      whitespace,
+      $or([variableStatement, functionExpression, classExpr]),
+    ]),
     $seq([$skip($seq([K_EXPORT, $or([typeStatement, interfaceStatement])]))]),
     // default export
     $seq([K_EXPORT, whitespace, K_DEFAULT, whitespace, anyExpression]),
@@ -1147,10 +1152,10 @@ const semicolonlessStatement = $def(() =>
   $seq([
     $or([
       // export function/class
-      $seq([K_EXPORT, whitespace, $or([func, classExpr])]),
+      $seq([K_EXPORT, whitespace, $or([functionExpression, classExpr])]),
       classExpr,
       enumStatement,
-      func,
+      functionExpression,
       exportStatement,
       tryCatchStatement,
       ifStatement,
@@ -1769,7 +1774,7 @@ if (import.meta.vitest) {
   });
 
   test("functionExpression", () => {
-    const parse = compile(func);
+    const parse = compile(functionExpression);
     expectSuccessList(parse, [
       "function f(){}",
       "function* f(){}",
@@ -1789,6 +1794,8 @@ if (import.meta.vitest) {
     // drop types
     is(parse("function f() {}"), "function f(){}");
     is(parse("function f<T extends U>() {}"), "function f(){}");
+    is(parse("function f<T extends U,>() {}"), "function f(){}");
+
     is(parse("function f(arg: T){}"), "function f(arg){}");
     is(
       parse("function f(arg: T, ...args: any[]){}"),
@@ -1799,7 +1806,7 @@ if (import.meta.vitest) {
     is(parse("function f(): T | U {}"), "function f(){}");
   });
   test("arrowFunctionExpression", () => {
-    const parse = compile(arrowFunc);
+    const parse = compile(arrowFunctionExpression);
     // expectSuccess(parse, "a=>1");
     expectSuccessList(parse, [
       "()=>{}",
