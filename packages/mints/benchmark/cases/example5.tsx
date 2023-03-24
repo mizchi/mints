@@ -45,7 +45,7 @@ function App() {
             }
           }
         },
-        firstCompileDone ? 400 : 0
+        firstCompileDone ? 400 : 0,
       );
     } catch (err) {
       console.error(err);
@@ -68,7 +68,7 @@ function App() {
   </body>
 </html>`,
       ],
-      { type: "text/html" }
+      { type: "text/html" },
     );
     ref.current.src = URL.createObjectURL(blob);
   }, [output, ref]);

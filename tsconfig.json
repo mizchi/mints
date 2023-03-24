@@ -11,6 +11,9 @@
     "esModuleInterop": true,
     "emitDeclarationOnly": true,
     "noUnusedLocals": true,
-    "noImplicitReturns": true
+    "noImplicitReturns": true,
+    "types": [
+      "vitest/importMeta",
+    ],
   }
 }

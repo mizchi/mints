@@ -1,5 +1,5 @@
 import ts from "typescript";
-import { ErrorType, ParseError } from "../../../pargen-tokenized/src/types";
+import { ErrorType, ParseError } from "../../../pargen/src/types";
 import { preprocessLight } from "../../src/preprocess";
 import prettier from "prettier";
 
@@ -17,7 +17,7 @@ const _format = (input: string, format: boolean, stripTypes: boolean) => {
 
 export const expectSame = (
   parse: any,
-  inputs: string[]
+  inputs: string[],
   // {
   //   format = true,
   //   stripTypes = true,
@@ -58,7 +58,7 @@ export function formatError(input: string, error: ParseError) {
 
 export function findMaxPosError(
   error: ParseError,
-  currentError: ParseError
+  currentError: ParseError,
 ): ParseError {
   currentError = error.pos > currentError.pos ? error : currentError;
 
@@ -83,7 +83,7 @@ function _formatError(input: string, error: ParseError, depth: number = 0) {
     prefix,
     `${ErrorType?.[error.code]}[${error.pos}]`,
     `<$>`,
-    input.substr(error.pos).split("\n")[0] + " ..."
+    input.substr(error.pos).split("\n")[0] + " ...",
   );
   if (error.code === ErrorType.Token_Unmatch && error.detail) {
     console.log(prefix, ">", error.detail);

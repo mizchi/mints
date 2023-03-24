@@ -1,4 +1,4 @@
-import type { ParseError } from "../../../pargen-tokenized/src/types";
+import type { ParseError } from "../../../pargen/src/types";
 import {
   $any,
   $atom,
@@ -15,7 +15,7 @@ import {
   $skip,
   $skip_opt,
   $token,
-} from "../../../pargen-tokenized/src/builder";
+} from "../../../pargen/src/builder";
 
 import {
   ACCESS,
@@ -101,7 +101,7 @@ const whitespace = $def(() => $any(0, createWhitespacePtr));
 const identifier = $def(() => $atom(identParserPtr));
 
 const objectMemberIdentifier = $regex(
-  `^[^~&<>!:;,@$='"\`\\{\\}\\(\\)\\[\\]\\^\\?\\.\\*\\/\\\\]+$`
+  `^[^~&<>!:;,@$='"\`\\{\\}\\(\\)\\[\\]\\^\\?\\.\\*\\/\\\\]+$`,
 );
 
 const typeDeclareParameter = $def(() =>
@@ -110,17 +110,18 @@ const typeDeclareParameter = $def(() =>
     // extends T
     $opt($seq([whitespace, K_EXTENDS, whitespace, typeExpression])),
     $opt($seq(["=", $not([">"]), typeExpression])),
-  ])
+  ]),
 );
 
 // declare parameters
+// ex. <T extends U = V>
 const typeDeclareParameters = $def(() =>
   $seq([
     "<",
     $repeat_seq([typeDeclareParameter, ","]),
     $seq([typeDeclareParameter, $opt(",")]),
     ">",
-  ])
+  ]),
 );
 
 // apply parameters
@@ -130,7 +131,7 @@ const typeParameters = $def(() =>
     $repeat_seq([typeExpression, ","]),
     $seq([typeExpression, $opt(",")]),
     ">",
-  ])
+  ]),
 );
 
 const typeParen = $def(() =>
@@ -140,34 +141,37 @@ const typeParen = $def(() =>
     R_PAREN,
     $opt(typeParameters),
     $not([$seq(["=", ">"])]),
-  ])
+  ]),
 );
 
 const typeIdentifier = $def(() =>
   $seq([
     $not([$seq([K_READONLY, whitespace])]),
     $or([K_VOID, $seq([identifier, $opt(typeParameters)])]),
-  ])
+  ]),
 );
 
 const typePrimary = $def(() =>
-  $or([typeParen, typeObjectLiteral, typeArrayLiteral, typeIdentifier])
+  $or([typeParen, typeObjectLiteral, typeArrayLiteral, typeIdentifier]),
 );
 
 const typeReference = $def(() =>
   $seq([
     typePrimary,
     $repeat(
-      $or([$seq([".", typeIdentifier]), $seq(["[", $opt(typeExpression), "]"])])
+      $or([
+        $seq([".", typeIdentifier]),
+        $seq(["[", $opt(typeExpression), "]"]),
+      ]),
     ),
-  ])
+  ]),
 );
 
 const typeNameableItem = $def(() =>
   $or([
     $seq([identifier, $opt(K_QUESTION), ":", typeExpression]),
     typeExpression,
-  ])
+  ]),
 );
 
 const typeArrayLiteral = $def(() =>
@@ -184,10 +188,10 @@ const typeArrayLiteral = $def(() =>
           typeExpression,
         ]),
         typeNameableItem,
-      ])
+      ]),
     ),
     "]",
-  ])
+  ]),
 );
 
 const typeFunctionArgs = $def(() =>
@@ -205,9 +209,9 @@ const typeFunctionArgs = $def(() =>
         // last
         $seq([dotDotDot, identifier, ":", typeExpression]),
         $seq([identifier, $opt(K_QUESTION), ":", typeExpression, $opt(",")]),
-      ])
+      ]),
     ),
-  ])
+  ]),
 );
 
 const typeObjectItem = $def(() =>
@@ -247,7 +251,7 @@ const typeObjectItem = $def(() =>
       ":",
       typeExpression,
     ]),
-  ])
+  ]),
 );
 
 const typeObjectLiteral = $def(() =>
@@ -258,7 +262,7 @@ const typeObjectLiteral = $def(() =>
     $opt(typeObjectItem),
     $opt($or([",", ";"])),
     R_BRACE,
-  ])
+  ]),
 );
 
 const typeLiteral = $def(() =>
@@ -270,7 +274,7 @@ const typeLiteral = $def(() =>
     templateLiteral,
     booleanLiteral,
     nullLiteral,
-  ])
+  ]),
 );
 
 const typeFunctionExpression = $def(() =>
@@ -282,14 +286,14 @@ const typeFunctionExpression = $def(() =>
     "=",
     ">",
     typeExpression,
-  ])
+  ]),
 );
 
 const typeUnaryExpression = $def(() =>
   $seq([
     $opt($seq([$or(["keyof", K_TYPEOF, "infer"]), whitespace])),
     $or([typeFunctionExpression, typeParen, typeReference, typeLiteral]),
-  ])
+  ]),
 );
 
 const typeBinaryExpression = $def(() =>
@@ -300,7 +304,7 @@ const typeBinaryExpression = $def(() =>
       $or(["|", "&", $seq([whitespace, "is", whitespace])]),
     ]),
     typeUnaryExpression,
-  ])
+  ]),
 );
 
 const typeExpression = $def(() => typeBinaryExpression);
@@ -316,14 +320,14 @@ const destructiveArrayPattern = $def(() =>
       $seq([$opt(",")]),
     ]),
     "]",
-  ])
+  ]),
 );
 
 const destructiveObjectItem = $def(() =>
   $seq([
     $or([$seq([objectMemberIdentifier, ":", destructive]), identifier]),
     $opt(assign),
-  ])
+  ]),
 );
 
 const destructiveObjectPattern = $def(() =>
@@ -332,14 +336,14 @@ const destructiveObjectPattern = $def(() =>
     $repeat_seq([destructiveObjectItem, ","]),
     $opt($or([$seq([dotDotDot, identifier]), destructiveObjectItem])),
     R_BRACE,
-  ])
+  ]),
 );
 
 const destructive = $def(() =>
   $seq([
     $or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
     $opt(assign),
-  ])
+  ]),
 );
 
 const funcArgWithAssign = $def(() =>
@@ -347,7 +351,7 @@ const funcArgWithAssign = $def(() =>
     $or([destructiveObjectPattern, destructiveArrayPattern, identifier]),
     $skip_opt($seq([$skip_opt(K_QUESTION), ":", typeExpression])),
     $opt_seq([$skip_opt(K_QUESTION), "=", $not([">"]), anyExpression]),
-  ])
+  ]),
 );
 
 const funcArgs = $def(() =>
@@ -355,14 +359,14 @@ const funcArgs = $def(() =>
     $repeat_seq([funcArgWithAssign, ","]),
     $opt($or([$seq([dotDotDot, funcArgWithAssign]), funcArgWithAssign])),
     $skip_opt(","),
-  ])
+  ]),
 );
 
 const callArguments = $def(() =>
   $seq([
     $repeat_seq([anyExpression, ","]),
     $or([$seq([dotDotDot, anyExpression]), anyExpression, $any(0)]),
-  ])
+  ]),
 );
 
 /* Expression */
@@ -371,11 +375,11 @@ const stringLiteral = $def(() =>
   $or([
     $seq(["'", $opt($seq([$not(["'"]), $any(1)])), "'"]),
     $seq(['"', $opt($seq([$not(['"']), $any(1)])), '"']),
-  ])
+  ]),
 );
 
 const regexpLiteral = $def(() =>
-  $seq(["/", $regex(`^[^\/]+$`), "/", $opt($regex(`^[gimsuy]+$`))])
+  $seq(["/", $regex(`^[^\/]+$`), "/", $opt($regex(`^[gimsuy]+$`))]),
 );
 
 const templateExpressionStart = $token("${");
@@ -392,7 +396,7 @@ const templateLiteral = $def(() =>
     ]),
     $opt(templateLiteralString),
     "`",
-  ])
+  ]),
 );
 
 const digit = $regex(`^[1-9](_?\\d)*$`);
@@ -405,14 +409,14 @@ const numberLiteral = $def(() =>
     $seq([$or([digit, "0"]), ".", digitWithSuffix]),
     digitWithSuffix,
     "0",
-  ])
+  ]),
 );
 
 const booleanLiteral = $def(() => $or([K_TRUE, K_FALSE]));
 const nullLiteral = $def(() => K_NULL);
 
 const arrayItem = $def(() =>
-  $seq([$opt($seq([".", ".", "."])), anyExpression])
+  $seq([$opt($seq([".", ".", "."])), anyExpression]),
 );
 const arrayLiteral = $def(() =>
   $seq([
@@ -421,7 +425,7 @@ const arrayLiteral = $def(() =>
     $repeat_seq([$opt(arrayItem), ","]),
     $opt(arrayItem),
     "]",
-  ])
+  ]),
 );
 
 // key: val
@@ -460,7 +464,7 @@ const objectItem = $def(() =>
     ]),
     // shothand
     objectMemberIdentifier,
-  ])
+  ]),
 );
 
 // ref by key
@@ -470,7 +474,7 @@ const objectLiteral = $def(() =>
     $repeat($seq([objectItem, ","])),
     $opt($seq([objectItem, $opt(",")])),
     R_BRACE,
-  ])
+  ]),
 );
 
 /* Class */
@@ -501,8 +505,8 @@ const classConstructorArg = $def(() =>
       // =v
       [{ key: INIT, opt: true }, $seq(["=", $not([">"]), anyExpression])],
     ],
-    reshapeClassConstructorArgPtr
-  )
+    reshapeClassConstructorArgPtr,
+  ),
 );
 
 const classConstructor = $def(() =>
@@ -518,8 +522,8 @@ const classConstructor = $def(() =>
       [BODY, lines],
       R_BRACE,
     ],
-    reshapeClassConstructorPtr
-  )
+    reshapeClassConstructorPtr,
+  ),
 );
 
 const classField = $def(() =>
@@ -551,7 +555,7 @@ const classField = $def(() =>
       $opt_seq(["=", $not([">"]), anyExpression]),
       ";",
     ]),
-  ])
+  ]),
 );
 
 const classExpr = $def(() =>
@@ -565,10 +569,10 @@ const classExpr = $def(() =>
     L_BRACE,
     $repeat(classField),
     R_BRACE,
-  ])
+  ]),
 );
 
-const func = $def(() =>
+const functionExpression = $def(() =>
   $seq([
     $opt($seq([K_ASYNC, whitespace])),
     K_FUNCTION,
@@ -580,10 +584,10 @@ const func = $def(() =>
     R_PAREN,
     $skip_opt(typeAnnotation),
     $or([block, anyStatement]),
-  ])
+  ]),
 );
 
-const arrowFunc = $def(() =>
+const arrowFunctionExpression = $def(() =>
   $seq([
     $opt($seq([K_ASYNC, whitespace])),
     $skip_opt(typeDeclareParameters),
@@ -595,19 +599,19 @@ const arrowFunc = $def(() =>
     "=",
     ">",
     $or([block, anyStatement]),
-  ])
+  ]),
 );
 
 const newExpr = $def(() => $seq([K_NEW, whitespace, accessible]));
 
 const paren = $def(() =>
-  $seq([L_PAREN, anyExpression, R_PAREN, $not([$seq(["=", ">"])])])
+  $seq([L_PAREN, anyExpression, R_PAREN, $not([$seq(["=", ">"])])]),
 );
 
 const primary = $def(() =>
   $or([
-    func,
-    arrowFunc,
+    functionExpression,
+    arrowFunctionExpression,
     jsxExpr,
     paren,
     newExpr,
@@ -626,7 +630,7 @@ const primary = $def(() =>
     regexpLiteral,
     identifier,
     paren,
-  ])
+  ]),
 );
 
 const access = $def(() =>
@@ -642,18 +646,18 @@ const access = $def(() =>
     $seq([$opt($or(["!", "?"])), ".", $opt("#"), objectMemberIdentifier]),
     // $seq([$opt($or(["!", "?"])), ".", $opt("#"), objectMemberIdentifier]),
     $seq([$opt($seq(["?", "."])), "[", anyExpression, "]"]),
-  ])
+  ]),
 );
 
 const accessible = $def(() =>
   $or([
     // before paren required
-    arrowFunc,
+    arrowFunctionExpression,
     $seq([primary, $repeat(access)]),
     booleanLiteral,
     numberLiteral,
     nullLiteral,
-  ])
+  ]),
 );
 
 const unary = $def(() =>
@@ -675,14 +679,12 @@ const unary = $def(() =>
       $or([classExpr, accessible]),
       $opt($or([plusPlus, minusMinus])),
       // $not(["!", "="]),
-      $skip_opt(
-        $seq(["!", $not(["="])]),
-      ),
+      $skip_opt($seq(["!", $not(["="])])),
       $not(["`"]),
     ]),
     // tagged template
     $seq([accessible, templateLiteral]),
-  ])
+  ]),
 );
 
 const binaryOperator = $or([
@@ -726,7 +728,7 @@ const binaryAsExpr = $def(() =>
   $seq([
     binary,
     $skip_opt($seq([whitespace, K_AS, whitespace, typeExpression])),
-  ])
+  ]),
 );
 
 const binary = $def(() =>
@@ -739,7 +741,7 @@ const binary = $def(() =>
       ]),
       anyExpression,
     ]),
-  ])
+  ]),
 );
 
 // a ? b: c
@@ -747,7 +749,7 @@ const ternary = $def(() =>
   $or([
     $seq([binaryAsExpr, K_QUESTION, anyExpression, ":", anyExpression]),
     binaryAsExpr,
-  ])
+  ]),
 );
 
 const anyExpression = ternary;
@@ -759,10 +761,10 @@ const debuggerStmt = $def(() => K_DEBUGGER);
 
 // it includes yield and throw
 const returnLikeStmt = $def(() =>
-  $seq([$or([K_RETURN, K_YIELD]), $opt_seq([whitespace, anyExpression])])
+  $seq([$or([K_RETURN, K_YIELD]), $opt_seq([whitespace, anyExpression])]),
 );
 const throwStmt = $def(() =>
-  $seq([K_THROW, whitespace, $or([newExpr, anyExpression])])
+  $seq([K_THROW, whitespace, $or([newExpr, anyExpression])]),
 );
 
 const blockOrStmt = $def(() => $or([block, anyStatement]));
@@ -790,16 +792,16 @@ const _importRightSide = $def(() =>
           $seq([
             identifier,
             $opt(
-              $seq([whitespace, K_AS, whitespace, identifier, $skip_opt(",")])
+              $seq([whitespace, K_AS, whitespace, identifier, $skip_opt(",")]),
             ),
-          ])
+          ]),
         ),
         R_BRACE,
       ]),
     ]),
     K_FROM,
     stringLiteral,
-  ])
+  ]),
 );
 
 const importStmt = $def(() =>
@@ -810,7 +812,7 @@ const importStmt = $def(() =>
     $seq([$skip($seq([K_IMPORT, K_TYPE, _importRightSide]))]),
     // import pattern
     $seq([K_IMPORT, _importRightSide]),
-  ])
+  ]),
 );
 
 const defaultOrIdentifer = $or([K_DEFAULT, identifier]);
@@ -832,17 +834,21 @@ const exportStatement = $def(() =>
           defaultOrIdentifer,
           $opt($seq([whitespace, K_AS, whitespace, defaultOrIdentifer])),
           $opt(","),
-        ])
+        ]),
       ),
       R_BRACE,
       $opt($seq([K_FROM, stringLiteral])),
     ]),
     // export named expression
-    $seq([K_EXPORT, whitespace, $or([variableStatement, func, classExpr])]),
+    $seq([
+      K_EXPORT,
+      whitespace,
+      $or([variableStatement, functionExpression, classExpr]),
+    ]),
     $seq([$skip($seq([K_EXPORT, $or([typeStatement, interfaceStatement])]))]),
     // default export
     $seq([K_EXPORT, whitespace, K_DEFAULT, whitespace, anyExpression]),
-  ])
+  ]),
 );
 
 const ifStatement = $def(() =>
@@ -861,9 +867,9 @@ const ifStatement = $def(() =>
           block,
           $seq([whitespace, anyStatement]),
         ]),
-      ])
+      ]),
     ),
-  ])
+  ]),
 );
 
 const switchStatement = $def(() =>
@@ -886,12 +892,12 @@ const switchStatement = $def(() =>
             $opt(";"),
           ]),
           lines,
-        ])
+        ]),
       ),
     ]),
     $opt($seq([K_DEFAULT, ":", $or([block, caseClause])])),
     R_BRACE,
-  ])
+  ]),
 );
 
 const assign = $def(() => $seq(["=", $not([">"]), anyExpression]));
@@ -903,11 +909,11 @@ const variableStatement = $def(() =>
     destructive,
     $skip_opt(typeAnnotation),
     $opt(assign),
-  ])
+  ]),
 );
 
 const declareVariableStatement = $def(() =>
-  $seq([$skip($seq([K_DECLARE, variableStatement]))])
+  $seq([$skip($seq([K_DECLARE, variableStatement]))]),
 );
 
 const typeStatement = $def(() =>
@@ -920,9 +926,9 @@ const typeStatement = $def(() =>
         "=",
         $not([">"]),
         typeExpression,
-      ])
+      ]),
     ),
-  ])
+  ]),
 );
 
 const interfaceStatement = $def(() =>
@@ -933,9 +939,9 @@ const interfaceStatement = $def(() =>
         identifier,
         $opt($seq([K_EXTENDS, whitespace, typeExpression])),
         typeObjectLiteral,
-      ])
+      ]),
     ),
-  ])
+  ]),
 );
 
 const forStatement = $def(() =>
@@ -949,7 +955,7 @@ const forStatement = $def(() =>
     $opt(anyExpression),
     R_PAREN,
     blockOrStmt,
-  ])
+  ]),
 );
 
 const variableType = $or([K_VAR, K_CONST, K_LET]);
@@ -967,11 +973,11 @@ const forItemStatement = $def(() =>
     anyExpression,
     R_PAREN,
     blockOrStmt,
-  ])
+  ]),
 );
 
 const whileStatement = $def(() =>
-  $seq([K_WHILE, L_PAREN, anyExpression, R_PAREN, blockOrStmt])
+  $seq([K_WHILE, L_PAREN, anyExpression, R_PAREN, blockOrStmt]),
 );
 
 const doWhileStatement = $def(() =>
@@ -984,7 +990,7 @@ const doWhileStatement = $def(() =>
       anyExpression,
       R_PAREN,
     ]),
-  ])
+  ]),
 );
 
 // try{}finally{};
@@ -1005,11 +1011,11 @@ const tryCatchStatement = $def(() =>
         _finally,
       ]),
     ]),
-  ])
+  ]),
 );
 
 const enumAssign = $def(() =>
-  $seq([$skip("="), $or([numberLiteral, stringLiteral])])
+  $seq([$skip("="), $or([numberLiteral, stringLiteral])]),
 );
 
 const enumStatement = $def(() =>
@@ -1026,7 +1032,7 @@ const enumStatement = $def(() =>
             [IDENT, identifier],
             [{ key: ASSIGN, opt: true }, enumAssign],
             $skip(","),
-          ])
+          ]),
         ),
       ],
       [
@@ -1039,8 +1045,8 @@ const enumStatement = $def(() =>
       ],
       R_BRACE,
     ],
-    reshapeEnumPtr
-  )
+    reshapeEnumPtr,
+  ),
 );
 
 const jsxInlineExpr = $seq([$skip("{"), anyExpression, $skip("}")]);
@@ -1057,7 +1063,7 @@ const jsxAttributes = $repeat(
       ],
     ]),
     $seqo(["{", [DOTDOTDOT, dotDotDot], [NAME, anyExpression], "}"]),
-  ])
+  ]),
 );
 
 const jsxFragment = $def(() =>
@@ -1074,15 +1080,15 @@ const jsxFragment = $def(() =>
             jsxFragment,
             jsxInlineExpr,
             jsxText,
-          ])
+          ]),
         ),
       ],
       "<",
       "/",
       ">",
     ],
-    reshapeJsxElementPtr
-  )
+    reshapeJsxElementPtr,
+  ),
 );
 
 const jsxElement = $def(() =>
@@ -1102,7 +1108,7 @@ const jsxElement = $def(() =>
             jsxFragment,
             jsxInlineExpr,
             jsxText,
-          ])
+          ]),
         ),
       ],
       "<",
@@ -1116,9 +1122,9 @@ const jsxElement = $def(() =>
       ],
       ">",
     ],
-    reshapeJsxElementPtr
+    reshapeJsxElementPtr,
     // xxx
-  )
+  ),
 );
 
 const jsxSelfCloseElement = $def(() =>
@@ -1132,24 +1138,24 @@ const jsxSelfCloseElement = $def(() =>
       "/",
       ">",
     ],
-    reshapeJsxSelfClosingElementPtr
-  )
+    reshapeJsxSelfClosingElementPtr,
+  ),
 );
 
 const jsxExpr = $def(() => $or([jsxSelfCloseElement, jsxElement, jsxFragment]));
 
 const expressionStatement = $def(() =>
-  $seq([anyExpression, $repeat_seq([",", anyExpression])])
+  $seq([anyExpression, $repeat_seq([",", anyExpression])]),
 );
 
 const semicolonlessStatement = $def(() =>
   $seq([
     $or([
       // export function/class
-      $seq([K_EXPORT, whitespace, $or([func, classExpr])]),
+      $seq([K_EXPORT, whitespace, $or([functionExpression, classExpr])]),
       classExpr,
       enumStatement,
-      func,
+      functionExpression,
       exportStatement,
       tryCatchStatement,
       ifStatement,
@@ -1161,7 +1167,7 @@ const semicolonlessStatement = $def(() =>
       forItemStatement,
       blockStmt,
     ]),
-  ])
+  ]),
 );
 
 const semicolonRequiredStatement = $def(() =>
@@ -1190,7 +1196,7 @@ const semicolonRequiredStatement = $def(() =>
       labeledStmt,
       expressionStatement,
     ]),
-  ])
+  ]),
 );
 
 export const anyStatement = $def(() =>
@@ -1239,14 +1245,14 @@ export const anyStatement = $def(() =>
     blockStmt,
     // other expression
     expressionStatement,
-  ])
+  ]),
 );
 
 export const line = $def(() =>
   $or([
     $seq([semicolonlessStatement, $opt(";")]),
     $seq([$opt(semicolonRequiredStatement), ";"]),
-  ])
+  ]),
 );
 
 const lines = $def(() => $seq([$repeat(line), $opt(anyStatement), $opt(";")]));
@@ -1258,19 +1264,16 @@ const caseClause = $def(() =>
     $repeat_seq([$not([K_CASE]), line]),
     $opt($seq([$not([K_CASE]), anyStatement])),
     $skip_opt(";"),
-  ])
+  ]),
 );
 
 export const program = lines;
 
-import { test, run, is } from "@mizchi/test";
-import { Rule } from "../../../pargen-tokenized/src/types";
+import { Rule } from "../../../pargen/src/types";
 import { parseTokens } from "../runtime/tokenizer";
 
-const isMain = require.main === module;
-
 import { compile as compileRaw } from "./ctx";
-import { CODE_SEQ_STOP } from "../../../pargen-tokenized/src/constants";
+import { CODE_SEQ_STOP } from "../../../pargen/src/constants";
 import {
   createWhitespacePtr,
   identParserPtr,
@@ -1284,9 +1287,13 @@ import {
 } from "../runtime/funcs";
 import { detectInlineOptions } from "../runtime/options";
 
-if (process.env.NODE_ENV === "test") {
+// if (process.env.NODE_ENV === "test") {
+import { is } from "@mizchi/test";
+
+if (import.meta.vitest) {
+  const { test } = import.meta.vitest;
   const compile = (
-    inputRule: Rule | number
+    inputRule: Rule | number,
   ): ((input: string) => string | ParseError) => {
     const parser = compileRaw(inputRule);
     const wrappedParser = (input: string) => {
@@ -1303,7 +1310,7 @@ if (process.env.NODE_ENV === "test") {
           jsx: opts.jsx ?? "React.createElement",
           jsxFragment: opts.jsxFragment ?? "React.Fragment",
         },
-        0
+        0,
       );
       if (out.error) {
         return out;
@@ -1767,7 +1774,7 @@ if (process.env.NODE_ENV === "test") {
   });
 
   test("functionExpression", () => {
-    const parse = compile(func);
+    const parse = compile(functionExpression);
     expectSuccessList(parse, [
       "function f(){}",
       "function* f(){}",
@@ -1787,17 +1794,19 @@ if (process.env.NODE_ENV === "test") {
     // drop types
     is(parse("function f() {}"), "function f(){}");
     is(parse("function f<T extends U>() {}"), "function f(){}");
+    is(parse("function f<T extends U,>() {}"), "function f(){}");
+
     is(parse("function f(arg: T){}"), "function f(arg){}");
     is(
       parse("function f(arg: T, ...args: any[]){}"),
-      "function f(arg,...args){}"
+      "function f(arg,...args){}",
     );
     is(parse("function f(): void {}"), "function f(){}");
     is(parse("function f(): T {}"), "function f(){}");
     is(parse("function f(): T | U {}"), "function f(){}");
   });
   test("arrowFunctionExpression", () => {
-    const parse = compile(arrowFunc);
+    const parse = compile(arrowFunctionExpression);
     // expectSuccess(parse, "a=>1");
     expectSuccessList(parse, [
       "()=>{}",
@@ -1839,7 +1848,7 @@ if (process.env.NODE_ENV === "test") {
     ]);
     is(
       parse("class{readonly onDidChange = Event.None;}"),
-      "class{onDidChange=Event.None;}"
+      "class{onDidChange=Event.None;}",
     );
     is(parse("class<T>{}"), "class{}");
     is(parse("class{readonly x;}"), "class{x;}");
@@ -2006,40 +2015,40 @@ if (process.env.NODE_ENV === "test") {
     is(parse("class{constructor(x=1){}}"), "class{constructor(x=1){}}");
     is(
       parse("class{constructor(private x){}}"),
-      "class{constructor(x){this.x=x;}}"
+      "class{constructor(x){this.x=x;}}",
     );
     is(parse("class{constructor(x,y){}}"), "class{constructor(x,y){}}");
     is(parse("class{constructor(x,y,){}}"), "class{constructor(x,y){}}");
     is(
       parse("class{constructor(x=1,y=2,){}}"),
-      "class{constructor(x=1,y=2){}}"
+      "class{constructor(x=1,y=2){}}",
     );
     is(
       parse("class{constructor(private x=1){}}"),
-      "class{constructor(x=1){this.x=x;}}"
+      "class{constructor(x=1){this.x=x;}}",
     );
     is(
       parse("class{constructor(x=1,private y,public z=2){}}"),
-      "class{constructor(x=1,y,z=2){this.y=y;this.z=z;}}"
+      "class{constructor(x=1,y,z=2){this.y=y;this.z=z;}}",
     );
     is(
       parse("class{constructor(x=1,private y,public z=2,){}}"),
-      "class{constructor(x=1,y,z=2){this.y=y;this.z=z;}}"
+      "class{constructor(x=1,y,z=2){this.y=y;this.z=z;}}",
     );
     is(
       parse("class{constructor(private x=1){foo;}}"),
-      "class{constructor(x=1){this.x=x;foo;}}"
+      "class{constructor(x=1){this.x=x;foo;}}",
     );
 
     is(
       parse(`class Point {constructor(private x: number) {} }`),
-      "class Point{constructor(x){this.x=x;}}"
+      "class Point{constructor(x){this.x=x;}}",
     );
     is(
       parse(
-        `class Point {constructor(private x: number, public y?: number) {} }`
+        `class Point {constructor(private x: number, public y?: number) {} }`,
       ),
-      "class Point{constructor(x,y){this.x=x;this.y=y;}}"
+      "class Point{constructor(x,y){this.x=x;this.y=y;}}",
     );
   });
 
@@ -2053,7 +2062,7 @@ if (process.env.NODE_ENV === "test") {
     is(parse("enum X { a = 42, }"), `const X={a:42,"42":"a",};`);
     is(
       parse("enum X { a = 42, b }"),
-      `const X={a:42,"42":"a",b:43,"43":"b",};`
+      `const X={a:42,"42":"a",b:43,"43":"b",};`,
     );
     is(parse("enum X { a, b = 42 }"), `const X={a:0,"0":"a",b:42,"42":"b",};`);
     is(parse(`enum X { a = "foo" }`), `const X={a:"foo",};`);
@@ -2066,7 +2075,7 @@ if (process.env.NODE_ENV === "test") {
     is(parse(`<div x="a" y={1} />`), `React.createElement("div",{x:"a",y:1,})`);
     is(
       parse(`<div x="a" y="b" />`),
-      `React.createElement("div",{x:"a",y:"b",})`
+      `React.createElement("div",{x:"a",y:"b",})`,
     );
     is(parse(`<div x={1} />`), `React.createElement("div",{x:1,})`);
     is(parse(`<div x={foo+1} />`), `React.createElement("div",{x:foo+1,})`);
@@ -2087,15 +2096,15 @@ if (process.env.NODE_ENV === "test") {
     is(parse("<div {...x}></div>"), `React.createElement("div",{...x,})`);
     is(
       parse("<div {...{x:1}}></div>"),
-      `React.createElement("div",{...{x:1},})`
+      `React.createElement("div",{...{x:1},})`,
     );
     is(
       parse("<div {...x} y={1}></div>"),
-      `React.createElement("div",{...x,y:1,})`
+      `React.createElement("div",{...x,y:1,})`,
     );
     is(
       parse("<div {...x} y={1} {...z}></div>"),
-      `React.createElement("div",{...x,y:1,...z,})`
+      `React.createElement("div",{...x,y:1,...z,})`,
     );
     is(parse("<div a />"), `React.createElement("div",{a:true,})`);
   });
@@ -2107,11 +2116,11 @@ if (process.env.NODE_ENV === "test") {
     // const ret = parse("<div><hr /></div>") as any;
     is(
       parse("<a><hr /></a>"),
-      `React.createElement("a",{},React.createElement("hr",{}))`
+      `React.createElement("a",{},React.createElement("hr",{}))`,
     );
     is(
       parse(`<a href="/">aaa</a>`),
-      `React.createElement("a",{href:"/",},"aaa")`
+      `React.createElement("a",{href:"/",},"aaa")`,
     );
   });
   test("transform: jsx-fragment", () => {
@@ -2119,6 +2128,4 @@ if (process.env.NODE_ENV === "test") {
     is(parse("<></>"), `React.createElement(React.Fragment,{})`);
     is(parse("<>text</>"), `React.createElement(React.Fragment,{},"text")`);
   });
-
-  run({ stopOnFail: true, stub: true, isMain });
 }

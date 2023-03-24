@@ -40,7 +40,7 @@ module.exports = function (test) {
       prettier.format(test.contents, {
         filepath: "$.tsx",
         parser: "typescript",
-      })
+      }),
     );
     if (transformed.error) {
       // console.log("====", test.contents, "\n====\n");

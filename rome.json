@@ -1,0 +1,16 @@
+{
+  "formatter": {
+    "indentStyle": "space",
+    "indentSize": 2
+  },
+  "linter": {
+    "enabled": false,
+    "rules": {
+      "style": {
+        "useBlockStatements": "error",
+        "useShorthandArrayType": "error",
+        "noShoutyConstants": "warn"
+      }
+    }
+  }
+}

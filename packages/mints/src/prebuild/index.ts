@@ -19,7 +19,7 @@ function processLine(tokens: string[], opts: any): string {
 
 export function transform(
   input: string,
-  opts?: { jsx?: string; jsxFragment?: string }
+  opts?: { jsx?: string; jsxFragment?: string },
 ) {
   if (!opts) {
     opts = detectInlineOptions(input);
@@ -39,11 +39,12 @@ export function transform(
   return results.join("");
 }
 
-import { run, test, is } from "@mizchi/test";
+import { is } from "@mizchi/test";
 import { detectInlineOptions } from "../runtime/options";
-const isMain = require.main === module;
+// const isMain = require.main === module;
 // import ts from "typescript";
-if (process.env.NODE_ENV === "test") {
+if (import.meta.vitest) {
+  const { test } = import.meta.vitest;
   const ts = require("typescript");
   const prettier = require("prettier");
 
@@ -81,13 +82,13 @@ if (process.env.NODE_ENV === "test") {
         b = 2;
         c = 3;
       }`),
-      "class{a=1;b=2;c=3;}"
+      "class{a=1;b=2;c=3;}",
     );
   });
 
   test("multiline program control", () => {
-    // is(transform(`1;2;3;`), "1;2;3;");
-    console.log([...parseTokens(`input.replace(/[ ]{1,}/gmu, '');`)]);
+    is(transform(`1;2;3;`), "1;2;3;");
+    // console.log([...parseTokens(`input.replace(/[ ]{1,}/gmu, '');`)]);
     // is(transform(`throw new Error('xxx');`), "throw new Error('xxx');");
 
     // const parse = compile(program, { end: true });
@@ -211,7 +212,7 @@ if (process.env.NODE_ENV === "test") {
     ]);
     is(
       transform(`enum X { a = "foo", b = "bar" }`),
-      `const X={a:"foo",b:"bar",};`
+      `const X={a:"foo",b:"bar",};`,
     );
     // export default 1;
   });
@@ -221,7 +222,7 @@ if (process.env.NODE_ENV === "test") {
 
     is(
       transform(`export const x = 1;export default 1;`),
-      `export const x=1;export default 1;`
+      `export const x=1;export default 1;`,
     );
   });
 
@@ -239,9 +240,5 @@ if (process.env.NODE_ENV === "test") {
     const code = `/* @jsx h */\nconst el = <div></div>;`;
     const result = transform(code);
     is(result, `const el=h("div",{});`);
-  });
-
-  run({ stopOnFail: true, stub: true, isMain }).then(() => {
-    console.log("[test:time]", Date.now() - now);
   });
 }

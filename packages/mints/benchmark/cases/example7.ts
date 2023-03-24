@@ -1,16 +1,16 @@
 // https://github.com/electron/fiddle/blob/master/src/renderer/binary.ts
-import * as fs from 'fs-extra';
-import * as path from 'path';
-import extract from 'extract-zip';
+import * as fs from "fs-extra";
+import * as path from "path";
+import extract from "extract-zip";
 
 import {
   RunnableVersion,
   Version,
   VersionSource,
   VersionState,
-} from '../interfaces';
-import { USER_DATA_PATH } from './constants';
-import { download as electronDownload } from '@electron/get';
+} from "../interfaces";
+import { USER_DATA_PATH } from "./constants";
+import { download as electronDownload } from "@electron/get";
 
 // versions that are currently being downloaded
 const downloading: Map<string, Promise<void>> = new Map();
@@ -174,13 +174,13 @@ export function getIsDownloaded(version: string, dir?: string): boolean {
 function execSubpath() {
   const { platform } = process;
   switch (platform) {
-    case 'darwin':
-      return 'Electron.app/Contents/MacOS/Electron';
-    case 'linux':
-    case 'freebsd':
-      return 'electron';
-    case 'win32':
-      return 'electron.exe';
+    case "darwin":
+      return "Electron.app/Contents/MacOS/Electron";
+    case "linux":
+    case "freebsd":
+      return "electron";
+    case "win32":
+      return "electron.exe";
     default:
       throw new Error(`Electron builds are not available for ${platform}`);
   }
@@ -240,7 +240,7 @@ async function download(ver: RunnableVersion): Promise<string> {
  * @returns {string}
  */
 function getDownloadPath(version: string): string {
-  return path.join(USER_DATA_PATH, 'electron-bin', version);
+  return path.join(USER_DATA_PATH, "electron-bin", version);
 }
 
 /**

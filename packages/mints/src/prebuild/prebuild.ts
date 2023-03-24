@@ -1,7 +1,7 @@
 // import assert from "assert";
-import { createSnapshot } from "../../../pargen-tokenized/src/index";
-import { encodeSnapshotToBinary } from "../../../pargen-tokenized/encoder/encoder";
-import { E_strings } from "../../../pargen-tokenized/src/constants";
+import { createSnapshot } from "../../../pargen/src/index";
+import { encodeSnapshotToBinary } from "../../../pargen/encoder/encoder";
+import { E_strings } from "../../../pargen/src/constants";
 import { line } from "./grammar";
 
 import fs from "fs";
@@ -15,12 +15,12 @@ const serialized = encodeSnapshotToBinary(snapshot);
 
 fs.writeFileSync(
   path.join(__dirname, "../gen/snapshot_b64.ts"),
-  `export const snapshot = '${Buffer.from(serialized).toString("base64")}';`
+  `export const snapshot = '${Buffer.from(serialized).toString("base64")}';`,
 );
 
 fs.writeFileSync(
   path.join(__dirname, "../gen/__strings.json"),
-  JSON.stringify(strings)
+  JSON.stringify(strings),
 );
 console.log("gen>", "src/gen/__strings.json");
 
@@ -44,12 +44,12 @@ const reservedWords = RESERVED_WORDS.map((x) => {
 });
 
 const rw = [...new Set([...reservedWords, ...controlTokens])].sort(
-  (a, b) => a - b
+  (a, b) => a - b,
 );
 
 console.log("rw");
 fs.writeFileSync(
   path.join(__dirname, "../gen/__reserved.json"),
-  JSON.stringify(rw)
+  JSON.stringify(rw),
 );
 console.log("gen>", "src/gen/__reserved.json");

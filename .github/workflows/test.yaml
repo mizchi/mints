@@ -1,0 +1,45 @@
+name: test
+on:
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          token: ${{secrets.GITHUB_TOKEN}}
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16.x
+          scope: '@plaidev'
+          registry-url: 'https://npm.pkg.github.com'
+      - id: turbo-cache
+        uses: actions/cache@v3
+        with:
+          path: .turbo
+          key: cache-turbo-${{ runner.os }}-${{ github.job }}
+      - id: pnpm-install
+        uses: pnpm/action-setup@v2.0.1
+        with:
+          version: 7.3.0
+          run_install: false
+      - id: pnpm-cache
+        run: echo "::set-output name=pnpm_cache_dir::$(pnpm store path)"
+        shell: bash
+      - uses: actions/cache@v3
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            pnpm-store-
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      # - run: pnpm typecheck
+      # - run: pnpm lint
+      - run: pnpm test
+      # - run: pnpm format:check

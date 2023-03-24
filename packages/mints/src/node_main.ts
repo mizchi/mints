@@ -6,7 +6,7 @@ const MAX_TOKENS = 512;
 
 export function createTransformer(workerPath: string, workers: number) {
   const apis = [...Array(workers).keys()].map((_i) =>
-    wrap(new Worker(workerPath))
+    wrap(new Worker(workerPath)),
   );
   return {
     terminate() {
@@ -20,7 +20,7 @@ export function createTransformer(workerPath: string, workers: number) {
       let _currentTokensCount = 0;
       const _hydrate = () => {
         promises.push(
-          apis[i++ % apis.length].exec("transform", _tokensList, opts)
+          apis[i++ % apis.length].exec("transform", _tokensList, opts),
         );
         _tokensList = [];
         _currentTokensCount = 0;

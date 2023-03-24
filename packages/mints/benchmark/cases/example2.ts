@@ -24,7 +24,7 @@ export class Bundler {
   // }
   public async bundle(
     entry: string,
-    { exposeToGlobal = null, optimize: _optimize = true }: BundleOptions
+    { exposeToGlobal = null, optimize: _optimize = true }: BundleOptions,
   ) {
     await this.addModule(entry);
     const chunks = aggregateChunks(this.modulesMap, entry);
@@ -37,7 +37,7 @@ export class Bundler {
     });
   }
   public async bundleChunks(
-    entry: string
+    entry: string,
     // {} : {} = {}
   ) {
     if (builtChunks.find((c) => c.entry === entry)) {
@@ -77,7 +77,7 @@ export class Bundler {
           root: false,
           publicPath,
         },
-        builtChunks
+        builtChunks,
       );
     });
     console.log("bundle", dynamicImports);
@@ -91,7 +91,7 @@ export class Bundler {
           root: false,
           publicPath,
         },
-        builtChunks
+        builtChunks,
       );
     });
     return builtChunks;

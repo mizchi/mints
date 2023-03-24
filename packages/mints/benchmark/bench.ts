@@ -12,48 +12,48 @@ const N = 1;
 
 const code_scratch = fs.readFileSync(
   path.join(__dirname, "cases/_scratch.ts"),
-  "utf-8"
+  "utf-8",
 );
 
 const code0 = fs.readFileSync(
   path.join(__dirname, "cases/example0.ts"),
-  "utf-8"
+  "utf-8",
 );
 
 const code1 = fs.readFileSync(
   path.join(__dirname, "cases/example1.ts"),
-  "utf-8"
+  "utf-8",
 );
 // pargen
 const code2 = fs.readFileSync(
   path.join(__dirname, "cases/example2.ts"),
-  "utf-8"
+  "utf-8",
 );
 
 // pargen
 const code3 = fs.readFileSync(
   path.join(__dirname, "cases/example3.ts"),
-  "utf-8"
+  "utf-8",
 );
 
 const code4 = fs.readFileSync(
   path.join(__dirname, "cases/example4.ts"),
-  "utf-8"
+  "utf-8",
 );
 
 const code5 = fs.readFileSync(
   path.join(__dirname, "cases/example5.tsx"),
-  "utf-8"
+  "utf-8",
 );
 
 const code6 = fs.readFileSync(
   path.join(__dirname, "cases/example6.tsx"),
-  "utf-8"
+  "utf-8",
 );
 
 const code7 = fs.readFileSync(
   path.join(__dirname, "cases/example7.ts"),
-  "utf-8"
+  "utf-8",
 );
 
 function tsc(input: string) {
@@ -96,7 +96,7 @@ function mints(input: string) {
 
 const transformer = createTransformer(
   path.join(__dirname, "../dist/node_worker.js"),
-  14
+  14,
 );
 process.on("exit", () => transformer.terminate());
 
@@ -142,7 +142,7 @@ export async function main() {
       }
       console.log(
         `[${compiler.name}]`,
-        Math.floor(results.reduce((s, n) => s + n, 0) / results.length) + "ms"
+        Math.floor(results.reduce((s, n) => s + n, 0) / results.length) + "ms",
       );
     }
   }

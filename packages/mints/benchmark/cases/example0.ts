@@ -124,30 +124,36 @@ class _Point<Num extends number = number> {
   constructor(private x: Num, private y: Num) {}
 }
 
-
 class X {
-  async * f() {
-      return 1;
+  async *f() {
+    return 1;
   }
 }
 
 const itr = {
-  async * [Symbol.asyncIterator]() {
-      for (const c of []) {
-          yield c;
-      }
+  async *[Symbol.asyncIterator]() {
+    for (const c of []) {
+      yield c;
+    }
   },
 };
 
-function * f() {
+function* f() {
   yield 1;
   yield 2;
 }
 
-type Unpacked<T> = T extends (infer U)[]
-  ? U
-  : T extends (...args: any[]) => infer U
-  ? U
-  : T extends Promise<infer U>
-  ? U
-  : T;
+// TODO
+// type Unpacked<T> = T extends (infer U)[]
+//   ? U
+//   : T extends (...args: any[]) => infer U
+//   ? U
+//   : T extends Promise<infer U>
+//   ? U
+//   : T;
+
+// TODO
+// prettier-ignore
+// function f2<A,>() {}
+
+// function f2<A extends Event | Event,>() {}

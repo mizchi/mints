@@ -1,11 +1,21 @@
-import { compileFragment } from "./compiler";
 import {
+  E_cidsList,
+  E_entryRefId,
+  E_flagsList,
+  E_keyList,
+  E_popList,
+  E_refs,
+  E_reshapeEachs,
+  E_reshapes,
+  E_rules,
+  E_strings,
+  E_values,
+} from "./constants";
+// import { ohash } from "object-hash";
+import type {
   Rule,
-  Compiler,
-  InputNodeExpr,
+  RuleExpr,
   Token,
-  nodeBaseDefault,
-  Reshape,
   Seq,
   Ref,
   Not,
@@ -14,314 +24,417 @@ import {
   Repeat,
   Atom,
   Regex,
-  InternalParser,
-  REF,
-  SEQ,
-  NOT,
-  OR,
-  REPEAT,
-  TOKEN,
-  REGEX,
-  ATOM,
-  EOF,
-  PairOpen,
-  PAIR_OPEN,
-  PairClose,
-  PAIR_CLOSE,
+  Flags,
+  SeqObject,
+  Any,
+  Snapshot,
+  ReshapePtr,
 } from "./types";
 
-let cnt = 2;
-const genId = () => cnt++;
+import {
+  KEY_MASK,
+  OPT_MASK,
+  POP_MASK,
+  PUSH_MASK,
+  RULE_ANY,
+  RULE_ATOM,
+  RULE_EOF,
+  RULE_NOT,
+  RULE_OR,
+  RULE_REF,
+  RULE_REGEX,
+  RULE_REPEAT,
+  RULE_SEQ,
+  RULE_SEQ_OBJECT,
+  RULE_TOKEN,
+  SKIP_MASK,
+} from "./constants";
 
-export function createRef(refId: string | number, reshape?: Reshape): Ref {
-  return {
-    ...nodeBaseDefault,
-    id: genId(),
-    kind: REF,
-    ref: refId,
-    reshape,
-  } as Ref;
-}
+// import type { Opaque } from "ts-opaque";
 
-const toNode = (input: InputNodeExpr): Rule => {
-  if (typeof input === "object") {
-    return input;
-  }
-  if (typeof input === "number") {
-    return $ref(input);
-  }
-  return typeof input === "string" ? $token(input) : input;
+export type Ptr<T> = number & {
+  t: T;
 };
 
-const registeredPatterns: Array<[number, () => InputNodeExpr]> = [];
-
-export const $close = (compiler: Compiler) => {
-  const nodes: Rule[] = [];
-  registeredPatterns.forEach(([rootId, nodeCreator]) => {
-    const node = nodeCreator();
-    const resolvedNode = toNode(node);
-    const parser = compileFragment(resolvedNode, compiler, rootId);
-    compiler.parsers.set(rootId, parser);
-    // TODO: Remove on prod
-    compiler.definitions.set(rootId, resolvedNode);
-    nodes.push(resolvedNode);
-  });
-  registeredPatterns.length = 0;
-  nodes.length = 0;
+export const _strings: string[] = [];
+export const $str = (s: string): Ptr<string> => {
+  const idx = _strings.indexOf(s);
+  if (idx > -1) return idx as Ptr<string>;
+  const ptr = _strings.length;
+  _strings.push(s);
+  return ptr as Ptr<string>;
 };
 
-let _defCounter = 2;
-export function $def(nodeCreator: () => InputNodeExpr): number {
-  const id = _defCounter++;
-  registeredPatterns.push([id as any, nodeCreator]);
-  return id;
-}
-
-export function $ref(refId: string | number, reshape?: Reshape): Ref {
-  return {
-    ...nodeBaseDefault,
-    id: genId(),
-    kind: REF,
-    ref: refId,
-    reshape,
-  } as Ref;
-}
-
-export function $seq(
-  children: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
-  reshape?: Reshape
-): Seq {
-  let nodes: Rule[] = [];
-  // if (compiler.composeTokens) {
-  //   // compose token
-  //   let currentTokens: string[] = [];
-  //   children.forEach((child) => {
-  //     if (typeof child === "string") {
-  //       currentTokens.push(child);
-  //     } else if (
-  //       // plane expr
-  //       typeof child !== "number" &&
-  //       !Array.isArray(child) &&
-  //       !child.skip &&
-  //       child.kind === TOKEN &&
-  //       child.reshape === defaultReshape &&
-  //       child.key == null
-  //     ) {
-  //       currentTokens.push((child as Token).expr);
-  //     } else {
-  //       // compose queued expr list to one expr
-  //       if (currentTokens.length > 0) {
-  //         nodes.push(token(currentTokens.join("")));
-  //         currentTokens = [];
-  //       }
-
-  //       if (Array.isArray(child)) {
-  //         const [key, ex] = child;
-  //         nodes.push(param(key, toNode(ex)));
-  //       } else {
-  //         // raw expr
-  //         nodes.push(toNode(child));
-  //       }
-  //     }
-  //   });
-  //   nodes.push(token(currentTokens.join("")));
-  // } else {
-  // do not compose for debug
-  nodes = children.map((child): Rule => {
-    if (Array.isArray(child)) {
-      const [key, ex] = child;
-      return $param(key, toNode(ex));
+const __tokenCache = new Map<string, Token>();
+export const toNode = (input: RuleExpr): Rule => {
+  if (typeof input === "object") return input;
+  if (typeof input === "number") return $ref(input);
+  if (typeof input === "string") {
+    if (__tokenCache.has(input)) {
+      return __tokenCache.get(input)!;
     } else {
-      return toNode(child);
+      const newToken = $token(input);
+      __tokenCache.set(input, newToken);
+      return newToken;
     }
-  });
-  // }
+  }
+  return input;
+};
+
+const __registered: Array<() => RuleExpr> = [];
+const buildDefs = () => __registered.map((creator) => toNode(creator()));
+
+// @ts-ignore
+// import objectHash from "./ohash.js";
+
+export function createSnapshot(refId: number): Snapshot {
+  const entryRefId = $def(() => $seq([toNode(refId), $eof()]));
+  const snapshot = compileSnapshot();
+  snapshot[E_entryRefId] = entryRefId;
+  return snapshot;
+}
+
+export function compileSnapshot(): Snapshot {
+  const cachedRules = new Map<string, number>();
+
+  const state = [0, [], [], [], [], {}, {}, {}, {}, [], [""]] as Snapshot;
+
+  function addCids(ptrs: number[]) {
+    const ptr = state[E_cidsList].length;
+    state[E_cidsList].push(ptrs);
+    return ptr;
+  }
+
+  function addString(str: string) {
+    const at = state[E_strings].indexOf(str);
+    if (at > -1) return at;
+    const ptr = state[E_strings].length;
+    state[E_strings].push(str);
+    return ptr;
+  }
+
+  function toBitFlags(flags: Flags): number {
+    return (
+      (flags.opt ? OPT_MASK : 0) +
+      (flags.skip ? SKIP_MASK : 0) +
+      (flags.push ? PUSH_MASK : 0) +
+      (flags.pop ? POP_MASK : 0) +
+      (flags.key ? KEY_MASK : 0)
+    );
+  }
+
+  function addRule(rule: Rule): number {
+    // const hash = requi
+    // const hash = objectHash(rule);
+    const hash = JSON.stringify(rule);
+    if (cachedRules.has(hash)) {
+      return cachedRules.get(hash)!;
+    }
+    // let rule = { ...ruleRaw };
+    let value: number = 0;
+
+    switch (rule.t) {
+      case RULE_REF: {
+        value = rule.c;
+        break;
+      }
+      case RULE_ATOM: {
+        value = rule.c;
+        break;
+      }
+      case RULE_ANY: {
+        value = rule.c;
+        break;
+      }
+      case RULE_REGEX:
+      case RULE_TOKEN: {
+        const strPtr = addString(rule.c as string);
+        value = strPtr;
+        break;
+      }
+      case RULE_REPEAT: {
+        value = addRule(rule.c as Rule);
+        break;
+      }
+      case RULE_SEQ:
+      case RULE_SEQ_OBJECT:
+      case RULE_OR:
+      case RULE_NOT: {
+        const cids = (rule.c as Rule[]).map(addRule);
+        const cidsPtr = addCids(cids);
+        value = cidsPtr;
+        break;
+      }
+    }
+
+    const rulePtr = state[E_rules].length;
+    // @ts-ignore
+    const r = rule.r as any;
+    if (r) {
+      state[E_reshapes][rulePtr] = r;
+    }
+    if (
+      rule.t === RULE_SEQ ||
+      (rule.t === RULE_SEQ_OBJECT && rule.f.some((f) => f != null))
+    ) {
+      let fs: number[] = [];
+      let ks: number[] = [];
+      let ps: number[] = [];
+
+      for (const flags of rule.f) {
+        fs.push(flags ? toBitFlags(flags) : 0);
+        ks.push(flags?.key ? addString(flags.key) : 0);
+        ps.push(flags?.pop ?? 0);
+      }
+
+      if (fs.some((k) => k > 0)) {
+        state[E_flagsList][rulePtr] = fs;
+      }
+      if (ks.some((k) => k > 0)) {
+        state[E_keyList][rulePtr] = ks;
+      }
+      if (ps.some((p) => p > 0)) {
+        state[E_popList][rulePtr] = ps;
+      }
+    }
+    if (rule.t === RULE_REPEAT && rule.e) {
+      const fnPtr = rule.e;
+      state[E_reshapeEachs][rulePtr] = fnPtr;
+    }
+
+    state[E_rules].push(rule.t);
+    state[E_values].push(value);
+    cachedRules.set(hash, rulePtr);
+    return rulePtr;
+  }
+  const rawRules = buildDefs();
+  state[E_refs] = rawRules.map(addRule);
+  return state;
+}
+
+export function $def(nodeCreator: () => RuleExpr): number {
+  const rootId = __registered.length;
+  __registered.push(nodeCreator);
+  return rootId;
+}
+
+export function $ref(refId: string | number, reshape: number = 0): Ref {
   return {
-    ...nodeBaseDefault,
-    reshape,
-    id: genId(),
-    kind: SEQ,
-    children: nodes,
+    t: RULE_REF,
+    c: refId,
+    r: reshape,
+  } as Ref;
+}
+
+export function $any<T = string>(len: number = 1, reshape: number = 0): Any {
+  return {
+    t: RULE_ANY,
+    c: len,
+    r: reshape,
+  } as Any;
+}
+
+const toFlags = (
+  key?: string,
+  opt?: boolean,
+  skip?: boolean,
+  push?: boolean,
+  pop?: number,
+): Flags => {
+  return { key, skip, opt, push, pop };
+};
+
+type FlagsExpr = string | Flags;
+type RuleWithFlags = RuleExpr | [flags: FlagsExpr, rule: RuleExpr];
+
+const toFlagsList = (children: Array<RuleWithFlags>): (Flags | null)[] => {
+  return children.map((child) => {
+    if (Array.isArray(child)) {
+      const [flagsExpr] = child;
+      if (typeof flagsExpr === "string") {
+        return toFlags(flagsExpr);
+      } else {
+        return toFlags(
+          flagsExpr.key,
+          flagsExpr.opt,
+          flagsExpr.skip,
+          flagsExpr.push,
+          flagsExpr.pop,
+        );
+      }
+    }
+    return null;
+  });
+};
+
+export function $seq<T = string, U = string>(
+  children: Array<RuleWithFlags>,
+  reshape: number = 0,
+): Seq {
+  return {
+    t: RULE_SEQ,
+    c: children.map((child) => {
+      if (child instanceof Array) {
+        return toNode(child[1]);
+      }
+      return toNode(child);
+    }),
+    f: toFlagsList(children),
+    r: reshape,
   } as Seq;
 }
 
-export function $not(children: InputNodeExpr[], reshape?: Reshape): Not {
+export function $seqo<T = any, U = any>(
+  children: Array<RuleWithFlags>,
+  reshape: number = 0,
+): SeqObject<T, U> {
+  return {
+    t: RULE_SEQ_OBJECT,
+    c: children.map((child) =>
+      toNode(child instanceof Array ? child[1] : child),
+    ),
+    f: toFlagsList(children),
+    r: reshape,
+  } as SeqObject<T, U>;
+}
+
+export function $repeat_seq(
+  input: Array<RuleWithFlags>,
+  reshapeEach = 0,
+  reshape = 0,
+): Repeat {
+  return $repeat($seq(input), reshapeEach, reshape);
+}
+
+export function $opt_seq(input: Array<RuleWithFlags>): [Flags, Rule] {
+  return [{ opt: true }, $seq(input)];
+}
+
+export function $skip(input: RuleExpr): [Flags, Rule] {
+  return [{ skip: true }, toNode(input)];
+}
+
+export function $skip_opt(input: RuleExpr): [Flags, Rule] {
+  return [{ skip: true, opt: true }, toNode(input)];
+}
+
+export function $opt(input: RuleExpr): [Flags, Rule] {
+  return [{ opt: true }, toNode(input)];
+}
+
+export function $not(children: RuleExpr[]): Not {
   const childNodes = children.map(toNode);
   return {
-    ...nodeBaseDefault,
-    kind: NOT,
-    patterns: childNodes,
-    reshape,
-    id: genId(),
+    t: RULE_NOT,
+    c: childNodes,
   } as Not;
 }
 
-function findFirstNonOptionalRule(seq: Seq): Rule | undefined {
-  if (seq.kind === SEQ) {
-    for (const child of seq.children) {
-      if (child.optional) continue;
-      if (child.kind === SEQ) {
-        return findFirstNonOptionalRule(child);
-      } else {
-        return child;
-      }
-    }
-  }
-  return undefined;
-}
-function buildHeadTable(rule: Rule): Rule[] {
-  switch (rule.kind) {
-    case PAIR_CLOSE:
-      throw new Error();
-    case PAIR_OPEN: {
-      return [rule.pattern];
-    }
-    case ATOM:
-    case REGEX:
-    case NOT:
-    case REF:
-    case EOF:
-    case TOKEN:
-      return [rule];
-    case REPEAT: {
-      return buildHeadTable(rule.pattern);
-    }
-    case SEQ: {
-      const head = findFirstNonOptionalRule(rule);
-      return head ? buildHeadTable(head) : [];
-    }
-    case OR: {
-      return rule.patterns.map((pat) => buildHeadTable(pat)).flat();
-    }
-  }
-}
+// TODO: Impl head tables
+// function findFirstNonOptionalRule(seq: Seq): Rule | undefined {
+//   if (seq.kind === SEQ) {
+//     for (const child of seq.children) {
+//       if (child.opt) continue;
+//       if (child.kind === SEQ) {
+//         return findFirstNonOptionalRule(child as unknown as Seq);
+//       } else {
+//         return child as unknown as Seq;
+//       }
+//     }
+//   }
+//   return undefined;
+// }
 
-export function $or(
-  patterns: Array<InputNodeExpr>,
-  reshape?: Reshape
-): Or | Rule {
+// function buildHeadTable(rule: Rule): Rule[] {
+//   switch (rule.kind) {
+//     case PAIR_CLOSE:
+//       throw new Error();
+//     case PAIR_OPEN: {
+//       return [rule.pattern];
+//     }
+//     case ATOM:
+//     case REGEX:
+//     case NOT:
+//     case REF:
+//     case EOF:
+//     case TOKEN:
+//       return [rule];
+//     case REPEAT: {
+//       return buildHeadTable(rule.pattern);
+//     }
+//     case SEQ: {
+//       const head = findFirstNonOptionalRule(rule);
+//       return head ? buildHeadTable(head) : [];
+//     }
+//     case SEQ_OBJECT: {
+//       throw new Error();
+//     }
+//     case OR: {
+//       return rule.patterns.map((pat) => buildHeadTable(pat)).flat();
+//     }
+//   }
+// }
+
+export function $or(patterns: Array<RuleExpr>): Or | Rule {
   if (patterns.length === 1) {
     return toNode(patterns[0]);
   }
 
   const builtPatterns = patterns.map(toNode) as Array<Seq | Token | Ref>;
-  const heads = builtPatterns.map(buildHeadTable).flat();
+  // const heads = builtPatterns.map(buildHeadTable).flat();
 
   return {
-    ...nodeBaseDefault,
-    kind: OR,
-    heads,
-    patterns: builtPatterns,
-    reshape,
-    id: genId(),
+    t: RULE_OR,
+    // heads: [],
+    c: builtPatterns,
   } as Or;
 }
 
-export function $repeat(
-  pattern: InputNodeExpr,
-  minmax?: [min: number | void, max?: number | void],
-  reshape?: Reshape<any, any>
-): Repeat {
-  const [min = 0, max = undefined] = minmax ?? [];
+export function $repeat<T = any, U = T, R = T[]>(
+  pattern: RuleExpr,
+  reshapeEach: number = 0,
+  reshape: number = 0,
+): Repeat<T, U, R> {
   return {
-    ...nodeBaseDefault,
-    id: genId(),
-    kind: REPEAT,
-    pattern: toNode(pattern),
-    min,
-    max,
-    reshape,
+    t: RULE_REPEAT,
+    c: toNode(pattern),
+    e: reshapeEach,
+    r: reshape as ReshapePtr,
   };
 }
 
-// const tokenCache: { [key: string]: Token } = {};
-export function $token(expr: string, reshape?: Reshape<any, any>): Token {
+export function $token<T = string>(
+  expr: string,
+  reshape: number = 0,
+): Token<T> {
   return {
-    ...nodeBaseDefault,
-    id: genId(),
-    kind: TOKEN,
-    expr,
-    reshape,
+    t: RULE_TOKEN,
+    c: expr,
+    r: reshape as ReshapePtr,
   };
 }
 
-const regexCache: { [key: string]: Regex } = {};
-export function $regex(expr: string, reshape?: Reshape<any, any>): Regex {
-  if (regexCache[expr]) return regexCache[expr];
-  return (regexCache[expr] = {
-    ...nodeBaseDefault,
-    id: genId(),
-    kind: REGEX,
-    expr,
-    reshape,
-  });
-}
-
-// pairOpen
-export function $pairOpen(rule: InputNodeExpr): PairOpen {
+export function $regex<T = string>(expr: string, reshape: number = 0): Regex {
   return {
-    ...nodeBaseDefault,
-    id: genId(),
-    kind: PAIR_OPEN,
-    pattern: toNode(rule),
+    t: RULE_REGEX,
+    c: expr,
+    r: reshape as ReshapePtr,
   };
 }
 
-// pairClose
-export function $pairClose(rule: InputNodeExpr): PairClose {
-  return {
-    ...nodeBaseDefault,
-    id: genId(),
-    kind: PAIR_CLOSE,
-    pattern: toNode(rule),
-  };
-}
-
-// regex sharthand
-export function $r(strings: TemplateStringsArray, name?: string): Regex {
+export function $r(strings: TemplateStringsArray): Regex {
   return $regex(strings.join(""));
 }
 
 export function $eof(): Eof {
   return {
-    ...nodeBaseDefault,
-    id: genId(),
-    kind: EOF,
-    reshape: undefined,
+    t: RULE_EOF,
   };
 }
 
-export function $atom(parser: InternalParser): Atom {
+export function $atom(parsePtr: number): Atom {
   return {
-    ...nodeBaseDefault,
-    id: genId(),
-    kind: ATOM,
-    parse: parser,
+    t: RULE_ATOM,
+    c: parsePtr as Ptr<any>,
   };
 }
-
-export function $param<T extends Rule>(key: string, node: InputNodeExpr): T {
-  return { ...toNode(node), key } as T;
-}
-
-export function $skip<T extends Rule>(input: InputNodeExpr): T {
-  return { ...toNode(input), skip: true } as T;
-}
-export function $skip_opt<T extends Rule>(input: InputNodeExpr): T {
-  return { ...toNode(input), skip: true, optional: true } as T;
-}
-
-export function $repeat_seq(
-  input: Array<InputNodeExpr | [key: string, ex: InputNodeExpr]>,
-  minmax?: [number, number],
-  reshape?: Reshape
-): Repeat {
-  return $repeat($seq(input), minmax, reshape);
-}
-export function $opt<T extends Rule>(input: InputNodeExpr): T {
-  return { ...toNode(input), optional: true } as T;
-}
-export function $repeat_seq1(input: InputNodeExpr[]) {
-  return $repeat($seq(input), [1]);
-}
-// };

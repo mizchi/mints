@@ -1,180 +1,111 @@
-// import { TokenMap } from "./utils";
+import type {
+  RULE_ANY,
+  RULE_ATOM,
+  RULE_NOT,
+  RULE_OR,
+  RULE_REF,
+  RULE_REGEX,
+  RULE_REPEAT,
+  RULE_SEQ,
+  RULE_SEQ_OBJECT,
+  RULE_TOKEN,
+  RULE_EOF,
+  CODE_EOF_UNMATCH,
+  CODE_NOT_INCORRECT_MATCH,
+  CODE_ATOM_PARSE_ERROR,
+  CODE_OR_UNMATCH_ALL,
+  CODE_REGEX_UNMATCH,
+  CODE_REPEAT_RANGE,
+  CODE_SEQ_NO_STACK_ON_POP,
+  CODE_SEQ_STACK_LEFT,
+  CODE_SEQ_STOP,
+  CODE_SEQ_UNMATCH_STACK,
+  CODE_TOKEN_UNMATCH,
+} from "./constants";
 
-// ==== constants ====
-
-export const nodeBaseDefault: Omit<RuleBase, "id" | "reshape" | "kind"> = {
-  key: undefined,
-  optional: false,
-  skip: false,
+export type Ptr<T> = number & {
+  t: T;
 };
 
-export const SEQ = 1;
-export const ATOM = 2;
-export const REPEAT = 3;
-export const TOKEN = 4;
-export const REGEX = 5;
-export const STRING = 6;
-export const OR = 7;
-export const REF = 8;
-export const EOF = 9;
-// export const PAIR = 10;
-export const NOT = 11;
-export const PAIR_OPEN = 12;
-export const PAIR_CLOSE = 13;
+export type ReshapePtr<In = any, Out = any> = Ptr<
+  (input: In, ctx: ParseContext) => Out
+>;
 
-export const ERROR_Not_IncorrectMatch = 400;
-export const ERROR_Pair_Unmatch = 401;
-export const ERROR_Eof_Unmatch = 402;
-export const ERROR_Token_Unmatch = 403;
-export const ERROR_Regex_Unmatch = 404;
-export const ERROR_Seq_Stop = 405;
-export const ERROR_Or_UnmatchAll = 406;
-export const ERROR_Repeat_RangeError = 407;
-export const ERROR_Atom_ParseError = 408;
+export type Atom = {
+  t: typeof RULE_ATOM;
+  c: Ptr<(ctx: ParseContext, pos: number) => ParseResult>;
+};
 
-export const defaultReshape: Reshape<any, any> = <T>(i: T): T => i;
+export type Any<T = any> = {
+  t: typeof RULE_ANY;
+  c: number; // size
+  r: ReshapePtr;
+};
 
-// basic parser rule
+export type Eof = {
+  t: typeof RULE_EOF;
+};
 
-export type RuleBase = {
-  id: number;
-  // kind: NodeKind;
-  key?: string | void;
-  optional?: boolean;
+export type Not = {
+  t: typeof RULE_NOT;
+  c: Rule[];
+};
+
+export type Flags = {
+  opt?: boolean;
   skip?: boolean;
-  reshape?: Reshape;
+  push?: boolean;
+  key?: string;
+  pop?: number;
 };
 
-export type SerializedRuleBody = [
-  id: number,
-  flags: number,
-  keyPtr: number,
-  reshapePtr: number
-];
-
-export type Atom = RuleBase & {
-  kind: typeof ATOM;
-  parse: InternalParser;
+export type Seq<T = string, U = string> = {
+  t: typeof RULE_SEQ;
+  c: Rule[] | number[];
+  f: (Flags | null)[];
+  r: ReshapePtr;
 };
 
-export type SerializedAtom = [
-  kind: typeof EOF,
-  parsePtr: number,
-  ...body: SerializedRuleBody
-];
-
-export type Eof = RuleBase & {
-  kind: typeof EOF;
+export type SeqObject<T = any, U = any> = {
+  t: typeof RULE_SEQ_OBJECT;
+  c: Rule[] | number[];
+  f: (Flags | null)[];
+  r: ReshapePtr;
 };
 
-// Atom can not serialize
-export type SerializedEof = [kind: typeof EOF, ...body: SerializedRuleBody];
-
-export type Not = RuleBase & {
-  kind: typeof NOT;
-  patterns: Rule[];
+export type Ref<T = any, U = any> = {
+  t: typeof RULE_REF;
+  c: number;
+  r: ReshapePtr;
 };
 
-export type SerializedNot = [
-  kind: typeof NOT,
-  childPtr: number,
-  ...body: SerializedRuleBody
-];
-
-export type Seq = RuleBase & {
-  kind: typeof SEQ;
-  children: Rule[];
+export type Repeat<T = string, U = T, R = U[]> = {
+  t: typeof RULE_REPEAT;
+  c: Rule | number;
+  e: number;
+  r: ReshapePtr;
 };
 
-export type SerializedSeq = [
-  kind: typeof SEQ,
-  childrenPtr: number,
-  ...body: SerializedRuleBody
-];
-
-export type Ref = RuleBase & {
-  kind: typeof REF;
-  ref: number;
+export type Or = {
+  t: typeof RULE_OR;
+  c: Array<Seq | Token | Ref | Regex> | number[];
 };
 
-export type SerializedRef = [
-  kind: typeof REF,
-  ref: number,
-  ...body: SerializedRuleBody
-];
-
-export type Repeat = RuleBase & {
-  kind: typeof REPEAT;
-  pattern: Rule;
-  min: number;
-  max?: number | void;
+export type Token<T = string> = {
+  t: typeof RULE_TOKEN;
+  c: string;
+  r: ReshapePtr;
 };
 
-export type SerializedRepeat = [
-  kind: typeof REPEAT,
-  patternPtr: number,
-  min: number,
-  max: number,
-  ...body: SerializedRuleBody
-];
-
-export type Or = RuleBase & {
-  kind: typeof OR;
-  heads: Rule[];
-  patterns: Array<Seq | Token | Ref | Regex>;
+export type Regex<T = string> = {
+  t: typeof RULE_REGEX;
+  c: string;
+  r: ReshapePtr;
 };
-
-export type SerializedOr = [
-  kind: typeof OR,
-  patternsPtr: number,
-  ...body: SerializedRuleBody
-];
-
-export type Token = RuleBase & {
-  kind: typeof TOKEN;
-  expr: string;
-};
-
-export type SerializedToken = [
-  kind: typeof TOKEN,
-  exprPtr: string,
-  ...body: SerializedRuleBody
-];
-
-export type Regex = RuleBase & {
-  kind: typeof REGEX;
-  expr: string;
-};
-
-export type SerializedRegex = [
-  kind: typeof REGEX,
-  exprPtr: number,
-  ...body: SerializedRuleBody
-];
-
-export type PairOpen = RuleBase & {
-  kind: typeof PAIR_OPEN;
-  pattern: Rule;
-};
-
-export type PairClose = RuleBase & {
-  kind: typeof PAIR_CLOSE;
-  pattern: Rule;
-};
-
-export type SerializedRule =
-  | SerializedSeq
-  | SerializedToken
-  | SerializedOr
-  | SerializedRepeat
-  | SerializedRef
-  | SerializedEof
-  | SerializedNot
-  | SerializedAtom
-  | SerializedRegex;
 
 export type Rule =
   | Seq
+  | SeqObject
   | Token
   | Or
   | Repeat
@@ -183,110 +114,84 @@ export type Rule =
   | Not
   | Atom
   | Regex
-  | PairOpen
-  | PairClose;
+  | Any;
 
-// ==== public interface
+export type RootCompiler = (node: Rule | number) => RootParser;
 
-export type RootCompilerOptions = {
-  end?: boolean;
-};
-export type RootCompiler = (
-  node: Rule | number,
-  opts?: RootCompilerOptions
-) => RootParser;
+export type RootParser = (
+  tokens: string[],
+  opts?: any,
+  pos?: number,
+  entryRef?: number,
+) => ParseSuccess | (ParseError & { tokens: string[] });
 
-export type RootParser = (input: string, pos?: number) => ParseResult;
+export type RuleExpr = Rule | string | number;
 
-export type InputNodeExpr = Rule | string | number;
+export type Snapshot = [
+  entryRefId: number,
+  rules: Array<Rule["t"]>,
+  values: Array<number>,
+  refs: number[],
+  cidsList: Array<number[]>,
+  reshapes: { [key: number]: number },
+  reshapeEachs: { [key: number]: number },
+  flagsList: { [key: number]: number[] },
+  keyList: { [key: number]: number[] },
+  popList: { [key: number]: number[] },
+  strings: string[],
+];
 
-export type DefinitionMap = Map<number, Rule>;
-
-export type Compiler = {
-  parsers: ParserMap;
-  definitions: DefinitionMap;
-  data: any;
-};
-
-export type ParserMap = Map<number, InternalParser>;
-export type PackratCache = {
-  add(id: number | string, pos: number, result: any): void;
-  get(id: number | string, pos: number): ParseResult | void;
-  getOrCreate(
-    id: number | string,
-    pos: number,
-    creator: () => ParseResult
-  ): ParseResult;
-};
-
-// internal
-export type CacheMap = { [key: `${number}@${string}`]: ParseSuccess };
-
-export type ParseContext = {
-  root: number | string;
-  raw: string;
-  // chars: string[];
-  openStack: Array<string>;
-  cache: PackratCache;
+export type ParseContext = Snapshot & {
+  t: string[];
+  funcs: Function[];
+  cache: Map<string, ParseResult>;
+  currentError: ParseError | null;
+  opts: any;
 };
 
 export type InternalParser = (ctx: ParseContext, pos: number) => ParseResult;
 export type ParseResult = ParseSuccess | ParseError;
 
-export type Reshape<In = any, Out = any> = (
-  input: In,
-  ctx?: ParseContext
-) => Out;
-
-export type Range = [start: number, end: number];
 export type ParseSuccess = {
   error: false;
-  result: any;
   pos: number;
   len: number;
-  ranges: Array<Range | string>;
-  reshaped: boolean;
+  xs: Array<number | any>;
 };
 
-type RepeatRangeError = {
-  code: typeof ERROR_Repeat_RangeError;
-};
+// Parse Errors
+type RepeatRangeError = [code: typeof CODE_REPEAT_RANGE];
 
-type NotIncorrectMatch = {
-  code: typeof ERROR_Not_IncorrectMatch;
-};
+type NotIncorrectMatch = [
+  code: typeof CODE_NOT_INCORRECT_MATCH,
+  matched: ParseSuccess,
+];
 
-type EofUnmatch = {
-  code: typeof ERROR_Eof_Unmatch;
-};
+type EofUnmatch = [code: typeof CODE_EOF_UNMATCH];
 
-type TokenUnmatch = {
-  code: typeof ERROR_Token_Unmatch;
-};
+type TokenUnmatch = [
+  code: typeof CODE_TOKEN_UNMATCH,
+  expect: string,
+  got: string,
+];
 
-type RegexUnmatch = {
-  code: typeof ERROR_Regex_Unmatch;
-};
+type RegexUnmatch = [
+  code: typeof CODE_REGEX_UNMATCH,
+  expect: string,
+  got: string,
+];
 
-type SeqStop = {
-  code: typeof ERROR_Seq_Stop;
-  index: number;
-  childError: ParseError;
-};
+type SeqStop = [
+  code: typeof CODE_SEQ_STOP,
+  index: number,
+  childError: ParseError,
+];
 
-type UnmatchAll = {
-  code: typeof ERROR_Or_UnmatchAll;
-  errors: Array<ParseError>;
-};
-
-type AtomError = {
-  code: typeof ERROR_Atom_ParseError;
-  childError: ParseError;
-};
-
-type PairUnmatchError = {
-  code: typeof ERROR_Pair_Unmatch;
-};
+type SeqNoStack = [code: typeof CODE_SEQ_NO_STACK_ON_POP, index: number];
+type SeqStackLeft = [code: typeof CODE_SEQ_STACK_LEFT];
+type SeqUnmatchStack = [code: typeof CODE_SEQ_UNMATCH_STACK, index: number];
+type UnmatchAll = [code: typeof CODE_OR_UNMATCH_ALL, errors: Array<ParseError>];
+type AtomError = [code: typeof CODE_ATOM_PARSE_ERROR, childError: ParseError];
 
 export type ParseErrorData =
   | RepeatRangeError
@@ -295,14 +200,14 @@ export type ParseErrorData =
   | TokenUnmatch
   | RegexUnmatch
   | SeqStop
+  | SeqUnmatchStack
+  | SeqNoStack
+  | SeqStackLeft
   | AtomError
-  | PairUnmatchError
   | UnmatchAll;
 
-export type ParseErrorBase = {
+export type ParseError = {
   error: true;
-  rootId: number;
   pos: number;
+  detail: ParseErrorData;
 };
-
-export type ParseError = ParseErrorData & ParseErrorBase;

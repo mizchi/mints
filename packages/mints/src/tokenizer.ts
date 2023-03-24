@@ -6,7 +6,7 @@ const DEFAULT_MAX_TOKENS = 512;
 export async function tokenizeBatch(
   input: string,
   opts: Opts & { maxTokens?: number },
-  process: (tokens: string[][], opts: Opts) => Promise<string>
+  process: (tokens: string[][], opts: Opts) => Promise<string>,
 ) {
   if (!opts) {
     opts = detectInlineOptions(input);

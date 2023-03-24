@@ -31,23 +31,23 @@ type Request = [
   mark: typeof REQUEST_MARK,
   id: number,
   cmd: Cmd,
-  ...args: Transferrable[]
+  ...args: Transferrable[],
 ];
 type Response = [
   mark: typeof RESPONSE_MARK,
   id: number,
   error: boolean,
-  result: Transferrable
+  result: Transferrable,
 ];
 
 export type Adapter<Ctx = any> = [
   emit: (
     ctx: Ctx,
     data: Response | Request,
-    transferrable?: Array<Transferrable>
+    transferrable?: Array<Transferrable>,
   ) => void,
   listen: (ctx: Ctx, fn: any) => void,
-  terminate: (ctx: Ctx) => Promise<void>
+  terminate: (ctx: Ctx) => Promise<void>,
 ];
 
 export const createExpose =
@@ -66,7 +66,7 @@ export const createExpose =
           emit(ctx, [RESPONSE_MARK, id, false, result], transferrable);
         })
         .catch((e: any) =>
-          emit(ctx, [RESPONSE_MARK, id, true, e?.stack ?? e?.toString()])
+          emit(ctx, [RESPONSE_MARK, id, true, e?.stack ?? e?.toString()]),
         );
     });
   };

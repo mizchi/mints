@@ -4,8 +4,10 @@
     "declaration": true,
     "target": "ESNext",
     "module": "ESNext",
-    "rootDir": "src",
-    "outDir": "types"
+    "outDir": "types",
+    "types": [
+      "vitest/importMeta"
+    ],
   },
-  "include": ["src"]
+  "include": ["src", "encoder", "decoder"]
 }

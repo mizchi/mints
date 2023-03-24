@@ -1,9 +1,6 @@
-import { E_strings } from "../../../pargen-tokenized/src/constants";
-import { fail, success } from "../../../pargen-tokenized/src/runtime";
-import type {
-  InternalParser,
-  ParseContext,
-} from "../../../pargen-tokenized/src/types";
+import { E_strings } from "../../../pargen/src/constants";
+import { fail, success } from "../../../pargen/src/runtime";
+import type { InternalParser, ParseContext } from "../../../pargen/src/types";
 import {
   ACCESS,
   ARGS,
@@ -72,7 +69,7 @@ const reshapeClassConstructorArg = ([input]: [
   {
     [IDENT]: (string | { [ACCESS]: string; [IDENT]: string })[] | [{}];
     [INIT]: string[];
-  }
+  },
 ]): ParsedCostructorArg => {
   if (typeof input[IDENT][0] === "object") {
     // @ts-ignore
@@ -96,7 +93,7 @@ const reshapeClassConstructor = ([input]: [
     [ARGS]: Array<ParsedCostructorArg>;
     [LAST]: Array<ParsedCostructorArg>;
     [BODY]: number[];
-  }
+  },
 ]) => {
   const argList = [...(input[ARGS] ?? []), ...(input[LAST] ?? [])];
   let bodyIntro = "";
@@ -114,7 +111,7 @@ const reshapeEnum = ([input]: [
     [NAME]: string;
     [ITEMS]: Array<{ [IDENT]: string[]; [ASSIGN]?: string[] }>;
     [LAST]?: Array<{ [IDENT]: string[]; [ASSIGN]?: string[] }>;
-  }
+  },
 ]) => {
   let baseValue = 0;
   let out = `const ${input[NAME]}={`;
@@ -123,7 +120,7 @@ const reshapeEnum = ([input]: [
     if (item[ASSIGN]) {
       const num = Number(item[ASSIGN]);
       if (isNaN(num)) {
-        console.log(item, ASSIGN);
+        // console.log(item, ASSIGN);
         val = item[ASSIGN]!.join("") as string;
       } else {
         val = num;
@@ -176,7 +173,7 @@ const buildJsxCode = (
     [VALUE]?: string;
     [DOTDOTDOT]?: boolean;
   }>,
-  children: Array<string> = []
+  children: Array<string> = [],
 ) => {
   // TODO: Detect dom name
   let data = ",{}";
@@ -217,9 +214,9 @@ const reshapeJsxElement = (
         [DOTDOTDOT]?: string[];
       }>;
       [CHILDREN]: Array<string[]>;
-    }
+    },
   ],
-  ctx: ParseContext
+  ctx: ParseContext,
 ) => {
   return [
     buildJsxCode(
@@ -232,7 +229,7 @@ const reshapeJsxElement = (
           [DOTDOTDOT]: !!a[DOTDOTDOT],
         };
       }) ?? [],
-      input[CHILDREN].flat()
+      input[CHILDREN].flat(),
     ),
   ];
 };
@@ -246,9 +243,9 @@ const reshapeJsxSelfClosingElement = (
         [VALUE]?: string[];
         [DOTDOTDOT]?: string[];
       }>;
-    }
+    },
   ],
-  ctx: ParseContext
+  ctx: ParseContext,
 ) => {
   return [
     buildJsxCode(
@@ -258,7 +255,7 @@ const reshapeJsxSelfClosingElement = (
         [NAME]: a[NAME].join(""),
         [VALUE]: a[VALUE]?.join(""),
         [DOTDOTDOT]: !!a[DOTDOTDOT],
-      }))
+      })),
     ),
   ];
 };
@@ -266,7 +263,7 @@ const reshapeJsxSelfClosingElement = (
 export const identParserPtr = addFunc(identifierParser);
 export const createWhitespacePtr = addFunc(createWhitespace);
 export const reshapeClassConstructorArgPtr = addFunc(
-  reshapeClassConstructorArg
+  reshapeClassConstructorArg,
 );
 export const reshapeClassConstructorPtr = addFunc(reshapeClassConstructor);
 
@@ -275,5 +272,5 @@ export const parseJsxTextPtr = addFunc(parseJsxText);
 export const popJsxElementPtr = addFunc(popJsxElement);
 export const reshapeJsxElementPtr = addFunc(reshapeJsxElement);
 export const reshapeJsxSelfClosingElementPtr = addFunc(
-  reshapeJsxSelfClosingElement
+  reshapeJsxSelfClosingElement,
 );

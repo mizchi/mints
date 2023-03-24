@@ -74,7 +74,7 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
         }
       | undefined;
     const authSessionElement = document.getElementById(
-      "vscode-workbench-auth-session"
+      "vscode-workbench-auth-session",
     );
     const authSessionElementAttribute = authSessionElement
       ? authSessionElement.getAttribute("data-settings")
@@ -92,7 +92,7 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
       this.setPassword(
         `${product.urlProtocol}.login`,
         "account",
-        JSON.stringify(authSessionInfo)
+        JSON.stringify(authSessionInfo),
       );
 
       // Auth extension Entry
@@ -105,8 +105,8 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
             id: authSessionInfo!.id,
             scopes,
             accessToken: authSessionInfo!.accessToken,
-          }))
-        )
+          })),
+        ),
       );
     }
   }
@@ -116,7 +116,7 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
     if (!this._credentials) {
       try {
         const serializedCredentials = window.localStorage.getItem(
-          LocalStorageCredentialsProvider.CREDENTIALS_OPENED_KEY
+          LocalStorageCredentialsProvider.CREDENTIALS_OPENED_KEY,
         );
         if (serializedCredentials) {
           this._credentials = JSON.parse(serializedCredentials);
@@ -136,7 +136,7 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
   private save(): void {
     window.localStorage.setItem(
       LocalStorageCredentialsProvider.CREDENTIALS_OPENED_KEY,
-      JSON.stringify(this.credentials)
+      JSON.stringify(this.credentials),
     );
   }
 
@@ -146,7 +146,7 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
 
   private async doGetPassword(
     service: string,
-    account?: string
+    account?: string,
   ): Promise<string | null> {
     for (const credential of this.credentials) {
       if (credential.service === service) {
@@ -162,7 +162,7 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
   async setPassword(
     service: string,
     account: string,
-    password: string
+    password: string,
   ): Promise<void> {
     this.doDeletePassword(service, account);
 
@@ -198,7 +198,7 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
 
   private async doDeletePassword(
     service: string,
-    account: string
+    account: string,
   ): Promise<boolean> {
     let found = false;
 
@@ -224,7 +224,7 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
   }
 
   async findCredentials(
-    service: string
+    service: string,
   ): Promise<Array<{ account: string; password: string }>> {
     return this.credentials
       .filter((credential) => credential.service === service)
@@ -240,13 +240,13 @@ class LocalStorageCredentialsProvider implements ICredentialsProvider {
       {
         url: doCreateUri("/auth/logout", queryValues).toString(true),
       },
-      CancellationToken.None
+      CancellationToken.None,
     );
   }
 
   async clear(): Promise<void> {
     window.localStorage.removeItem(
-      LocalStorageCredentialsProvider.CREDENTIALS_OPENED_KEY
+      LocalStorageCredentialsProvider.CREDENTIALS_OPENED_KEY,
     );
   }
 }
@@ -277,7 +277,7 @@ class PollingURLCallbackProvider
     const requestId = generateUuid();
     queryValues.set(
       PollingURLCallbackProvider.QUERY_KEYS.REQUEST_ID,
-      requestId
+      requestId,
     );
 
     const { scheme, authority, path, query, fragment } = options
@@ -297,7 +297,7 @@ class PollingURLCallbackProvider
     if (authority) {
       queryValues.set(
         PollingURLCallbackProvider.QUERY_KEYS.AUTHORITY,
-        authority
+        authority,
       );
     }
 
@@ -322,19 +322,19 @@ class PollingURLCallbackProvider
 
   private async periodicFetchCallback(
     requestId: string,
-    startTime: number
+    startTime: number,
   ): Promise<void> {
     const queryValues: Map<string, string> = new Map();
     queryValues.set(
       PollingURLCallbackProvider.QUERY_KEYS.REQUEST_ID,
-      requestId
+      requestId,
     );
 
     const result = await request(
       {
         url: doCreateUri("/fetch-callback", queryValues).toString(true),
       },
-      CancellationToken.None
+      CancellationToken.None,
     );
 
     // Check for callback results
@@ -353,7 +353,7 @@ class PollingURLCallbackProvider
     if (Date.now() - startTime < PollingURLCallbackProvider.FETCH_TIMEOUT) {
       setTimeout(
         () => this.periodicFetchCallback(requestId, startTime),
-        PollingURLCallbackProvider.FETCH_INTERVAL
+        PollingURLCallbackProvider.FETCH_INTERVAL,
       );
     }
   }
@@ -372,7 +372,7 @@ class WorkspaceProvider implements IWorkspaceProvider {
 
   async open(
     workspace: IWorkspace,
-    options?: { reuse?: boolean; payload?: object }
+    options?: { reuse?: boolean; payload?: object },
   ): Promise<boolean> {
     if (
       options?.reuse &&
@@ -385,7 +385,7 @@ class WorkspaceProvider implements IWorkspaceProvider {
 
   async open(
     workspace: IWorkspace,
-    options?: { reuse?: boolean; payload?: object }
+    options?: { reuse?: boolean; payload?: object },
   ): Promise<boolean> {
     if (
       options?.reuse &&
@@ -417,7 +417,7 @@ class WorkspaceProvider implements IWorkspaceProvider {
 
   private createTargetUrl(
     workspace: IWorkspace,
-    options?: { reuse?: boolean; payload?: object }
+    options?: { reuse?: boolean; payload?: object },
   ): string | undefined {
     // Empty
     let targetHref: string | undefined = undefined;
@@ -510,13 +510,13 @@ class WindowIndicator implements IWindowIndicator {
         "playgroundLabelRepository",
         "$(remote) Visual Studio Code Playground: {0}/{1}",
         repositoryOwner,
-        repositoryName
+        repositoryName,
       );
       this.tooltip = localize(
         "playgroundRepositoryTooltip",
         "Visual Studio Code Playground: {0}/{1}",
         repositoryOwner,
-        repositoryName
+        repositoryName,
       );
     }
 
@@ -524,11 +524,11 @@ class WindowIndicator implements IWindowIndicator {
     else {
       this.label = localize(
         "playgroundLabel",
-        "$(remote) Visual Studio Code Playground"
+        "$(remote) Visual Studio Code Playground",
       );
       this.tooltip = localize(
         "playgroundTooltip",
-        "Visual Studio Code Playground"
+        "Visual Studio Code Playground",
       );
     }
   }
@@ -537,7 +537,7 @@ class WindowIndicator implements IWindowIndicator {
 (function () {
   // Find config by checking for DOM
   const configElement = document.getElementById(
-    "vscode-workbench-web-configuration"
+    "vscode-workbench-web-configuration",
   );
   const configElementAttribute = configElement
     ? configElement.getAttribute("data-settings")
@@ -619,7 +619,7 @@ class WindowIndicator implements IWindowIndicator {
     message: localize(
       "welcomeBannerMessage",
       "{0} Web. Browser based playground for testing.",
-      product.nameShort
+      product.nameShort,
     ),
     actions: [
       {
@@ -637,7 +637,7 @@ class WindowIndicator implements IWindowIndicator {
 
   // Product Quality Change Handler
   const productQualityChangeHandler: IProductQualityChangeHandler = (
-    quality
+    quality,
   ) => {
     let queryString = `quality=${quality}`;
 
